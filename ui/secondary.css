@@ -118,3 +118,35 @@
   .s-ranking{font-size:12px}
 }
 @media(prefers-reduced-motion:reduce){.s-button,.s-subtle{transition:none}}
+
+/* Keep the surface unobstructed and the common camera actions within reach. */
+.moon-camera-position { flex:1; flex-wrap:wrap; column-gap:8px; }
+.moon-camera-position span { color:var(--s-muted); font-size:11px; }
+.moon-camera-position strong { color:#d8e8ed; font:11px/1.5 var(--s-mono); font-variant-numeric:tabular-nums; }
+.moon-camera .moon-zoom-controls { flex-shrink:0; margin-left:auto; }
+.moon-zoom-controls .s-button,.moon-orbit-controls .s-button { min-width:44px; min-height:44px; }
+.moon-zoom-controls .moon-home { padding:0 12px; font:inherit; font-size:12px; font-weight:600; }
+.moon-camera-help { color:var(--s-muted); }
+.moon-camera-help summary { width:fit-content; padding:9px 0; font-size:12px; line-height:1.4; cursor:pointer; }
+.moon-camera-help p { max-width:60ch; font-size:12px; line-height:1.6; margin:0 0 10px; }
+.moon-orbit-controls { display:flex; gap:6px; padding:0 0 5px; }
+.moon-distance-scale { position:absolute; bottom:14px; left:15px; z-index:2; pointer-events:none; padding:5px 7px 6px; color:#e4eef0; background:#0a1921cf; border-radius:4px; }
+.moon-distance-scale span { display:block; margin-bottom:1px; font:10px/1.4 var(--s-mono); }
+.moon-distance-scale i { display:block; height:4px; border:solid currentColor; border-width:0 1px 1px; }
+.globe-stage:is(.atlas-raster-active,.atlas-measuring) .moon-distance-scale,
+.globe-stage:not([data-globe-state="ready"]) .moon-distance-scale,
+.atlas-viewport:has([data-globe-state="unavailable"]) :is(.moon-camera,.moon-camera-help) { display:none; }
+@media(max-width:520px) {
+  .moon-camera .moon-camera-position { display:grid; gap:2px; }
+}
+.moon-expand svg { display:block; margin:auto; }
+.atlas-viewport:fullscreen { width:100%; height:100%; overflow:auto; --atlas-stage-size:65vh; }
+.atlas-viewport:fullscreen .globe-stage { flex:1 0 120px; min-height:120px; }
+.atlas-viewport:fullscreen .atlas-viewbar,.atlas-viewport:fullscreen .moon-camera { flex-shrink:0; }
+.atlas-map-footer:has(.moon-expand) { align-items:center; }
+.atlas-map-footer .moon-expand { min-width:44px; min-height:44px; margin-left:auto; }
+/* In the atlas, let visitors reach the Moon before the mission inputs. */
+#atlasMissionSettings { display:none; }
+body[data-route="atlas"] #atlasMissionSettings { display:inline-flex; align-items:center; gap:8px; min-height:40px; background:transparent; border:0; color:var(--muted); font-size:12px; padding:0; cursor:pointer; }
+#atlasMissionSettings[aria-expanded="true"] span { transform:rotate(180deg); }
+body[data-route="atlas"] #atlasMissionSettings[aria-expanded="false"] ~ :is(#missionSettings,#sourceNotice) { display:none; }

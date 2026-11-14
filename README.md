@@ -11,7 +11,9 @@ python3 -m http.server 8000 --bind 127.0.0.1 --directory ui
 
 Open http://127.0.0.1:8000/ in your browser. The complete static frontend is in `ui/`, including its scripts, styles, fonts, 3D Moon and science data.
 
-The interface includes mission planning, visibility windows and playback, pinned A/B comparisons, a 3D Moon, polar map layers, and source documentation. It starts with bundled NASA/JPL Horizons samples for three study-region centers over 18 October–1 November 2026. The selectable demo mode uses illustrative calculations. Map layers include LROC illumination, LOLA Earth visibility, Moon Trek imagery, and Earth-observation examples from the resource catalog.
+The planner compares landing sites and dates for the [NASA Space Apps Lunar Landing Site Navigator challenge](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/). Select a preset or enter lunar coordinates and choose a 7-, 14-, 21- or 28-day period within 2026–2027. The browser uses bundled hourly JPL Horizons geometry. Pin a scenario to compare sunlight, Earth visibility, joint windows and continuous darkness. The separate demo mode uses illustrative data.
+
+The atlas includes an interactive terrain globe, a six-stop geography tour, a surface-distance ruler and polar map layers. The globe uses 8K LROC imagery and LOLA elevations. The ruler reports the shortest arc on a sphere with a radius of 1,737.4 km. The archive includes illumination and visibility products from their original observation periods.
 
 The sidebar provides rule-based explanations using the selected plan. The AI work is paused. This release contains no Qwen weights or API credentials.
 
@@ -28,10 +30,12 @@ The three required SPICE kernels are included. `make once` reads `data/input.jso
 
 ## Data and display limits
 
-Horizons samples describe Sun/Earth geometry. Terrain is represented by a selected angular threshold. The visibility plots do not establish radio-link availability. The 3D Moon is illustrative. Historical map percentages have their own observation periods and are distinct from dated mission predictions.
+Each hourly sample describes the center of the Sun and Earth as seen from the selected coordinates. The three preset sites retain their original October 18–31, 2026 Horizons observer tables. For other dates and custom coordinates, the browser projects the bundled lunar-frame positions into the observer’s local sky.
 
-Data sources, observation periods, licenses and credits are included in `ui/assets/` and the site's method and atlas pages. [Moon credits](ui/assets/moon-attribution.txt) · [Polar-map provenance](ui/assets/resources-map-provenance.txt)
+In terrain mode the three preset sites use direction-dependent horizons derived from NASA’s 80 m LOLA DEM. Each profile considers terrain out to 180 km from a point 2 m above the surface. The fixed-angle model is available for comparisons and for other coordinates. Hourly sampling limits event timing. Direct-to-Earth visibility indicates a geometric opportunity. Electrical yield, battery state and radio performance require further engineering assumptions.
 
-## Local verification
+[Horizons data and validation](ui/assets/lunar-vectors-provenance.txt) · [Terrain horizon method](ui/assets/terrain-horizon-source.txt) · [Globe credits](ui/assets/moon-attribution.txt) · [Polar-map provenance](ui/assets/resources-map-provenance.txt)
 
-The release passed 32 mobile/desktop browser checks and all five native backend regression tests before upload. The backend GitHub Actions workflow runs on pushes to main and pull requests.
+## Native regression checks
+
+The backend GitHub Actions workflow runs the native regression suite on pushes to main and pull requests. Run the same suite with `make test`.

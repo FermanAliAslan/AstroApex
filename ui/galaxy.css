@@ -1,0 +1,174 @@
+/* AstroApex observatory. The star field is decorative. Data encodings keep their source colors. */
+:root {
+  --bg:#09080d;
+  --panel:#141119;
+  --raised:#211a2b;
+  --text:#f5f1fa;
+  --muted:#b9aec7;
+  --line:#3a3045;
+  --accent:#d2adff;
+  --violet:#c6a0f4;
+  --violet-bright:#e9d5ff;
+  --rim:#574367;
+  --glass:#17121eee;
+  --control:#201927;
+  --hover:#302439;
+  --pressed:#382543;
+  --sky:url("assets/galaxy-field.webp");
+}
+html { background:var(--bg); }
+body { min-height:100vh; background:linear-gradient(180deg,#0a080e19,#09080d55 540px,#09080d 1160px),var(--sky) top center / max(100%,960px) auto no-repeat,var(--bg); }
+.mast { background:#0d0a10f5; border-color:#302738; }
+.brand { color:#f5f1fc; }
+.brand span { color:var(--violet); }
+.brand img { filter:grayscale(1) sepia(.85) saturate(2.2) hue-rotate(218deg) brightness(1.2); }
+nav a { color:#c7bfce; }
+nav a:is([aria-current="page"],.active)::after,.nav-tracer { background:var(--violet); box-shadow:0 0 13px #bc81fb64; }
+.plan-title h1,.s-heading h1 { color:#faf6ff; font-weight:590; letter-spacing:-.058em; }
+.s-heading h1 { font-size:clamp(30px,3.65vw,54px); }
+.s-heading { padding:6px 0 18px; }
+.plan-title .eyebrow,.s-context,.atlas-place-kicker { color:var(--violet); }
+.scale-key span { color:var(--muted); }
+#atlasMissionSettings { color:var(--muted); }
+.s-view { --s-bg:var(--panel); --s-rule:var(--line); --s-text:var(--text); --s-muted:var(--muted); }
+.instrument,.s-panel,.s-comparison-head,.atlas-context,.kpi-band { border-color:var(--line); border-radius:11px; }
+.instrument,.s-panel,.s-comparison-head { background:var(--panel); }
+.s-panel-head { background:#1c1622; border-color:var(--line); }
+.kpi-band { background:linear-gradient(106deg,#261c31fa,#16121cfa 65%); border-top:1px solid #705084; }
+.kpi strong { color:#faf5ff; }
+.kpi em { color:var(--muted); }
+.kpi-band .kpi,.params-list>div,.window-table :is(th,td),body>footer { border-color:var(--line); }
+.window-table th,body>footer,body>footer strong { color:var(--muted); }
+.s-method h3,.s-method a,.sub-link,.window-table button,.window-table a,.r-link,.r-source-grid small,.s-source-details a { color:var(--violet); }
+.s-summary,.s-clock,.s-source-details summary { color:var(--text); }
+.s-note,.r-notice { color:var(--muted); }
+.r-notice,.atlas-data-note { border-left-color:#8869a4; }
+.s-snapshot + .s-snapshot { border-top-color:var(--violet); }
+.s-snapshot + .s-snapshot .s-snapshot-label b { color:var(--violet); }
+.s-transport input { accent-color:var(--violet); }
+.s-table :is(.selected-row,[aria-current="true"],.selected),.window-table tr:hover,.window-table tr:focus-within { background:#302539; }
+[data-chart] { --dc-grid:#44394e; --dc-ink:#cbbdd5; }
+.dc-rail { fill:#302737; }
+.dc-cursor { stroke:#ebdff5; }
+.dc-frame:focus-within { outline-color:var(--violet); }
+.r-source-grid article { background:#100e15; border-radius:9px; }
+.r-source-grid img,.r-map-frame { background:#0b090e; }
+.terrain-image { border-color:var(--line); border-radius:11px; background:#110f14; }
+.image-bottom .photo-action { background:#1b1225e8; color:#f8efff; border-color:#a48bad; }
+.terrain-scan{background:linear-gradient(90deg,transparent,#c7a8ed13 88%,#dac3f42a 99%,transparent)}
+.terrain-scan i{background:linear-gradient(transparent,#ddc5ff 50%,transparent)}
+.console-grid>.instrument:is(:hover,:focus-within){border-color:var(--rim)}
+.command-deck,.command-deck label { border-color:var(--line); }
+.command-deck label:focus-within { background:transparent; }
+.ap-picker-trigger,.command-deck input[type="date"],.s-body select,.s-body input[type="number"],.r-map-tools select {
+  background:var(--control); border-color:var(--rim); color:var(--text);
+  box-shadow:inset 0 1px #ffffff06;
+}
+.ap-picker-arrow,.ap-picker-option[aria-selected="true"]::after { border-color:var(--violet); }
+.ap-picker-trigger:hover:not(:disabled),.command-deck input[type="date"]:hover { border-color:#9677ad; }
+.ap-picker-open .ap-picker-trigger,.ap-picker-trigger[aria-expanded="true"],.command-deck input[type="date"]:focus-visible {
+  border-color:var(--violet); box-shadow:0 0 0 2px #bd91e827;
+}
+.ap-picker-options { background:#1a151e; border-color:var(--rim); scrollbar-color:#705b83 #211925; }
+.ap-picker-option small { color:var(--muted); }
+.ap-picker-option.ap-picker-focused,.ap-picker-option[aria-selected="true"] { color:var(--text); background:var(--pressed); }
+.ap-picker-option[aria-selected="true"].ap-picker-focused { background:#4a335d; }
+.command-action,.s-button,.assist-open,.assist-prompts button,.assist-action,.assist-close,.atlas-tool,.atlas-tour-nav button {
+  background:var(--control); border-color:var(--rim); color:var(--violet-bright); border-radius:8px;
+}
+.command-action:hover,.s-button:hover:enabled,.s-subtle:hover:enabled,.assist-open:hover,.assist-prompts button:hover,.assist-action:hover,.atlas-tool:hover,.atlas-tour-nav button:hover {
+  background:var(--hover); border-color:#9f7cba; color:#fff;
+}
+.s-button.s-accent,.atlas-plan-button,.assist-compose button { background:#cfaff2; border-color:#d7bef3; color:#25162f; }
+.s-button.s-accent:hover:enabled,.atlas-plan-button:hover,.assist-compose button:hover { background:#e7ceff; border-color:#eddaff; color:#201229; box-shadow:0 3px 20px #af7fe626; }
+.s-subtle { background:transparent; color:var(--muted); }
+.ap-picker-trigger:focus-visible,.command-deck input[type="date"]:focus-visible,:where(button,input,select,a,summary,canvas,[tabindex]):focus-visible,.s-view :is(button,input,select,a,summary,[tabindex]):focus-visible,.atlas-enhanced :is(button,a,input):focus-visible {
+  outline:2px solid #e0baff; outline-offset:3px;
+}
+.command-deck input[type="date"][aria-invalid="true"] { border-color:#edbc77; }
+
+/* The observation window remains dark enough to frame pale regolith. */
+.atlas-workspace { background:#141019; border-color:#48354f; border-radius:15px; box-shadow:0 14px 48px #0004; }
+.atlas-sidebar { background:linear-gradient(155deg,#211829,#131016 70%); border-color:var(--line); }
+.atlas-viewport.s-panel { background:#100d14; }
+.atlas-viewbar,.atlas-map-footer,.atlas-viewport .s-globe-controls,.atlas-place-detail,.atlas-tour-card { border-color:var(--line); }
+.atlas-viewbar { background:#1b1521; }
+.atlas-layer-button,.atlas-discovery-modes button { color:#c4b6cf; }
+.atlas-layer-button:hover,.atlas-discovery-modes button:hover,.atlas-result:hover { background:var(--hover); color:#fcf6ff; }
+.atlas-layer-button[aria-pressed="true"],.atlas-discovery-modes button[aria-pressed="true"],.atlas-tool[aria-pressed="true"],.atlas-result[aria-pressed="true"] {
+  color:#f0dcff; background:var(--pressed); border-color:#866198; box-shadow:inset 0 1px #eed1ff08;
+}
+.atlas-discovery-modes { background:#120e17; border-color:var(--line); }
+.atlas-search { background:#100c15!important; border-color:var(--rim)!important; color:var(--text); }
+.atlas-search::placeholder { color:#a79bb4; }
+.atlas-result,.atlas-search-label,.atlas-place-detail h2,.atlas-place-metrics dd { color:var(--text); }
+.atlas-result-symbol { background:#362641; color:#dfbaff; }
+.atlas-result-copy small,.atlas-status,.atlas-point-note,.atlas-place-metrics dt,.atlas-place-metrics small,.atlas-data-note,.atlas-map-footer,.atlas-coordinates { color:var(--muted); }
+.atlas-tour-description,.atlas-description,.s-atlas-help,.moon-camera-position strong { color:#d2c5db; }
+.atlas-source-link,.atlas-tour-progress { color:var(--violet); }
+.atlas-source-link:hover { color:#e9d1ff; }
+.atlas-place-metrics>div,.atlas-context,.atlas-context .s-panel { background:#16111c; border-color:var(--line); }
+.atlas-context>summary { color:#d8cbdc; }
+.atlas-viewport .globe-stage {
+  background:radial-gradient(ellipse at 48% 48%,#0c091463 0%,#0c091448 45%,#09070d22),var(--sky) center / cover,#09070c;
+}
+.atlas-viewport .globe-place,.atlas-location-name,.atlas-map-controls .atlas-tool,.atlas-overlay-tools .atlas-tool,.atlas-measurement,.atlas-mini-legend,.s-globe-status,.moon-distance-scale {
+  color:#f3e7fc; background:#1a1322ef; border-color:#755a86;
+}
+.atlas-viewport .globe-place[aria-pressed="true"],.atlas-overlay-tools .atlas-tool[aria-pressed="true"] { background:#3a2849eb; border-color:#c699df; }
+.atlas-viewport .globe-place-dot { background:#efcdff; box-shadow:0 0 0 2px #5a3a6a; }
+.atlas-flat-pin { border-color:#f4d7ff; box-shadow:0 0 0 2px #462554; }
+.atlas-location-dot { background:#e8c8fc; border-color:#462c54; box-shadow:0 0 0 2px #eac5ff; }
+.atlas-map-frame { background:#0d0a11; }
+.atlas-map-frame:focus-visible { outline-color:#e0baff; }
+
+/* The assistant and its popover use the same instrument palette as the console. */
+#assistPanel { background:#131017; color:var(--text); border-color:var(--rim); }
+#assistPanel::backdrop { background:#07040aa8; }
+.assist-head,#assistForm { background:#1c1623; border-color:var(--line); }
+.assist-kicker,.assist-context,.assist-intro,.assist-compose input::placeholder { color:var(--muted); }
+.assist-head .orbit-mark,.assist-open .orbit-mark,.assist-orbit .orbit-mark { color:var(--violet); }
+.assist-orbit .orbit-mark { filter:drop-shadow(0 0 5px #c397f131); }
+.assist-orbit { background:radial-gradient(ellipse,#392649,#21172a 53%,transparent 72%); }
+.orbit-ring,.assist-turn { border-color:var(--rim); }
+.assist-scope,.assist-byline { color:var(--violet); }
+.assist-context i { background:var(--violet); }
+.assist-query { background:#302437; }
+.assist-compose { background:#100d15; border-color:var(--rim); }
+.assist-compose:focus-within { border-color:var(--violet); }
+#assistForm label { color:var(--muted); }
+@media(max-width:800px) {
+  .s-heading { padding:4px 0 12px; }
+  .atlas-sidebar { background:transparent; }
+  .atlas-place-detail,.atlas-tour-card,.atlas-viewport .s-globe-controls { border-color:var(--line); }
+}
+
+/* A foreground star layer shifts with the viewer; the scientific plots keep their own frame. */
+body { position:relative; isolation:isolate; }
+body::before {
+  content:""; position:absolute; z-index:-1; top:0; inset-inline:0;
+  height:min(950px,100%); pointer-events:none;
+  background:radial-gradient(ellipse 58% 39% at 74% 20%,#9765d329,transparent 92%),
+    radial-gradient(ellipse 38% 28% at 13% 32%,#8367ac17,transparent 90%);
+  mask-image:linear-gradient(to bottom,transparent,#000 8%,#000 65%,transparent);
+}
+.galaxy-parallax {
+  position:absolute; z-index:-1; inset:0 0 auto; height:min(940px,100%);
+  overflow:hidden; pointer-events:none; mask-image:linear-gradient(#000 55%,transparent);
+}
+.galaxy-parallax::before {
+  content:""; position:absolute; inset:-9px;
+  background-image:
+    radial-gradient(1px 1px at 22px 38px,#d8c4f3 65%,transparent),
+    radial-gradient(1.5px 1.5px at 151px 108px,#bfa9e0 40%,transparent),
+    radial-gradient(1px 1px at 117px 57px,#cfbfdd 50%,transparent),
+    radial-gradient(1px 1px at 87px 173px,#ab9ccc 50%,transparent);
+  background-size:239px 189px,373px 271px,193px 229px,311px 211px;
+  opacity:.55;
+}
+@media (prefers-reduced-motion:no-preference) and (hover:hover) and (pointer:fine) {
+  .galaxy-parallax::before {
+    transform:translate(var(--star-x,0px),var(--star-y,0px));
+    transition:transform 600ms cubic-bezier(.18,.68,.24,1);
+  }
+}

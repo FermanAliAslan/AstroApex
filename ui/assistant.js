@@ -6,23 +6,20 @@
   let exitAnimation;
   let markAnimation;
   const api = () => window.missionConsole;
-  function signature(state) {
+  function signature(state, scope) {
+    if (scope === "comparison") return window.astroComparison?.signature?.() ?? "";
     return JSON.stringify([state.plan, state.pinned?.plan || null]);
   }
   const bylineText = state => "Görev özeti · " + (state.plan.dataMode === "horizons" ? "JPL Horizons" : "Demo model");
   function context(state) {
     id("assistContext").textContent = state.plan.site + " · " + (state.plan.date || "Tarih seçilmedi") + " · " + state.plan.days + " gün · " + (state.plan.dataMode === "horizons" ? "JPL Horizons" : "Demo model");
   }
-  let lastSignature;
   function refresh(state) {
-    const current = signature(state);
-    if (current === lastSignature) return;
-    lastSignature = current;
     context(state);
     for (const line of log.querySelectorAll("[data-signature]")) {
-      const stale = line.dataset.signature !== current;
+      const stale = line.dataset.signature !== signature(state, line.dataset.scope);
       line.classList.toggle("stale", stale);
-      line.querySelector(".assist-scope").textContent = stale ? "Önceki plan · yeniden sorabilirsiniz" : bylineText(state);
+      line.querySelector(".assist-scope").textContent = stale ? "Önceki plan · yeniden sorabilirsiniz" : line.dataset.scope === "comparison" ? "A ve B senaryoları" : bylineText(state);
       const button = line.querySelector("button");
       if (button) button.disabled = stale;
     }
@@ -30,6 +27,7 @@
   window.addEventListener("mission:update", e => {
     if (e.detail.source === "pin" || e.detail.source === "plan") refresh(e.detail);
   });
+  window.addEventListener("astro:comparison-change", () => refresh(api().getState()));
   function open() {
     if (panel.open || !api()) return;
     refresh(api().getState()); panel.showModal();
@@ -61,16 +59,17 @@
     refresh(state);
     const reply = window.readBriefing(intent, question, state);
     const turn = element("article","assist-turn","");
-    turn.dataset.signature = signature(state);
+    turn.dataset.scope = reply.scope || "mission";
+    turn.dataset.signature = signature(state, turn.dataset.scope);
     const byline = element("div","assist-byline","");
     const trace = opener.querySelector("svg").cloneNode(true);
-    byline.append(trace,element("small","assist-scope",bylineText(state)));
+    byline.append(trace,element("small","assist-scope",reply.scope === "comparison" ? "A ve B senaryoları" : bylineText(state)));
     turn.append(element("p","assist-query",question),byline,element("p","assist-answer",reply.text));
     if (reply.action) {
       const act = reply.action;
       const button = element("button","assist-action",act.label);button.type="button";
       button.addEventListener("click", () => {
-        if (turn.dataset.signature !== signature(api().getState())) return;
+        if (turn.dataset.signature !== signature(api().getState(), turn.dataset.scope)) return;
         close(()=>{
           if (act.type === "jump") api().jump(act.hour);
           else if (act.type === "compare") api().navigate("compare");

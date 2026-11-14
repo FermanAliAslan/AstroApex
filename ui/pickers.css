@@ -1,0 +1,110 @@
+/* Keyboard-native values are mirrored in the shared select-only combobox. */
+select[data-picker-ready],.ap-picker[hidden],.ap-picker-options[hidden],.ap-picker-option[hidden] { display:none !important; }
+.ap-picker { position: relative; min-width: 0; width: 100%; }
+.ap-picker-trigger {
+  position: relative; display: flex; align-items: center; justify-content: space-between;
+  width: 100%; min-width: 0; min-height: 44px; gap: 12px; padding: 10px 13px;
+  border: 1px solid #4d6575; border-radius: 10px; text-align: left;
+  background: linear-gradient(135deg, #233b48, #172936 76%); color: #f1f8f7;
+  box-shadow: inset 0 1px 0 #ffffff0d, 0 3px 8px #00000012;
+  font: 550 14px/1.35 var(--sans); cursor: pointer;
+  transition: border-color 160ms, background-color 160ms, box-shadow 160ms, transform 160ms;
+}
+.ap-picker-trigger:hover:not(:disabled) {
+  border-color: #8eced0; box-shadow: inset 0 1px 0 #ffffff18, 0 4px 16px #00000024; transform: translateY(-1px);
+}
+.ap-picker-trigger:active:not(:disabled) { transform: translateY(0) scale(.985); }
+.ap-picker-trigger:focus-visible, .ap-picker-open .ap-picker-trigger {
+  border-color: #9fe7e1; outline: 2px solid #8fdfd736; outline-offset: 3px;
+  box-shadow: 0 0 0 1px #8fdfd724, 0 5px 20px #00000026;
+}
+.ap-picker-trigger:disabled { opacity: .55; cursor: default; }
+.ap-picker-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-picker-arrow {
+  flex: 0 0 7px; width: 7px; height: 7px; margin: -3px 2px 0 0;
+  border: solid #91d4d2; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
+  transition: transform 180ms;
+}
+.ap-picker-open .ap-picker-arrow { transform: rotate(225deg); margin-top: 3px; }
+.ap-picker-options {
+  position: fixed; inset: auto; z-index: 1000; margin: 0; padding: 6px; overflow-y: auto;
+  box-sizing:border-box; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #668c93 #14232e;
+  border: 1px solid #607b88; border-radius: 14px; background: #132530; color: #eef5f6;
+  box-shadow: 0 18px 48px #00000059, 0 3px 9px #00000033, inset 0 1px 0 #ffffff10;
+  font: 14px/1.35 var(--sans); animation: ap-picker-enter 240ms cubic-bezier(.2,.75,.22,1);
+  transform-origin: top;
+}
+.ap-picker-options[data-side=above] { transform-origin: bottom; }
+.ap-picker-options::backdrop { background: transparent; }
+.ap-picker-option {
+  position: relative; padding: 12px 34px 12px 12px; min-height: 44px; border-radius: 8px;
+  cursor: pointer; transition: background-color 120ms, color 120ms;
+}
+.ap-picker-option + .ap-picker-option { margin-top: 2px; }
+.ap-picker-option > span { display: block; font-weight: 550; }
+.ap-picker-option small { display: block; font-size: 11px; margin-top: 4px; color: #aac4cf; }
+.ap-picker-option.ap-picker-focused { background: #294a55; }
+.ap-picker-option[aria-selected=true] { color: #e8fffa; background: #254c50; }
+.ap-picker-option[aria-selected=true]::after {
+  content: ""; position: absolute; right: 14px; top: 16px; width: 5px; height: 9px;
+  border: solid #a9f1d8; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.ap-picker-option[aria-selected=true].ap-picker-focused { background: #346367; }
+.ap-picker-option[aria-disabled=true] { color: #7f94a1; cursor: default; }
+.ap-picker-option[aria-disabled=true] small { color: #7f94a1; }
+.command-deck { gap: 10px; padding-bottom: 14px; }
+.command-deck label, .command-deck label:first-child { border: 0; padding: 0; gap: 6px; }
+.command-deck label > span { padding-left: 2px; }
+.command-deck input[type=date] {
+  min-height: 44px; border: 1px solid #4d6575; border-radius: 10px; padding: 9px 12px;
+  background: linear-gradient(135deg, #233b48, #172936 76%); color: #f1f8f7;
+  box-shadow: inset 0 1px 0 #ffffff0d, 0 3px 8px #00000012; color-scheme: dark;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.command-deck input[type=date]:hover { border-color: #8eced0; }
+.command-deck input[type=date]:focus-visible { border-color: #9fe7e1; outline: 2px solid #8fdfd736; outline-offset: 3px; }
+.command-deck input[type=date][aria-invalid=true] { border-color: #ebbb73; }
+.command-deck input[type=date]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .8; }
+.command-deck .command-action { align-self: end; min-height: 44px; border-radius: 10px; }
+@keyframes ap-picker-enter {
+  from { opacity:0; transform:translateY(-12px); clip-path:inset(0 0 85% round 12px); }
+  to { opacity:1; transform:translateY(0); clip-path:inset(0 round 12px); }
+}
+@media (max-width: 720px) {
+  .command-deck { gap: 10px; }
+  .ap-picker-trigger { font-size: 13px; padding: 10px; gap: 8px; }
+  .command-deck input[type=date] { font-size: 13px; padding: 9px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ap-picker-options { animation: none; }
+  .ap-picker-trigger, .ap-picker-arrow, .ap-picker-option, .command-deck input[type=date] { transition: none; }
+  .ap-picker-trigger:is(:hover, :active):not(:disabled) { transform: none; }
+}
+
+/* Compact controls use the same raised violet edge and selection treatment as the geographic picker. */
+.ap-picker:not(.lunar-site-picker) .ap-picker-trigger {
+  border:1px solid #705581; border-radius:10px; color:#f8f1ff;
+  background:linear-gradient(110deg,#302239,#201823 76%);
+  box-shadow:inset 0 1px 0 #fff1,0 2px 5px #0003;
+}
+.ap-picker:not(.lunar-site-picker) .ap-picker-arrow {
+  box-sizing:border-box; flex:0 0 20px; width:20px; height:20px; margin:0;
+  border:1px solid #6c517c; border-radius:50%; transform:none; background:#2f2239;
+  display:grid;place-content:center;
+}
+.ap-picker:not(.lunar-site-picker) .ap-picker-arrow::after {
+  content:""; width:5px; height:5px; border:solid #e6cafb; border-width:0 1.5px 1.5px 0;
+  transform:translateY(-1px) rotate(45deg); transition:transform 160ms ease;
+}
+.ap-picker-open:not(.lunar-site-picker) .ap-picker-arrow::after { transform:translateY(2px) rotate(225deg); }
+.ap-picker .ap-picker-trigger:hover:not(:disabled),.ap-picker-open .ap-picker-trigger { border-color:#a788bd; }
+.ap-picker-options[role=listbox] {
+  background:linear-gradient(145deg,#251b2c,#17121d); border:1px solid #7a5a8d;
+  box-shadow:0 12px 36px #07040cb8,inset 0 1px 0 #ffffff12;
+}
+.ap-picker-options .ap-picker-option { box-sizing:border-box; color:#eadff4; }
+.ap-picker-options .ap-picker-option.ap-picker-focused { outline:1px solid #9674ad; outline-offset:-1px; background:#37263f; }
+.ap-picker-options .ap-picker-option[aria-selected=true] { background:#46304f; }
+.ap-picker-options .ap-picker-option[aria-disabled=true] { color:#aa9ab4; background:transparent; }
+.ap-picker-options .ap-picker-option small { color:#c5b2d3; }
+@media(prefers-reduced-motion:reduce) { .ap-picker .ap-picker-arrow::after { transition:none; } }

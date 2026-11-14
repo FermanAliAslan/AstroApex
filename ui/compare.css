@@ -1,0 +1,151 @@
+/* Comparison opens directly on the two mission inputs. */
+body.has-compare-workbench[data-route="compare"] :is(#missionSettings,#sourceNotice,#dateError,#atlasMissionSettings) {display:none}
+.has-compare-workbench #compare {padding-top:clamp(16px,2vw,32px)}
+#compare .cmp-workbench {display:grid;gap:14px}
+#compare .cmp-source {display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}
+#compare .cmp-source select,#compare .cmp-field :is(input,select) {color-scheme:dark;background:#100e15;color:#f1edf8;border:1px solid #53425f;border-radius:7px;min-height:44px;width:100%;max-width:100%;box-sizing:border-box;padding:8px 11px;font:inherit;letter-spacing:normal}
+#compare .cmp-source select {width:auto;min-width:128px;background:#211a29;cursor:pointer}
+.cmp-workbench [hidden] {display:none!important}
+.cmp-editors {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.cmp-card {--arm:#d3b4ff;display:flex;flex-direction:column;gap:12px;min-width:0;background:linear-gradient(125deg,#201828,#15111b 75%);border:1px solid #51405f;border-top:2px solid #a582c9;border-radius:12px;padding:clamp(15px,2vw,24px)}
+.cmp-card.cmp-b {--arm:#e4cee5;border-color:#514351;border-top-color:#ad8fae;background:linear-gradient(125deg,#231b24,#171218 75%)}
+.cmp-caption {margin:0;font:600 11px/1.3 var(--mono);color:var(--arm,var(--violet));letter-spacing:.115em;text-transform:uppercase}
+.cmp-card-heading {display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:26px}
+.cmp-copy {background:transparent;border:0;border-bottom:1px solid #695577;color:#dbc8ec;cursor:pointer;padding:5px 0;font-size:11px;min-height:29px}
+.cmp-copy:hover {color:white}
+.cmp-field {display:flex;flex-direction:column;gap:5px;min-width:0;color:var(--text);font-size:14px}
+.cmp-field>span {font-size:12px;color:var(--muted)}
+#compare .cmp-field-site select {font:550 clamp(16px,1.6vw,24px)/1.3 var(--sans);letter-spacing:-.02em;min-height:48px}
+#compare .cmp-field select {cursor:pointer}
+.cmp-date-fields,.cmp-coordinate-fields,.cmp-horizon-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.cmp-horizon-fields:has(.cmp-field-angle[hidden]) {grid-template-columns:1fr}
+.cmp-sky {margin-top:auto;min-height:42px;color:var(--arm);width:fit-content;border:1px solid #5a4766;border-radius:7px;padding:8px 14px;background:#2c2134;font:600 13px/1.3 var(--sans);cursor:pointer}
+.cmp-sky:hover:not(:disabled) {background:#412e4c;border-color:#89739d}
+.cmp-sky:disabled {opacity:.5;cursor:default}
+.cmp-state {margin:0;color:#ffcf9b;font-size:12px;line-height:1.5}
+.cmp-result {display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:20px 30px;align-items:start;padding:clamp(16px,2vw,26px);background:#17131d;border:1px solid var(--line);border-radius:12px}
+.cmp-result-head h2 {font-size:clamp(20px,2.2vw,34px);margin:8px 0;line-height:1.13;letter-spacing:-.04em;text-wrap:balance;color:#f6f1fa}
+.cmp-result-note {font-size:12px;line-height:1.5;color:var(--muted);margin:0;text-wrap:pretty}
+.cmp-timelines {align-self:center;display:grid;gap:9px;font:12px/1.4 var(--mono)}
+.cmp-timeline {display:grid;grid-template-columns:17px minmax(0,1fr) 57px;gap:8px;align-items:center}
+.cmp-timeline strong {text-align:right;font-size:12px;color:var(--text);font-weight:550}
+.cmp-arm-letter {color:#dec8f7}
+.cmp-band-track {height:14px;background:repeating-linear-gradient(120deg,transparent 0 4px,#423846 4px 5px);overflow:hidden;border-radius:3px}
+.cmp-band-span {position:relative;height:100%;background:#3d3448}
+.cmp-band-span i {position:absolute;inset-block:0;min-width:1px;background:#c9a7f8}
+.cmp-timeline:nth-child(2) .cmp-band-span i {background:#e5c4de}
+.cmp-axis {display:flex;justify-content:space-between;margin:0 65px 0 25px;color:var(--muted);font-size:10px}
+.cmp-table {
+  grid-column:1/-1; width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0;
+  font-variant-numeric:tabular-nums; color:#f7f2fc;
+}
+.cmp-table :is(td,th) { padding:16px clamp(10px,1.7vw,24px); text-align:right; vertical-align:middle; }
+.cmp-table thead th {
+  background:#2a2033; color:#f2e8fa; border-block:1px solid #594561;
+  font:650 16px/1.35 var(--sans);
+}
+.cmp-table th:first-child { width:38%; text-align:left; }
+.cmp-table thead th:first-child { border-radius:8px 0 0 0; }
+.cmp-table thead th:last-child { border-radius:0 8px 0 0; }
+.cmp-column-site { display:block; margin-top:3px; color:#d2c4d9; font-size:13px; font-weight:500; overflow-wrap:anywhere; }
+.cmp-table tbody :is(th,td) { border-bottom:1px solid #45394e; }
+.cmp-table tbody th { font:550 clamp(17px,1.45vw,21px)/1.4 var(--sans); }
+.cmp-table tbody td { font-size:clamp(22px,2.1vw,30px); line-height:1.25; font-weight:550; white-space:nowrap; }
+.cmp-table .cmp-delta { color:#e1c6ff; background:#251c2c; font-weight:650; }
+.cmp-table tbody tr:first-child { background:#221b29; }
+.cmp-legacy {background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-top:14px;padding:0 15px 1px}
+.cmp-legacy>summary {min-height:44px;padding:13px 0;box-sizing:border-box;font-size:14px;color:var(--text);cursor:pointer}
+.cmp-legacy-tools {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;color:var(--muted);font-size:12px;margin:8px 0 12px}
+.cmp-legacy .s-table-wrap {overflow:auto}
+#compare :is(.cmp-workbench,.cmp-source,.cmp-legacy) :focus-visible {outline:2px solid #e4cfff;outline-offset:2px}
+@media(max-width:700px) {
+ .cmp-result {grid-template-columns:1fr}
+ .cmp-editors,.cmp-workbench {gap:9px}
+ .cmp-card {padding:12px;gap:9px}
+ .cmp-legacy {padding-inline:10px}
+}
+@media(max-width:560px) {
+ #compare .s-heading {align-items:flex-start;gap:6px;flex-direction:column}
+ #compare .cmp-source {gap:6px}
+ #compare .cmp-source select {min-height:36px;font-size:12px;min-width:0}
+ .cmp-card {padding:10px;gap:8px;border-radius:9px}
+ .cmp-card-heading {display:grid;align-content:start;min-height:21px}
+ .cmp-caption {font-size:10px}
+ .cmp-card-heading .cmp-copy {display:none}
+ #compare .cmp-field-site select {font-size:14px;min-height:42px}
+ #compare .cmp-field :is(select,input) {padding:6px 4px;min-height:40px;font-size:13px}
+ .cmp-date-fields,.cmp-coordinate-fields,.cmp-horizon-fields {grid-template-columns:1fr;gap:7px}
+ .cmp-field {gap:3px}
+ .cmp-field>span {font-size:11px}
+ .cmp-sky {padding:8px 7px;font-size:11px;min-height:42px;width:100%}
+ .cmp-result {padding-inline:12px}
+ .cmp-table th:first-child {width:39%}
+ .cmp-table :is(td,th) {padding:14px 5px}
+ .cmp-table thead th {font-size:14px}
+ .cmp-table tbody th {font-size:15px}
+ .cmp-table tbody td {font-size:clamp(17px,4.8vw,22px)}
+ .cmp-column-site {position:absolute;width:1px;height:1px;margin:0;overflow:hidden;clip-path:inset(50%)}
+}
+@media(max-width:340px) {.cmp-editors{grid-template-columns:1fr}.cmp-date-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Geographic selection shares the console listbox and its keyboard controls. */
+.lunar-site-picker .ap-picker-trigger {
+  display:grid; grid-template-columns:42px minmax(0,1fr) 24px; align-items:center;
+  min-height:66px; padding:8px 12px 8px 8px; gap:12px;
+  border:1px solid #705581; border-radius:11px;
+  background:linear-gradient(110deg,#302239,#201823 76%);
+  box-shadow:inset 0 1px 0 #fff1,0 2px 5px #0003;
+}
+.site-picker-name { display:grid; gap:3px; min-width:0; }
+.site-picker-name .ap-picker-value { color:#f8f1ff; font:600 clamp(15px,1.35vw,20px)/1.2 var(--sans); letter-spacing:-.025em; }
+.site-picker-name small,.lunar-site-list .ap-picker-option small { color:#c5b2d3; font:10px/1.4 var(--mono); }
+.lunar-site-picker .ap-picker-arrow {
+  justify-self:end; position:relative; box-sizing:border-box; width:23px; height:23px; margin:0; border:1px solid #6c517c;
+  border-radius:50%; background:#2f2239; transform:none; display:grid; place-content:center;
+}
+.lunar-site-picker .ap-picker-arrow::after { content:""; width:6px; height:6px; border:solid #e6cafb; border-width:0 1.5px 1.5px 0; transform:translateY(-2px) rotate(45deg); }
+.lunar-site-picker.ap-picker-open .ap-picker-arrow::after { transform:translateY(2px) rotate(225deg); }
+.lunar-site-list { padding:6px; background:linear-gradient(145deg,#251b2c,#17121d); border:1px solid #7a5a8d; }
+.lunar-site-list .ap-picker-option {
+  display:grid; grid-template-columns:42px minmax(0,1fr); grid-template-rows:auto auto;
+  align-content:center; column-gap:12px; min-height:60px; box-sizing:border-box; padding:7px 30px 7px 7px;
+}
+.lunar-site-list .ap-picker-option > span { align-self:end; font:600 14px/1.25 var(--sans); }
+.lunar-site-list .ap-picker-option small { margin:2px 0 0; }
+.lunar-site-list .ap-picker-option[aria-selected=true]::after { top:calc(50% - 6px); }
+.lunar-site-list .ap-picker-option.ap-picker-focused { outline:1px solid #9373a8; outline-offset:-1px; }
+.lunar-site-list .ap-picker-option:last-child[data-relief=custom] { margin-top:5px; border-top:1px solid #49374f; }
+.lunar-site-picker button::before,.lunar-site-list [data-relief]::before {
+  content:""; grid-row:1 / span 2; align-self:center; display:block;
+  width:42px; height:42px; border-radius:8px; background:#26202e url('assets/site-reliefs.png') left center / 300% 100% no-repeat;
+  box-shadow:inset 0 0 0 1px #eee3;
+}
+.lunar-site-picker .ap-picker-trigger::before { grid-row:1; }
+.lunar-site-picker [data-relief=ridge]::before,.lunar-site-list [data-relief=ridge]::before { background-position:center; }
+.lunar-site-picker [data-relief=massif]::before,.lunar-site-list [data-relief=massif]::before { background-position:right center; }
+.lunar-site-picker [data-relief=custom]::before,.lunar-site-list [data-relief=custom]::before,
+.lunar-site-picker [data-relief=demo]::before,.lunar-site-list [data-relief=demo]::before {
+  background:radial-gradient(circle at center,transparent 6px,#c5a0dc 6px 7px,transparent 7px),
+    linear-gradient(90deg,transparent 48%,#8c6d9e 49% 51%,transparent 52%) center/20px 20px no-repeat,
+    linear-gradient(transparent 48%,#8c6d9e 49% 51%,transparent 52%) center/20px 20px no-repeat,#312339;
+}
+@media(max-width:660px) {
+  .lunar-site-picker .ap-picker-trigger { grid-template-columns:minmax(0,1fr) 12px; min-height:58px; gap:4px; padding:7px; }
+  .lunar-site-picker .ap-picker-trigger::before { display:none; }
+  .lunar-site-picker .ap-picker-arrow { border:0; width:12px; background:none; }
+  .site-picker-name .ap-picker-value { white-space:normal; font-size:14px; }
+  .site-picker-name small { font-size:9px; }
+}
+
+#compare .cmp-source .ap-picker { width:min(190px,52vw); }
+.cmp-field .ap-picker:not(.lunar-site-picker) .ap-picker-trigger { min-height:44px; }
+#missionSettings .lunar-site-picker .ap-picker-trigger { grid-template-columns:minmax(0,1fr) 14px; min-height:44px; padding:7px 9px; gap:4px; }
+#missionSettings .lunar-site-picker .ap-picker-trigger::before { display:none; }
+#missionSettings .lunar-site-picker .ap-picker-arrow { width:14px; border:0; background:none; }
+#missionSettings .lunar-site-picker .site-picker-name small { display:none; }
+#missionSettings .lunar-site-picker .site-picker-name .ap-picker-value { font:550 14px/1.35 var(--sans); }
+@media(max-width:560px) {
+  .cmp-card .ap-picker:not(.lunar-site-picker) .ap-picker-trigger { padding:7px; gap:5px; }
+  .cmp-card .ap-picker:not(.lunar-site-picker) .ap-picker-arrow { flex-basis:14px; width:14px; height:18px; border:0; background:none; }
+  .cmp-card .ap-picker-value { white-space:normal; }
+}

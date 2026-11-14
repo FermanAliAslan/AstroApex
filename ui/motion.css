@@ -21,3 +21,10 @@ nav[data-traced=true] a[aria-current=page]::after{display:none}
     .image-bottom .photo-action:hover,.s-globe-controls button:hover:enabled{transform:translateY(-1px)}
   }
 }
+@media(prefers-reduced-motion:no-preference) {
+  .galaxy-parallax { animation:galaxy-arrival 2.6s ease-out both; }
+}
+@keyframes galaxy-arrival {
+  from { opacity:0; }
+  to { opacity:1; }
+}

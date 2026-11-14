@@ -1,0 +1,32 @@
+.command-deck .custom-site-field { display:flex; align-items:end; min-width:0; flex:1.25; gap:4px; }
+.command-deck .custom-site-field label:first-child { flex:1; min-width:0; margin:0; padding:0; }
+#customSiteOpen { flex:none; width:36px; min-height:44px; font:500 20px/1 var(--sans); border:1px solid var(--rim); border-radius:9px; background:var(--control); color:var(--violet-bright); cursor:pointer; }
+#customSiteOpen:hover { background:var(--hover); }
+#customSiteOpen[hidden] { display:none; }
+#customSiteDialog { box-sizing:border-box; width:min(430px,calc(100% - 28px)); max-height:90dvh; padding:24px; color:var(--text); background:var(--panel); border:1px solid var(--rim); border-radius:16px; box-shadow:0 18px 80px #000b; }
+#customSiteDialog::backdrop { background:#08050dcc; }
+#customSiteDialog h2 { margin:0; font:600 23px/1.2 var(--sans); }
+#customSiteDialog p { color:var(--muted); line-height:1.55; font-size:14px; }
+.custom-coordinate-pair,.custom-coordinate-actions { display:flex; gap:12px; }
+.custom-coordinate-pair label { flex:1; min-width:0; display:grid; gap:5px; color:var(--violet-bright); font-size:13px; }
+.custom-coordinate-pair input { width:100%; min-width:0; min-height:44px; padding:9px; background:var(--control); color:var(--text); border:1px solid var(--rim); border-radius:8px; font:inherit; }
+#customSiteDialog .custom-site-note { font-size:12px; }
+.custom-coordinate-actions { justify-content:end; margin-top:18px; }
+.custom-coordinate-actions button { min-height:44px; }
+
+/* Give the site name and editable date room before the toolbar wraps. */
+@media (min-width:1121px) {
+  .command-deck .custom-site-field { flex:2.1; }
+  .command-deck > label:has(#date) { flex:1.5; }
+}
+@media (min-width:721px) and (max-width:1120px) {
+  #missionSettings.command-deck {
+    display:grid;
+    grid-template-columns: minmax(0,1fr) minmax(0,1.35fr) minmax(0,1.1fr) minmax(0,1fr);
+    align-items:end;
+    row-gap:12px;
+  }
+}
+@media (max-width:720px) {
+  #missionSettings .custom-site-field { grid-column:1 / -1; }
+}

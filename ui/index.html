@@ -1,26 +1,30 @@
 <!DOCTYPE html><html lang="tr" data-type="software"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0d151e"><meta name="site-kind" content="software"><meta name="page-type" content="software">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#09080d"><meta name="site-kind" content="software"><meta name="page-type" content="software">
 <meta name="description" content="Ay’ın güney kutbundaki aydınlanma ve Dünya görüş pencerelerini inceleyin, sahaları karşılaştırın.">
 <title>AstroApex · Ay Görev Konsolu</title><link rel="icon" href="assets/apex.svg">
 <link rel="preload" href="assets/instrument-sans.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="console.css"><link rel="stylesheet" href="charts.css"><link rel="stylesheet" href="secondary.css"><link rel="stylesheet" href="motion.css">
 <link rel="stylesheet" href="assistant.css"><link rel="stylesheet" href="resources.css"><script defer src="resources.js"></script><script defer src="horizons.js"></script><script defer src="briefing.js"></script><script defer src="assistant.js"></script>
-<script defer src="model.js"></script><script defer src="globe.js"></script><script defer src="charts.js"></script><script defer src="secondary.js"></script><script defer src="motion.js"></script><script defer src="mission.js"></script></head>
+<script defer src="assets/terrain-profiles.js"></script><script defer src="terrain.js"></script><script defer src="model.js"></script><script defer src="globe.js"></script><script defer src="charts.js"></script><script defer src="secondary.js"></script><script defer src="motion.js"></script><script defer src="measurement.js"></script><script defer src="atlas.js"></script><script defer src="mission.js"></script><link rel="stylesheet" href="atlas.css"><link rel="stylesheet" href="pickers.css"><script defer src="pickers.js"></script><link rel="stylesheet" href="galaxy.css">
+<link rel="stylesheet" href="terrain.css"><link rel="stylesheet" href="custom-coordinates.css">
+<link rel="stylesheet" href="compare.css"><link rel="stylesheet" href="sky.css"><link rel="stylesheet" href="timeline.css"><link rel="stylesheet" href="date-picker.css"><link rel="stylesheet" href="what-if.css"><link rel="stylesheet" href="window-lens.css"><link rel="stylesheet" href="plan-now.css">
+<script defer src="custom-coordinates.js"></script><script defer src="compare.js"></script><script defer src="sky-motion.js"></script><script defer src="sky.js"></script><script defer src="sky-source.js"></script><script defer src="timeline.js"></script><script defer src="method.js"></script><script defer src="date-picker.js"></script><script defer src="window-lens.js"></script><script defer src="plan-now.js"></script></head>
 <body><a class="skip" href="#content">İçeriğe geç</a>
-<header class="mast"><div class="mast-inner"><a class="brand" href="#plan" data-route="plan"><img src="assets/apex.svg" alt="" width="31" height="31">Astro<span>Apex</span></a>
-<nav aria-label="Ana menü"><a href="#plan" data-route="plan">Görev planı</a><a href="#windows" data-route="windows">Simülasyon</a><a href="#compare" data-route="compare">Karşılaştır</a><a href="#atlas" data-route="atlas">3B atlas</a><a href="#method" data-route="method">Kaynaklar</a></nav>
+<header class="mast"><div class="mast-inner"><a class="brand" href="#compare" data-route="compare"><img src="assets/apex.svg" alt="" width="31" height="31">Astro<span>Apex</span></a>
+<nav aria-label="Ana menü"><a href="#compare" data-route="compare">Karşılaştır</a><a href="#plan" data-route="plan">Görev planı</a><a href="#windows" data-route="windows">Gökyüzü</a><a href="#atlas" data-route="atlas">3B atlas</a><a href="#method" data-route="method">Kaynaklar</a></nav>
 <div class="mast-tools"><a href="#method" data-route="method" class="demo"><i></i> <span data-out="sourceLabel">JPL Horizons</span></a><button type="button" id="assistOpen" class="assist-open" aria-haspopup="dialog" aria-controls="assistPanel"><svg class="orbit-mark" viewBox="0 0 100 100" fill="none" aria-hidden="true"><g><path d="M18 54C8 32 56 16 75 30S64 76 37 76 10 50 31 33 79 29 82 48 46 83 30 65 41 18 59 19 78 60 52 70 15 54 23 38 69 20 76 40 52 77 38 67 31 27 53 26 78 52 60 64 28 62 31 43 65 24 69 45 51 67 40 56 45 33 55 36 62 51 54 56" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></g><circle cx="52" cy="49" r="3" fill="#ffe1a0"/></svg>Asistan</button></div></div></header>
 <main id="content" tabindex="-1">
-<section class="command-deck" aria-label="Görev ayarları">
+<button type="button" id="atlasMissionSettings" aria-controls="missionSettings sourceNotice" aria-expanded="false">Görev ayarları <span aria-hidden="true">⌄</span></button>
+<section id="missionSettings" class="command-deck" aria-label="Görev ayarları">
 <label><span>Hesap kaynağı</span><select id="dataMode"><option value="horizons" selected>JPL Horizons</option><option value="demo">Demo model</option></select></label>
 <label><span>İniş sahası</span><select id="site" aria-label="İniş sahası"></select></label>
 <label><span>Başlangıç · UTC</span><input id="date" type="date" required value="2026-10-18"></label>
-<label><span>Görev süresi</span><select id="days"><option value="7">7 gün</option><option value="14" selected>14 gün</option><option value="21">21 gün</option><option value="28">28 gün</option></select></label>
+<label><span>Görev süresi</span><select id="days"><option value="7" selected>7 gün</option><option value="14">14 gün</option><option value="21">21 gün</option><option value="28">28 gün</option></select></label>
 <label><span>Arazi eşiği</span><select id="terrain"></select></label>
 <a class="command-action" href="#compare" data-route="compare">Sahaları karşılaştır <span aria-hidden="true">↗</span></a>
 </section><p id="sourceNotice" class="r-notice" role="status"></p><p id="dateError" class="error" role="status" hidden></p>
 <section id="plan" class="route-view" data-view="plan">
-<div class="plan-title"><div><p class="eyebrow">Ay’ın güney kutbu</p><h1>Görev konsolu</h1></div><div class="scale-key"><i></i>Saatlik örnekleme <span>/</span> UTC</div></div>
+<div class="plan-title"><div><h1>Görev konsolu</h1></div><div class="scale-key"><i></i>Saatlik örnekleme <span>/</span> UTC</div></div>
 <div class="kpi-band"><div class="kpi site-kpi"><small>Seçili görev sahası</small><strong data-out="site">Shackleton Rim</strong></div>
 <div class="kpi"><small><i class="dot gold"></i>Aydınlanma</small><strong><b data-out="sunPct">—</b><em>%</em></strong></div>
 <div class="kpi"><small><i class="dot cyan"></i>Dünya görüşü</small><strong><b data-out="earthWindows">—</b><em>pencere</em></strong></div>
@@ -28,7 +32,7 @@
 <div class="kpi"><small>En uzun karanlık</small><strong><b data-out="longestDark">—</b><em>saat</em></strong></div></div>
 <div class="console-grid">
 <article class="instrument params"><div class="panel-title"><h2>Saha parametreleri</h2></div>
-<dl class="params-list"><div><dt>Gözlem sahası</dt><dd data-out="site"></dd></div><div><dt>Başlangıç</dt><dd data-out="date"></dd></div><div><dt>Örnek sayısı</dt><dd data-out="sampleCount"></dd></div><div><dt>Arazi eşiği</dt><dd><span data-out="terrain"></span>°</dd></div><div><dt>Aydınlık süre</dt><dd><span data-out="sunHours"></span> sa</dd></div></dl>
+<dl class="params-list"><div><dt>Gözlem sahası</dt><dd data-out="site"></dd></div><div><dt>Başlangıç</dt><dd data-out="date"></dd></div><div><dt>Örnek sayısı</dt><dd data-out="sampleCount"></dd></div><div><dt>Arazi eşiği</dt><dd><span data-out="terrain"></span></dd></div><div><dt>Aydınlık süre</dt><dd><span data-out="sunHours"></span> sa</dd></div></dl>
 <a class="sub-link" href="#method" data-route="method">Veri kaynağı ve yöntem <span>→</span></a></article>
 <article class="terrain-image"><img src="assets/terrain.webp" alt="Yörüngeden görüntülenen Shackleton Krateri çevresinin arazisi" fetchpriority="high" width="985" height="576"><div class="terrain-scan" aria-hidden="true"><i></i></div><div class="image-label"><span class="eyebrow">Yörünge mozaiği</span><h2>Shackleton Krateri</h2></div><div class="image-bottom"><a href="https://www.nasa.gov/missions/lro/nasa-moon-camera-mosaic-sheds-light-on-lunar-south-pole/" target="_blank" rel="noopener noreferrer">LROC × ShadowCam ↗</a><a href="#atlas" data-route="atlas" class="photo-action">3B atlası aç ↗</a></div></article>
 <article class="instrument light-plot"><div class="panel-title"><h2>Günlük aydınlanma</h2><span class="signal gold"></span></div><div data-chart="sunlight"></div></article>
@@ -93,13 +97,29 @@
         <canvas id="moonGlobe" aria-label="Döndürülebilen Ay küresi" aria-describedby="atlasControlsHelp" tabindex="0"></canvas>
         <div class="s-map-fallback" role="img" aria-label="Ay yüzeyinin düz haritası"></div>
         <span id="globePin" class="globe-pin" aria-hidden="true" hidden><i></i><span data-globe-pin-label></span></span>
+        <div class="moon-distance-scale" title="Görüş merkezindeki yaklaşık yatay ölçek" hidden><span></span><i aria-hidden="true"></i></div>
         <span id="globeStatus" class="s-globe-status" role="status"></span>
       </div>
-      <div class="s-globe-controls" aria-label="Kamera kontrolleri">
-        <div><button type="button" class="s-button" data-globe="left" aria-label="Sola döndür" title="Sola döndür">←</button><button type="button" class="s-button" data-globe="right" aria-label="Sağa döndür" title="Sağa döndür">→</button><button type="button" class="s-button" data-globe="up" aria-label="Yukarı döndür" title="Yukarı döndür">↑</button><button type="button" class="s-button" data-globe="down" aria-label="Aşağı döndür" title="Aşağı döndür">↓</button></div>
-        <div><button type="button" class="s-button" data-globe="zoom-out" aria-label="Uzaklaştır" title="Uzaklaştır">−</button><button type="button" class="s-button" data-globe="zoom-in" aria-label="Yakınlaştır" title="Yakınlaştır">+</button><button type="button" class="s-button" data-globe="reset" aria-label="Başlangıç görünümüne dön" title="Başlangıç görünümüne dön">↺</button></div>
+      <div class="s-globe-controls moon-camera" role="group" aria-label="Kamera kontrolleri">
+        <div class="moon-camera-position" hidden>
+          <span>Görüş merkezi</span><strong id="moonCameraCenter"></strong>
+        </div>
+        <div class="moon-zoom-controls">
+          <button type="button" class="s-button" data-globe="zoom-out" aria-label="Uzaklaştır" title="Uzaklaştır">−</button>
+          <button type="button" class="s-button" data-globe="zoom-in" aria-label="Yakınlaştır" title="Yakınlaştır">+</button>
+          <button type="button" class="s-button moon-home" data-globe="reset" title="Başlangıç görünümüne dön">Tüm Ay</button>
+          <button type="button" class="s-button moon-expand" id="moonExpand" aria-label="Atlası tam ekranda aç" title="Tam ekran" aria-pressed="false" hidden>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 9V3h6m6 0h6v6m0 6v6h-6m-6 0H3v-6"/></svg>
+          </button>
+        </div>
       </div>
-      <p id="atlasControlsHelp" class="s-atlas-help">Döndürmek için sürükleyin veya yön tuşlarını kullanın.</p>
+      <details class="s-atlas-help moon-camera-help">
+        <summary>Küre nasıl kullanılır?</summary>
+        <p id="atlasControlsHelp">Döndürmek için sürükleyin. Yaklaşmak için + düğmesine basın veya iki parmağınızı birbirinden uzaklaştırın. Bir konumu seçmek için yüzeye dokunun. Klavyede yön tuşlarıyla döndürün, + ve − ile yakınlaştırıp uzaklaştırın, Enter ile görüş merkezini seçin.</p>
+        <div class="moon-orbit-controls" role="group" aria-label="Küreyi adım adım döndür">
+          <button type="button" class="s-button" data-globe="left" aria-label="Sola döndür">←</button><button type="button" class="s-button" data-globe="right" aria-label="Sağa döndür">→</button><button type="button" class="s-button" data-globe="up" aria-label="Yukarı döndür">↑</button><button type="button" class="s-button" data-globe="down" aria-label="Aşağı döndür">↓</button>
+        </div>
+      </details>
     </div>
     <div class="s-panel s-atlas-params">
       <header class="s-panel-head"><h2>Saha konumu</h2></header><div class="s-body">
@@ -108,7 +128,7 @@
       <select id="atlasSource"><option value="region">NASA bölge merkezi</option><option value="observer">C motoru gözlem noktası</option></select>
       <dl class="s-coords"><div><dt>Enlem</dt><dd id="atlasLat">—</dd></div><div><dt>Boylam</dt><dd id="atlasLon">—</dd></div></dl>
       <p id="atlasSourceNote" class="s-note"></p><button type="button" class="s-button s-accent" data-globe="focus">Sahaya odaklan</button>
-      <details class="s-source-details"><summary>Veri ve çözünürlük</summary><p>Kürede LROC yüzey dokusu ve LOLA yükseklikleri kullanılır. Sabit ışık kraterleri belirginleştirir. İniş noktası analizi için daha ayrıntılı bölgesel arazi verisi gerekir.</p>
+      <details class="s-source-details"><summary>Veri ve çözünürlük</summary><p>Yakınlaştığınızda seçili çevrenin 8192 × 4096 piksellik küresel mozaikten alınan parçaları yüklenir. Kürenin biçimi LOLA yükseklik ölçümlerine dayanır. Sabit yan ışık ve güçlendirilmiş gölgelendirme krater kenarlarını görmeyi kolaylaştırır. Kutuplarda görüntü ayrıntısı daha düşüktür. Görev hesabındaki ufuk, seçtiğiniz arazi modeline bağlıdır.</p>
       <a href="https://svs.gsfc.nasa.gov/4720/" target="_blank" rel="noopener noreferrer">NASA CGI Moon Kit ↗</a><a href="https://ntrs.nasa.gov/citations/20230007818" target="_blank" rel="noopener noreferrer">Lunar Surface Data Book · A2-2 ↗</a></details></div>
     </div>
   </div>
@@ -127,7 +147,7 @@
 <section class="s-panel r-source-panel"><header class="s-panel-head"><h2>Ay keşfi ve Dünya gözlemi</h2></header><p class="r-intro">Kanada’nın Ay görevleri için bağlam; Dünya gözleminde radar, yöntem ve arşiv örnekleri. Bu kayıtlar Ay görünürlük hesabına girmez.</p><div id="eoRecords" class="r-source-grid" aria-live="polite"></div></section><section class="s-panel"><header class="s-panel-head"><h2>Görev hesabı nasıl okunur?</h2><span class="s-unit">UTC / 1 SAAT</span></header>
     <ol class="s-method">
       <li><h3>Örnekleme</h3><p>JPL modunda üç çalışma bölgesi için Horizons efemerisi kullanılır. Her örnek, gök cisminin merkezinin yerel teğet düzlemine göre konumudur. Demo modunda aynı alanlar sentetik bir modelden gelir.</p></li>
-      <li><h3>Arazi eşiği</h3><p>Bir gök cismi, yüksekliği ayarlanan arazi açısını aştığı saatlerde görünür sayılır. Bu sabit eşik yerel sırtların ayrıntılı biçimini temsil etmez.</p></li>
+      <li><h3>Arazi eşiği</h3><p>Bir gök cismi, yüksekliği ayarlanan arazi açısını aştığı saatlerde görünür sayılır. Sabit eşik bütün yönlerde aynıdır. LOLA profili seçildiğinde her cismin azimutundaki yerel ufuk yüksekliği kullanılır.</p></li>
       <li><h3>Ortak görünürlük</h3><p>Güneş ile Dünya aynı saatte görünürse o saat ortak süreye eklenir. Art arda gelen saatler bir pencere oluşturur. Dünya görüşü bir radyo bağlantısını garanti etmez.</p></li>
       <li><h3>Enerji ve karanlık</h3><p>Panel enerjisi, panel gücü ile aydınlık saat sayısının ve 0,72 örnek sistem katsayısının çarpımıdır. En uzun karanlık, Güneş’in görünmediği en uzun kesintisiz süredir.</p></li>
     </ol>

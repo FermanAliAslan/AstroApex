@@ -1,0 +1,7 @@
+#missionSettings label[hidden],.terrain-horizon-context[hidden] { display:none; }
+#missionSettings #horizonMode { min-height:44px; width:100%; padding:6px 8px; background:var(--control,#201927); color:var(--text,#f5f1fa); border:1px solid var(--rim,#574367); border-radius:7px; }
+.terrain-horizon-context { margin:8px 0; padding-left:10px; border-left:2px solid var(--violet,#c6a0f4); color:var(--muted,#b9aec7); font-size:12px; line-height:1.5; }
+body[data-route="atlas"] #atlasMissionSettings[aria-expanded="false"] ~ #horizonContext { display:none; }
+.dc-terrain-curve { fill:none; stroke-width:1.5; stroke-dasharray:1 3; stroke-linecap:round; }
+.dc-terrain-curve.dc-sun { stroke:var(--dc-sun); }
+.dc-terrain-curve.dc-earth { stroke:var(--dc-earth); }

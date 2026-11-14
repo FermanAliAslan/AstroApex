@@ -1,25 +1,36 @@
-AstroApex lunar globe
+AstroApex interactive lunar terrain
 
-Maps: NASA's Scientific Visualization Studio, Ernie Wright.
-Source: CGI Moon Kit https://svs.gsfc.nasa.gov/4720/
-Data: Lunar Reconnaissance Orbiter Camera (LROC WAC) and Lunar Orbiter Laser Altimeter (LOLA).
+NASA Scientific Visualization Studio, CGI Moon Kit, Ernie Wright
+https://svs.gsfc.nasa.gov/4720/
 
-The embedded 2048 by 1024 JPEG is the 2025 NASA visualization color map:
+Surface imagery: NASA's 2025 rendering mosaic from the Lunar Reconnaissance
+Orbiter Camera Wide Angle Camera (LROC WAC), with lower-resolution LOLA laser
+albedo poleward of 70 degrees. NASA adjusted exposure and filled data gaps.
+8,192 x 4,096 sRGB TIFF:
+https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_16bit_srgb_8k.tif
+Original 2,048 x 1,024 preview (moon-color.jpg):
 https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg
-The color product includes adjusted exposure and lower-resolution laser albedo at high latitudes.
 
-The source LOLA elevation grid is 1440 by 720 floating-point samples (4 pixels/degree):
-https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_4.tif
-Heights are kilometers above a reference radius of 1737.4 km. The Blender mesh uses
-true-scale bilinear radial displacement on 144 longitude sectors and 72 latitude
-intervals. A 1024 by 512 tangent-space normal map derived from DEM gradients adds
-finer shading relief. Polar vertices use longitudinally averaged elevations.
+Terrain: Lunar Reconnaissance Orbiter Lunar Orbiter Laser Altimeter (LOLA)
+global cylindrical DEM, 5,760 x 2,880 (16 samples per degree).
+https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_16_uint.tif
+Grid heights in kilometers above 1,737.4 km = (unsigned value - 20,000)/2,000.
 
-Longitude increases eastward. Image top is lunar north. The prime meridian is
-at the center of the equirectangular map. In the exported glTF coordinate frame,
-+Y is north; +Z points to (0 N, 0 E); +X points to (0 N, 90 E).
-The radius of the reference sphere is one scene unit.
+Web derivatives: 512 longitude sectors and 256 latitude intervals. Every vertex
+uses bilinearly resampled source elevation and true radial displacement. Seam
+vertices coincide and pole elevations are averaged per polar row. Local normals
+are east/north/up surface gradients calculated from the native DEM using
+latitude-dependent pixel spacing. The renderer strengthens the tangent slope
+components by 1.75 for readability in relief mode. This fixed display lighting
+is independent of mission date. Uniform lighting instead shows surface albedo.
 
-This is a generalized global visualization. Its resolution cannot characterize a
-landing pad, individual local obstructions, or precise site horizon profiles.
-Photometric adjustments, display lighting and normal shading are illustrative.
+Global imagery and normal previews use 4,096 x 2,048 or 2,048 x 1,024 samples.
+Close-up tiles use the original 8,192-wide color and 5,760-wide elevation-normal
+resolutions. Up to four 45 x 45 degree tiles are retained on the GPU, with two
+source pixels of edge padding. Fine polar image detail is mostly elevation
+shading. Linear detail varies with latitude and sampling; no local hazard or
+engineering measurement is implied by these global products.
+
+Longitude increases east; the image top is lunar north. The prime meridian is
+centered. In the model, +Y is north; +Z points to (0 N, 0 E); +X to (0 N, 90 E).
+The scale bar and click coordinates use the 1,737.4 km reference sphere.

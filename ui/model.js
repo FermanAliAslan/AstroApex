@@ -49,7 +49,11 @@ function buildScenario(site, start, days, terrain) {
 }
 
 // Each hourly sample owns the following half-open one-hour bin.
-function summarizeSamples(site, start, days, terrain, samples) {
+function summarizeSamples(site, start, days, terrain, samples, horizonMode = "manual") {
+  const useTerrain = horizonMode === "dem" && window.lunarHorizon?.has(site);
+  // DEM mode is available only for real azimuths and a matching regional profile.
+  if (horizonMode === "dem" && (!useTerrain || samples.some(sample =>
+    !Number.isFinite(sample.sunAz) || !Number.isFinite(sample.earthAz)))) return null;
   const count = samples.length;
   const intervals = { sun: [], earth: [], overlap: [] };
   let sunHours = 0;
@@ -58,8 +62,10 @@ function summarizeSamples(site, start, days, terrain, samples) {
   let longestDark = 0;
 
   for (const [hour, sample] of samples.entries()) {
-    const sun = sample.sun = sample.sunAngle > terrain;
-    const earth = sample.earth = sample.earthAngle > terrain;
+    sample.sunHorizon = useTerrain ? window.lunarHorizon.angle(site, sample.sunAz) : terrain;
+    sample.earthHorizon = useTerrain ? window.lunarHorizon.angle(site, sample.earthAz) : terrain;
+    const sun = sample.sun = sample.sunAngle > sample.sunHorizon;
+    const earth = sample.earth = sample.earthAngle > sample.earthHorizon;
     const overlap = sample.overlap = sun && earth;
     sunHours += Number(sun);
     overlapHours += Number(overlap);
@@ -82,6 +88,7 @@ function summarizeSamples(site, start, days, terrain, samples) {
     terrain,
     samples,
     intervals,
+    horizonMode: useTerrain ? "dem" : "manual",
     sunHours,
     overlapHours,
     light: Math.round((sunHours * 100) / count),

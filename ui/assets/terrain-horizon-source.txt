@@ -1,0 +1,48 @@
+AstroApex · Yerel arazi ufku / Directional lunar terrain horizons
+
+Elevation source
+NASA Goddard Space Flight Center, Planetary Geodesy Data Archive (PGDA);
+LOLA, Lunar Reconnaissance Orbiter.
+Barker et al. (2023), A New View of the Lunar South Pole from the Lunar
+Orbiter Laser Altimeter, Planetary Science Journal, doi:10.3847/PSJ/acf3e1.
+Product: https://pgda.gsfc.nasa.gov/products/90
+Raster: https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDEM_80S_80MPP_ADJ.TIF
+Original raster SHA-256: 82030dcbdd7c4bb0c7d858e9b4b293b9f2cda5a543ba31ec0f42784bd6beee5a
+80 m per pixel; heights in metres relative to the 1,737,400 m radius sphere.
+Moon mean-Earth (DE421) frame, south polar stereographic, cell-centered samples.
+
+Site centers (planetocentric latitude, east longitude in signed degrees)
+Source: NASA Lunar Surface Data Book, Table A2-2. https://ntrs.nasa.gov/citations/20230007818
+Shackleton Rim: -89.7668, -171.87
+Connecting Ridge: -89.4632, -137.49
+Malapert Massif: -85.9948, -0.23578
+
+Derivation
+At each fixed coordinate, take the bilinear DEM height and add 2 m radially.
+For bearings 0–359.5 degrees (north=0, east=90), trace a spherical great
+circle out to 180 km. Sample the 80 m DEM bilinearly every 5 m up to 2 km,
+then every 40 m. For a sample at angular separation g, surface radius r,
+and observer radius r0, geometric elevation is atan2(r*cos(g)-r0,r*sin(g)).
+The skyline is the maximum along each bearing. Preserve negative skyline
+elevations on ridges. Round to 0.001 degrees for compact storage and interpolate
+between adjacent bearings (including 359.5 to 0) at runtime.
+
+Use and uncertainty
+The Sun or Earth center clears terrain when its elevation exceeds the skyline
+at its own azimuth. Hourly sampling limits transition timing. This is a model
+for a single 2 m observer at each named coordinate; it does not apply across
+the whole region. Features smaller than a DEM cell, angular sampling, terrain
+beyond the 180 km search radius, terrain uncertainty and observing height can
+change the results. Visibility does not model partial disks, solar panel output,
+antenna coverage or link budget. A height of zero relative to the lunar
+reference sphere is used for the printed Horizons comparison references;
+the terrain observer height is relative to actual local ground.
+
+The landing-site picker thumbnails (site-reliefs.png) are shaded-relief views
+of 28 km squares centered on the three sites in the same 80 m LOLA raster.
+Lighting and violet tint are illustrative.
+
+The mission planner's site maps (plan-relief.webp) use local, north-up
+56 km by 28 km shaded-relief crops centered at the same three coordinates.
+Their fixed map lighting illustrates topography. Visibility at the selected
+UTC hour is calculated separately from the ephemeris and active horizon model.

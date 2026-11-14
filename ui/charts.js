@@ -127,24 +127,20 @@
         );
       });
       if (kind === "angles") {
-        shape(svg, "line", {
-          x1: left,
-          x2: right,
-          y1: y(scenario.terrain),
-          y2: y(scenario.terrain),
-          class: "dc-mask",
-        });
+        const dem = scenario.horizonMode === "dem";
+        if (!dem) {
+          shape(svg, "line", {
+            x1: left, x2: right, y1: y(scenario.terrain), y2: y(scenario.terrain), class: "dc-mask"
+          });
+        }
         for (const [key] of series.slice(0, 2)) {
-          const d = scenario.samples
-            .map(
-              (s, i) =>
-                (i ? "L" : "M") +
-                x(i).toFixed(2) +
-                " " +
-                y(s[key + "Angle"]).toFixed(2),
-            )
-            .join(" ");
-          shape(traces, "path", { d, class: "dc-curve dc-" + key });
+          for (const field of dem ? ["Horizon", "Angle"] : ["Angle"]) {
+            const d = scenario.samples.map((sample, i) =>
+              (i ? "L" : "M") + x(i).toFixed(2) + " " + y(sample[key + field]).toFixed(2)
+            ).join(" ");
+            const style = field === "Horizon" ? "dc-terrain-curve" : "dc-curve";
+            shape(traces, "path", { d, class: style + " dc-" + key });
+          }
         }
       } else {
         const d = chart.days
@@ -213,11 +209,13 @@
       chart.width = width;
       const samples = scenario.samples;
       if (chart.kind === "angles") {
+        const dem = scenario.horizonMode === "dem";
+        chart.legend.querySelector(".dc-legend-mask").textContent = dem ? "Noktalı çizgiler: yönsel arazi ufku" : "Arazi eşiği";
         let lo = 0,
-          hi = Math.max(10, scenario.terrain);
+          hi = dem ? 10 : Math.max(10, scenario.terrain);
         for (const sample of samples) {
-          lo = Math.min(lo, sample.sunAngle, sample.earthAngle);
-          hi = Math.max(hi, sample.sunAngle, sample.earthAngle);
+          lo = Math.min(lo, sample.sunAngle, sample.earthAngle, sample.sunHorizon, sample.earthHorizon);
+          hi = Math.max(hi, sample.sunAngle, sample.earthAngle, sample.sunHorizon, sample.earthHorizon);
         }
         chart.min = Math.floor(lo / 10) * 10;
         chart.max = Math.ceil(hi / 10) * 10;

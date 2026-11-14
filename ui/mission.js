@@ -3,8 +3,8 @@
   "use strict";
   const byId = id => document.getElementById(id);
   const all = selector => Array.from(document.querySelectorAll(selector));
-  const routes = ["plan", "windows", "compare", "atlas", "method"];
-  const defaultPlan = {site: "Shackleton Rim", date: "2026-10-18", days: 14, terrain: 6, watts: 500};
+  const routes = ["compare", "plan", "windows", "atlas", "method"];
+  const defaultPlan = {site: "Shackleton Rim", date: "2026-10-18", days: 7, terrain: 6, horizonMode: "manual", watts: 500};
   const siteNames = Object.keys(sites);
   const durations = [7, 14, 21, 28];
   const demoPinKey = "astroapex.console.pin.v1";
@@ -23,9 +23,9 @@
   let scenario = null, pinned = null, loadFailed = false;
   const previousPlans = {};
   let hour = 0, intervalIndex = 0, timer = null;
-  let route = routes.includes(location.hash.slice(1)) ? location.hash.slice(1) : "plan";
+  let route = routes.includes(location.hash.slice(1)) ? location.hash.slice(1) : "compare";
 
-  const controls = new Map(Object.keys(defaultPlan).map(key => [
+  const controls = new Map(Object.keys(defaultPlan).filter(key => key !== "horizonMode").map(key => [
     key, Array.from(new Set([byId(key), ...all('[data-control="' + key + '"]')].filter(Boolean)))
   ]));
   const readouts = new Map();
@@ -50,13 +50,26 @@
     if (!validDate(p.date)) return false;
     return p.dataMode !== "horizons" || horizonsCache.covers(Date.parse(p.date + "T00:00:00Z"), p.days);
   }
-  function availableSites(p) { return p.dataMode === "horizons" ? horizonsCache.names : siteNames; }
+  function isSupportedSite(p, site) {
+    return p.dataMode === "horizons" ? !!horizonsCache.coordinates(site) : siteNames.includes(site);
+  }
+  function availableSites(p) {
+    if (p.dataMode !== "horizons") return siteNames;
+    return horizonsCache.names.includes(p.site) || !horizonsCache.coordinates(p.site)
+      ? horizonsCache.names : [...horizonsCache.names,p.site];
+  }
+  function effectiveMode(p) {
+    return p.horizonMode === "dem" && p.dataMode === "horizons" && window.lunarHorizon?.has(p.site) ? "dem" : "manual";
+  }
   function calculate(p) {
     const ms = Date.parse(p.date + "T00:00:00Z");
-    return p.dataMode === "horizons" ? horizonsCache.calculate(p, ms) : buildScenario(p.site, ms, p.days, p.terrain);
+    if (!isSupportedSite(p,p.site) || !inCoverage(p) || !durations.includes(p.days) ||
+        !Number.isInteger(p.terrain) || p.terrain<0 || p.terrain>20) return null;
+    return p.dataMode === "horizons" ? horizonsCache.calculate({...p,horizonMode:effectiveMode(p)}, ms)
+      : buildScenario(p.site, ms, p.days, p.terrain);
   }
   function validateStored(p) {
-    return p && siteNames.includes(p.site) && validDate(p.date) && durations.includes(p.days)
+    return p && isSupportedSite(p,p.site) && validDate(p.date) && durations.includes(p.days)
       && Number.isInteger(p.terrain) && p.terrain >= 0 && p.terrain <= 20 && validWatts(p.watts);
   }
   function restorePin() {
@@ -64,7 +77,8 @@
     try {
       const saved = JSON.parse(sessionStorage.getItem(pinKey()));
       if (!validateStored(saved) || (saved.dataMode || "demo") !== plan.dataMode ||
-          !availableSites(plan).includes(saved.site) || !inCoverage(saved)) return;
+          !isSupportedSite(plan,saved.site) || !inCoverage(saved)) return;
+      saved.horizonMode = effectiveMode(saved);
       const result = calculate(saved);
       if (result) pinned = {plan:{...saved, dataMode:plan.dataMode}, scenario:result};
     } catch {}
@@ -74,20 +88,32 @@
     const real = plan.dataMode === "horizons";
     if (sourceSelect) sourceSelect.value = plan.dataMode;
     out("sourceLabel", sourceLabel());
-    for (const [type, allowed] of [["site",availableSites(plan)],["days", real ? [7,14] : durations]]) {
+    for (const [type, allowed] of [["site",availableSites(plan)],["days",durations]]) {
       for (const field of controls.get(type)) {
         if (!(field instanceof HTMLSelectElement)) continue;
+        if (type === "site") {
+          for (const option of field.querySelectorAll("option[data-custom-location]"))
+            if (option.value !== plan.site || !real) option.remove();
+          if (real && !horizonsCache.names.includes(plan.site) && horizonsCache.coordinates(plan.site) &&
+              !Array.from(field.options).some(opt => opt.value === plan.site)) {
+            const option = new Option(plan.site, plan.site);
+            option.dataset.customLocation = "true";
+            field.append(option);
+          }
+        }
         for (const opt of field.options) opt.disabled = !allowed.includes(type === "days" ? Number(opt.value) : opt.value);
       }
     }
     for (const date of controls.get("date")) {
-      date.min = real ? "2026-10-18" : "";
+      date.min = real ? new Date(horizonsCache.start).toISOString().slice(0,10) : "";
       date.max = real ? new Date(horizonsCache.end - plan.days*24*hourMs).toISOString().slice(0,10) : "";
     }
     const notice = !real ? "Demo: saatlik temsili saha profilleri kullanılıyor." :
       loadFailed ? "JPL Horizons kayıtları yüklenemedi. Yeniden denemek için demo kaynağına geçip JPL Horizons’ı seçin." :
       !horizonsCache.ready ? "JPL Horizons saatlik kayıtları yükleniyor…" :
-      "JPL Horizons · 18–31 Eki 2026 UTC · NASA bölge merkezleri, 0 km referans yüksekliği. Arazi eşiği kullanıcı varsayımıdır.";
+      "JPL Horizons · 2026–2027 UTC · Saatlik örnekler. " +
+      (effectiveMode(plan) === "dem" ? "Yerel ufuk, LOLA arazi profilinden hesaplanır." :
+       "Tüm yönlerde seçili ufuk açısı kullanılır.");
     tell("sourceNotice",notice);
   }
   function setMode(name) {
@@ -110,7 +136,7 @@
   }
 
   function state(source) {
-    return {plan, scenario, hour, sample: scenario?.samples[hour] || null, pinned, route, intervalIndex, source};
+    return {plan, scenario, hour, sample: scenario?.samples[hour] || null, pinned, route, intervalIndex, source, isPlaying:timer !== null};
   }
   function emit(source) {
     window.dispatchEvent(new CustomEvent("mission:update", {detail: state(source)}));
@@ -128,14 +154,15 @@
       if (key === "watts") field.setAttribute("aria-invalid", String(!validWatts(plan.watts)));
     }
     tell("dateError", !validDate(plan.date) ? "Görevi hesaplamak için geçerli bir başlangıç tarihi seçin." :
-      inCoverage(plan) ? "" : "Görev JPL Horizons kayıtlarının dışına taşıyor. Tarihi veya süreyi değiştirin (18 Ekim–1 Kasım 2026 UTC).");
+      inCoverage(plan) ? "" : "Görev JPL Horizons kayıtlarının dışına taşıyor. Tarihi veya süreyi değiştirin (1 Ocak 2026–31 Aralık 2027 UTC).");
     tell("wattError", validWatts(plan.watts) ? "" : "50 ile 2.000 W arasında bir panel gücü girin.");
   }
   function setPlayback(running) {
+    const wasPlaying = timer !== null;
     if (timer !== null) clearInterval(timer);
     timer = null;
     const button = byId("play");
-    if (running && route === "windows" && scenario) {
+    if (running && (route === "windows" || route === "plan") && scenario && !document.hidden) {
       if (hour === scenario.samples.length - 1) setHour(0, false);
       timer = setInterval(() => {
         setHour(hour + 1, false);
@@ -148,6 +175,10 @@
       button.dataset.playing = String(on);
       const label = button.querySelector("[data-play-label]") || button;
       label.textContent = on ? "Duraklat" : "Başlat";
+    }
+    const playing = timer !== null;
+    if (playing !== wasPlaying) {
+      window.dispatchEvent(new CustomEvent("mission:playback", {detail:{playing}}));
     }
   }
   function instant() {
@@ -181,13 +212,15 @@
     for (const key of Object.keys(defaultPlan)) {
       if (!(key in patch)) continue;
       const raw = patch[key];
-      if (key === "site" && availableSites(plan).includes(raw)) next.site = raw;
+      if (key === "site" && isSupportedSite(next,raw)) next.site = raw;
       if (key === "date") next.date = validDate(raw) ? raw : "";
-      if (key === "days" && (plan.dataMode === "horizons" ? [7,14] : durations).includes(Number(raw))) next.days = Number(raw);
+      if (key === "days" && durations.includes(Number(raw))) next.days = Number(raw);
+      if (key === "horizonMode" && ["dem","manual"].includes(raw)) next.horizonMode=raw;
       if (key === "terrain" && Number.isInteger(Number(raw)) && Number(raw)>=0 && Number(raw)<=20) next.terrain = Number(raw);
       if (key === "watts") next.watts = raw === null || raw === "" || !Number.isFinite(Number(raw)) ? null : Number(raw);
     }
-    const geometryChanged = ["site","date","days","terrain"].some(k => next[k] !== plan[k]);
+    next.horizonMode = effectiveMode(next);
+    const geometryChanged = ["site","date","days","terrain","horizonMode"].some(k => next[k] !== plan[k]);
     const rangeChanged = next.date !== plan.date || next.days !== plan.days;
     plan = next;
     if (geometryChanged) { sourceFields(); setPlayback(false); if (rangeChanged) hour = 0; intervalIndex = 0; }
@@ -245,7 +278,7 @@
     out("windowDetail",(run.end-run.begin) + " saat kesintisiz ortak görüş. " + closing);
   }
   function description(p) {
-    return [validDate(p.date) ? formatDate.format(Date.parse(p.date+"T00:00:00Z")) : dash, p.days+" gün", "Ufuk "+p.terrain+"°"].join(" · ");
+    return [validDate(p.date) ? formatDate.format(Date.parse(p.date+"T00:00:00Z")) : dash, p.days+" gün", effectiveMode(p)==="dem" ? "LOLA yerel ufuk" : "Ufuk "+p.terrain+"°"].join(" · ");
   }
   function compare() {
     all("[data-show]").forEach(el=>{
@@ -262,7 +295,7 @@
       table?.replaceChildren();return;
     }
     const a=pinned.scenario,b=scenario, delta=b.overlapHours-a.overlapHours;
-    const same = ["date","days","terrain","site"].every(key=>pinned.plan[key]===plan[key]);
+    const same = ["date","days","terrain","site","horizonMode"].every(key=>pinned.plan[key]===plan[key]);
     const note = same ? "Planlar aynı. B için sahayı, tarihi, süreyi veya eşiği değiştirin." :
       delta===0 ? "Ortak görünürlük süresi iki planda eşit." :
       "B planında " + Math.abs(delta) + " saat daha " + (delta>0 ? "fazla" : "az") + " ortak görüş var.";
@@ -276,7 +309,7 @@
   }
   function summary() {
     const d=scenario;
-    const values={site:plan.site,date:d?formatDate.format(d.start):dash,days:plan.days,terrain:plan.terrain,
+    const values={site:plan.site,date:d?formatDate.format(d.start):dash,days:plan.days,terrain:effectiveMode(plan)==="dem" ? "LOLA · yerel ufuk" : plan.terrain+"°",
       watts:plan.watts,sunPct:d?.light,earthWindows:d?.windows,overlapHours:d?.overlapHours,longestDark:d?.longestDark,
       energy:d && validWatts(plan.watts) ? formatNumber.format(Math.round(d.sunHours*plan.watts*netEnergyFactor))+" Wh":dash,
       sampleCount:d?.samples.length,sunHours:d?.sunHours};
@@ -301,8 +334,9 @@
     compare();emit("pin");
   }
   function applyRoute(name,focus) {
-    route=routes.includes(name) ? name : "plan";
-    if (route!=="windows") setPlayback(false);
+    const nextRoute=routes.includes(name) ? name : "compare";
+    if (route!==nextRoute) setPlayback(false);
+    route=nextRoute;
     for (const key of routes) { const section=byId(key); if(section) section.hidden=key!==route; }
     document.body.dataset.route=route;
     all("a[data-route],button[data-route]").forEach(link=>{
@@ -349,7 +383,7 @@
     const i=["1","2","3","4","5"].indexOf(e.key);
     if(i>=0)navigate(routes[i]);else if(e.key==="Escape")navigate("plan");
   });
-  window.missionConsole={setPlan,setHour,pin:()=>savePin(false),unpin:()=>savePin(true),navigate,jump,getState:()=>state("read")};
+  window.missionConsole={evaluate:calculate,setPlan,setHour,setPlayback,pin:()=>savePin(false),unpin:()=>savePin(true),navigate,jump,getState:()=>state("read")};
   sourceSelect?.addEventListener("change",()=>setMode(sourceSelect.value));
   setMode(plan.dataMode);applyRoute(route,false);
 })();

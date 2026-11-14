@@ -44,7 +44,11 @@
     animate(indicator, [{transform:"translateX("+ (old.left-nav.getBoundingClientRect().left) +"px) scaleX("+(old.width/end.width)+")"}, {transform:indicator.style.transform}],300);
   }
   function expose(surface) {
-    const nodes = surface.querySelectorAll(":scope > .plan-title, :scope > .s-heading, :scope > .kpi-band, .console-grid > article, .s-stations > section, :scope > .s-panel, .s-atlas > *, :scope > .s-split, .s-method > li");
+    const nodes = surface.querySelectorAll([
+      ":scope > .plan-title", ":scope > .s-heading", ":scope > .kpi-band",
+      ".console-grid > article", ".s-stations > section", ":scope > .s-panel",
+      ".cmp-card", ".cmp-result", ".atlas-viewport", ":scope > .s-split", ".s-method > li"
+    ].join(","));
     nodes.forEach((node, i) => animate(node,[{opacity:.55,transform:"translateY(10px)"},{opacity:1,transform:"none"}],310,Math.min(i,5)*32));
     if (surface.id === "plan") {
       const scanner = surface.querySelector(".terrain-scan");
@@ -57,7 +61,7 @@
       const value = node.textContent;
       readings.set(node,value);
       if (highlight && previous !== undefined && value !== previous) {
-        animate(node,[{opacity:.45,transform:"translateY(4px)",color:"#a6f4ff"},{opacity:1,transform:"translateY(0)"}],300);
+        animate(node,[{opacity:.45,transform:"translateY(4px)",color:"#e4cfff"},{opacity:1,transform:"translateY(0)"}],300);
       }
     }
   }
@@ -85,4 +89,36 @@
   document.fonts?.ready.then(locateNav);
   reduce.addEventListener("change", e => {if(e.matches) stop();});
   document.addEventListener("visibilitychange", () => {if(document.hidden) stop();});
+})();
+
+// Decorative parallax is confined to the page background and responds only to pointer input.
+(() => {
+  const layer = document.createElement('div');
+  layer.className = 'galaxy-parallax';
+  layer.setAttribute('aria-hidden', 'true');
+  document.body.prepend(layer);
+  const enabled = matchMedia('(prefers-reduced-motion:no-preference) and (hover:hover) and (pointer:fine)');
+  let frame = 0, x = 0, y = 0;
+  function render() {
+    frame = 0;
+    layer.style.setProperty('--star-x', x.toFixed(1)+'px');
+    layer.style.setProperty('--star-y', y.toFixed(1)+'px');
+  }
+  function track(event) {
+    if (document.hidden || scrollY >= layer.offsetHeight) return;
+    x = 7 * (2*event.clientX/innerWidth - 1);
+    y = 5 * (2*event.clientY/innerHeight - 1);
+    if (!frame) frame = requestAnimationFrame(render);
+  }
+  function configure() {
+    if (enabled.matches) window.addEventListener('pointermove', track, {passive:true});
+    else {
+      window.removeEventListener('pointermove', track);
+      cancelAnimationFrame(frame);
+      x = y = 0;
+      render();
+    }
+  }
+  enabled.addEventListener('change', configure);
+  configure();
 })();
