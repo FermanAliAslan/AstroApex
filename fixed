@@ -1,0 +1,1453 @@
+diff --git a/.gitignore b/.gitignore
+index 063407a..13c94e9 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,4 +1,5 @@
+ MissionPlanner
++src/build/
+ cspice_test
+ *.o
+ *.out
+diff --git a/README.md b/README.md
+index f1c4125..0bc532a 100644
+--- a/README.md
++++ b/README.md
+@@ -80,7 +80,7 @@ Beklenen örnek çıktı:
+ 
+ ```text
+ [3B SPICE UNIVERSE] 13 Gok Cismi | Yörünge Hızı: 1.629 km/s | ...
+-[C11 SUPER-CORE] Connecting Ridge (-89.45, -137.50) | ... | Karar: CAUTION (69/100)
++[C11 SUPER-CORE] Connecting Ridge (-89.46, -137.49) | ... | Karar: <GO|CAUTION|NO-GO> (<skor>/100)
+ ```
+ 
+ ### HTTP sunucusu
+@@ -145,6 +145,31 @@ güncellenir. Bu farkı frontend'te fizik yazarak kapatmayın.
+ - `data/output.json`, `data/3b_scene.json`, `data/3b_scene.js` **üretilen** dosyalardır.
+   Elle düzenlenmez; `./build/lunar_sim --once` ile yeniden üretilir.
+ 
++## Veri Kaynakları ve Doğruluk
++
++Çıktıdaki her sayının nereden geldiği JSON içinde açıkça işaretlenir; sunumda bunları olduğu gibi aktarın.
++
++| Konu | Kaynak | JSON işareti |
++|---|---|---|
++| Güneş/Dünya konumu (CSPICE kuruluysa) | NASA NAIF CSPICE, `de440s.bsp` + `pck00010.tpc`, `IAU_MOON` çerçevesi, `LT+S` | `meta.ephemeris_source = "CSPICE_DE440S_IAU_MOON"` |
++| Güneş/Dünya konumu (CSPICE yoksa) | Meeus *Astronomical Algorithms* analitik serisi; tarihe bağlıdır, JPL Horizons ile doğrulanmış değerlerden sapma ~0,03° | `meta.ephemeris_source = "ANALYTIC_MEEUS_FALLBACK"` |
++| Ufuk maskesi: Shackleton Rim, Connecting Ridge, Malapert Massif merkezleri | Gerçek LOLA 80 m DEM ufuk profili (Barker ve ark. 2023, NASA GSFC PGDA ürün 90), `src/lola_horizons.h` | `meta.dem_info.horizon_source = "LOLA_80M_SKYLINE"` |
++| Ufuk maskesi: diğer tüm noktalar | **Sentetik** analitik arazi (gerçek DEM değildir) | `meta.dem_info.horizon_source = "SYNTHETIC_ANALYTIC"` |
++| Eğim, rover rotası, "buz" hedefi | Her zaman **sentetik** arazi | `meta.dem_info.terrain_is_synthetic = true` |
++| Sıcaklık, buz olasılığı, batarya (SoC) | Basitleştirilmiş sezgisel formüller; ölçüm veya doğrulanmış model değildir | — |
++| 3B iniş yörüngesi | Kütle/yakıt modeli olmayan kinematik görselleştirme; `touchdown_speed_ms` tasarım hedefidir | `touchdown_report.guidance_model` |
++
++Açılar toposentriktir (yüzeydeki gözlemciden); Dünya için Ay yarıçapı kaynaklı ~0,27° paralaks hesaba katılır.
++Saha merkezleri NASA Lunar Surface Data Book Tablo A2-2 (NTRS 20230007818) değerleridir.
++
++### CSPICE kurulumu
++
++`cspice/` klasörü depoda yoktur (`.gitignore`). Gerçek SPICE efemerisi için NAIF'in CSPICE paketini
++<https://naif.jpl.nasa.gov/naif/toolkit_C.html> adresinden indirip depo köküne `cspice/` olarak açın
++(`cspice/include/SpiceUsr.h` ve `cspice/lib/cspice.a` bulunmalı), sonra `make clean && make` çalıştırın.
++Kernel'ler `data/kernels/` klasöründen otomatik yüklenir. CSPICE yoksa motor yine çalışır, ancak analitik
++yedeğe düşer ve bunu `ephemeris_source` alanında bildirir.
++
+ ## Frontend Kuralları
+ 
+ 1. **Fizik yazma.** Yörünge, Güneş/Dünya açısı, gölge, ufuk, sıcaklık, iniş veya skor hesabı
+diff --git a/lua/main.lua b/lua/main.lua
+index 07fb8ea..e5c322c 100644
+--- a/lua/main.lua
++++ b/lua/main.lua
+@@ -1,68 +1,75 @@
+--- Lua SIRALAMA / SKORLAMA KATMANI — SADECE BACKEND
+--- Girdi: C11 fizik çıktısı. Çıktı: sıralama/yardımcı JSON (data/artemis_ranking.json).
++-- Lua SIRALAMA KATMANI — SADECE BACKEND
++-- Girdi: C11 fizik çıktısı (data/output.json içindeki "site_comparison").
++-- Çıktı: skora göre sıralanmış liste (data/artemis_ranking.json).
++--
++-- Bu katman fizik HESAPLAMAZ ve değer UYDURMAZ: yalnızca C çekirdeğinin ürettiği aday saha
++-- sonuçlarını okur ve sıralar. (Eski sürüm C çıktısını okumadan cos(boylam) ile sayı üretiyordu.)
+ -- KURAL: UI'da gösterilecek diye burada yeni fizik veya yeni JSON alanı uydurma.
+ -- Sözleşme: AGENTS.md, docs/FRONTEND_GUIDE.md.
+ local M = {}
+ 
+-local ARTEMIS_CANDIDATES = {
+-    { name = "Haworth",          lat = -87.45, lon =   -5.17 },
+-    { name = "Malapert Massif",  lat = -86.00, lon =    0.00 },
+-    { name = "Nobile Rim 1",     lat = -85.20, lon =   53.50 },
+-    { name = "Connecting Ridge", lat = -89.45, lon = -137.50 },
+-    { name = "Shackleton Rim",   lat = -89.90, lon =    0.00 },
+-    { name = "De Gerlache Rim",  lat = -88.50, lon =  -88.30 },
+-}
++local OUTPUT_PATH = "data/output.json"
++local RANKING_PATH = "data/artemis_ranking.json"
+ 
+-local function clamp(v, lo, hi)
+-    if v < lo then return lo end
+-    if v > hi then return hi end
+-    return v
++local function read_file(path)
++    local f = io.open(path, "r")
++    if not f then return nil end
++    local text = f:read("a")
++    f:close()
++    return text
+ end
+ 
+-function M.evaluate_site_lua(site)
+-    local lat_r = math.rad(site.lat)
+-    local lon_r = math.rad(site.lon)
+-    local alt_m = 1120.0 * math.sin(3.0 * lat_r) * math.cos(2.0 * lon_r)
+-                +  790.0 * math.cos(5.0 * lat_r + 0.4) * math.sin(4.0 * lon_r)
+-    local is_psr = (site.name:find("PSR") ~= nil) or (alt_m < -1500.0)
+-    local sun_pct = is_psr and 11.4 or clamp(64.0 + 14.0 * math.cos(lon_r), 38.0, 88.0)
+-    local dte_pct = clamp(68.0 + 18.0 * math.cos(lon_r), 25.0, 92.0)
+-    local slope_deg = is_psr and 5.2 or 4.6
+-    local dark_h = is_psr and 294.0 or 64.0
+-    local score = math.floor(clamp(sun_pct * 0.45 + dte_pct * 0.30 - slope_deg * 1.8 + 22.0, 0, 100))
+-    local verdict = (dark_h > 120.0) and "NO-GO" or ((dte_pct < 35.0) and "CAUTION" or "GO")
++-- data/output.json içindeki site_comparison dizisini okur. Her eleman düz (iç içe olmayan) bir
++-- nesnedir; bu yüzden tam bir JSON ayrıştırıcıya gerek yoktur.
++function M.load_candidates()
++    local text = read_file(OUTPUT_PATH)
++    if not text then return {} end
++    local block = text:match('"site_comparison"%s*:%s*%[(.-)%]')
++    if not block then return {} end
+ 
+-    return {
+-        site_name = site.name,
+-        lat = site.lat,
+-        lon = site.lon,
+-        altitude_m = math.floor(alt_m),
+-        sun_pct = tonumber(string.format("%.1f", sun_pct)),
+-        dte_pct = tonumber(string.format("%.1f", dte_pct)),
+-        slope_deg = slope_deg,
+-        longest_dark_hours = dark_h,
+-        score = score,
+-        verdict = verdict
+-    }
++    local results = {}
++    for obj in block:gmatch("{(.-)}") do
++        local function num(key)
++            return tonumber(obj:match('"' .. key .. '"%s*:%s*([%-%d%.]+)'))
++        end
++        local function str(key)
++            return obj:match('"' .. key .. '"%s*:%s*"([^"]*)"')
++        end
++        local name = str("site_name")
++        if name then
++            results[#results + 1] = {
++                site_name = name,
++                lat = num("latitude_deg") or 0.0,
++                lon = num("longitude_deg") or 0.0,
++                sun_pct = num("illumination_percent") or 0.0,
++                dte_pct = num("earth_visibility_percent") or 0.0,
++                slope_deg = num("slope_deg") or 0.0,
++                longest_dark_hours = num("longest_dark_hours") or 0.0,
++                score = math.floor(num("mission_score") or 0),
++                verdict = str("verdict") or "CAUTION"
++            }
++        end
++    end
++    return results
+ end
+ 
+ function M.rank_all_candidates()
+-    local results = {}
+-    for _, c in ipairs(ARTEMIS_CANDIDATES) do
+-        results[#results + 1] = M.evaluate_site_lua(c)
+-    end
+-    table.sort(results, function(a, b) return a.score > b.score end)
++    local results = M.load_candidates()
++    table.sort(results, function(a, b)
++        if a.score ~= b.score then return a.score > b.score end
++        return a.site_name < b.site_name
++    end)
+     return results
+ end
+ 
+ function M.build_comparison_json()
+     local ranked = M.rank_all_candidates()
+-    local lines = { "{\n  \"artemis_ranking\": [" }
++    local lines = { "{\n  \"source\": \"data/output.json site_comparison (C11 core)\",\n  \"artemis_ranking\": [" }
+     for i, r in ipairs(ranked) do
+         local comma = (i < #ranked) and "," or ""
+         lines[#lines + 1] = string.format(
+-            "    { \"rank\": %d, \"site_name\": \"%s\", \"lat\": %.2f, \"lon\": %.2f, \"sun_pct\": %.1f, \"dte_pct\": %.1f, \"slope_deg\": %.1f, \"score\": %d, \"verdict\": \"%s\" }%s",
+-            i, r.site_name, r.lat, r.lon, r.sun_pct, r.dte_pct, r.slope_deg, r.score, r.verdict, comma
++            "    { \"rank\": %d, \"site_name\": \"%s\", \"lat\": %.4f, \"lon\": %.4f, \"sun_pct\": %.1f, \"dte_pct\": %.1f, \"slope_deg\": %.1f, \"longest_dark_hours\": %.1f, \"score\": %d, \"verdict\": \"%s\" }%s",
++            i, r.site_name, r.lat, r.lon, r.sun_pct, r.dte_pct, r.slope_deg, r.longest_dark_hours, r.score, r.verdict, comma
+         )
+     end
+     lines[#lines + 1] = "  ]\n}"
+@@ -71,10 +78,10 @@ end
+ 
+ os.execute("mkdir -p data")
+ local json_str = M.build_comparison_json()
+-local f = io.open("data/artemis_ranking.json", "w")
++local f = io.open(RANKING_PATH, "w")
+ if f then
+     f:write(json_str)
+     f:close()
+ end
+ 
+-return M
+\ No newline at end of file
++return M
+diff --git a/src/3b_moon.c b/src/3b_moon.c
+index e7310d8..ebbf5d4 100644
+--- a/src/3b_moon.c
++++ b/src/3b_moon.c
+@@ -135,25 +135,6 @@ static double utc_to_days_since_j2000(const char *utc) {
+     return jd - 2451545.0;
+ }
+ 
+-#if HAS_NAIF_CSPICE
+-static void utc_to_et_safe_3b(const char *utc, double *out_et) {
+-    SpiceBoolean has_lsk = SPICEFALSE;
+-    SpiceInt n = 0;
+-    SpiceChar dtype[4];
+-    dtpool_c("DELTET/DELTA_AT", &has_lsk, &n, dtype);
+-    if (failed_c()) {
+-        reset_c();
+-        has_lsk = SPICEFALSE;
+-    }
+-    if (has_lsk && utc && utc[0] != '\0') {
+-        str2et_c(utc, out_et);
+-        if (!failed_c()) return;
+-        reset_c();
+-    }
+-    *out_et = utc_to_days_since_j2000(utc) * 86400.0 + 69.184;
+-}
+-#endif
+-
+ static void eval_kepler_rel_km(double a_km, double ecc, double inc_deg, double mean_anom_deg, double out_xyz[3]) {
+     double M = d2r(mean_anom_deg);
+     double E = M;
+@@ -235,27 +216,16 @@ static void populate_spice_universe(const char *utc, Moon3BScene *out) {
+         -moon_rel_earth[2]
+     };
+ 
+-#if HAS_NAIF_CSPICE
+-    erract_c("SET", 0, "RETURN");
+-    double et = 0.0;
+-    utc_to_et_safe_3b(utc, &et);
+-    SpiceInt kcount = 0;
+-    ktotal_c("SPK", &kcount);
+-    if (kcount > 0 && !failed_c()) {
+-        double lt = 0.0, sp[3], ep[3];
+-        spkpos_c("SUN", et, "J2000", "LT+S", "MOON", sp, &lt);
+-        if (!failed_c()) memcpy(sun_from_moon, sp, sizeof(sp)); else reset_c();
+-        spkpos_c("EARTH", et, "J2000", "LT+S", "MOON", ep, &lt);
+-        if (!failed_c()) memcpy(earth_from_moon, ep, sizeof(ep)); else reset_c();
+-    } else {
+-        reset_c();
+-    }
+-#endif
++    /* Gunes/Dunya vektorleri Ay'a sabit (govde) cercevede alinir: saha enlem/boylamlari ve uzay
++       araci konumu da bu cercevededir. Eskiden J2000 kullaniliyordu; bu, alt-nokta boylamlarini ve
++       saha yukseklik acilarini yanlis yapiyordu. Kernel yoksa tarihe bagli analitik seriye duser. */
++    double et = lunar_utc_to_et(utc);
++    bool from_spice = lunar_moonfixed_sun_earth_km(et, sun_from_moon, earth_from_moon);
+ 
+     double zero_v[3] = {0.0, 0.0, 0.0};
+-    add_spice_body(out, 10,  "Sun",   "STAR",   "NONE",  false, sun_from_moon,   out->sun_helio_km,   R_SUN_KM,   0.0,             0.0,    0.0,   0.0,         0.0,       0.0,            "#fbbf24");
+-    add_spice_body(out, 399, "Earth", "PLANET", "SUN",   false, earth_from_moon, out->earth_helio_km, R_EARTH_KM, AU_KM,           0.0167, 0.0,   earth_phase, 365.25636, MU_SUN_KM3_S2,  "#3b82f6");
+-    add_spice_body(out, 301, "Moon",  "MOON",   "EARTH", false, zero_v,          out->moon_helio_km,  R_MOON_KM,  DIST_EARTH_MOON, 0.0549, 5.145, moon_phase,  27.321661, MU_EARTH_KM3_S2,"#cbd5e1");
++    add_spice_body(out, 10,  "Sun",   "STAR",   "NONE",  from_spice, sun_from_moon,   out->sun_helio_km,   R_SUN_KM,   0.0,             0.0,    0.0,   0.0,         0.0,       0.0,            "#fbbf24");
++    add_spice_body(out, 399, "Earth", "PLANET", "SUN",   from_spice, earth_from_moon, out->earth_helio_km, R_EARTH_KM, AU_KM,           0.0167, 0.0,   earth_phase, 365.25636, MU_SUN_KM3_S2,  "#3b82f6");
++    add_spice_body(out, 301, "Moon",  "MOON",   "EARTH", from_spice, zero_v,          out->moon_helio_km,  R_MOON_KM,  DIST_EARTH_MOON, 0.0549, 5.145, moon_phase,  27.321661, MU_EARTH_KM3_S2,"#cbd5e1");
+ 
+     memcpy(out->sun_vec, sun_from_moon, sizeof(out->sun_vec));
+     vec_normalize(out->sun_vec);
+@@ -378,7 +348,19 @@ static void rk4_free_orbit_step(
+     }
+ }
+ 
+-static void fill_site_physics(LunarSite3B *site, const double sun_vec[3], const double earth_vec[3]) {
++/* Yuzeydeki gozlemciden (toposentrik) cismin ufuk ustu yuksekligi; up birim vektor, body_km Ay merkezli. */
++static double topo_elevation_deg(const double up[3], const double body_km[3]) {
++    double v[3] = {
++        body_km[0] - R_MOON_KM * up[0],
++        body_km[1] - R_MOON_KM * up[1],
++        body_km[2] - R_MOON_KM * up[2]
++    };
++    double len = vec_len(v);
++    if (len < 1e-9) return 0.0;
++    return r2d(asin(clamp3b(vec_dot(v, up) / len, -1.0, 1.0)));
++}
++
++static void fill_site_physics(LunarSite3B *site, const double sun_km[3], const double earth_km[3]) {
+     site->altitude_m = sample_lola_elevation_m(site->lat_deg, site->lon_deg);
+     double h_n = sample_lola_elevation_m(clamp3b(site->lat_deg + 0.03, -90.0, 90.0), site->lon_deg);
+     double h_s = sample_lola_elevation_m(clamp3b(site->lat_deg - 0.03, -90.0, 90.0), site->lon_deg);
+@@ -387,8 +369,8 @@ static void fill_site_physics(LunarSite3B *site, const double sun_vec[3], const
+ 
+     double up[3];
+     latlon_alt_to_xyz(site->lat_deg, site->lon_deg, 1.0, up);
+-    site->sun_el_deg = r2d(asin(clamp3b(vec_dot(up, sun_vec), -1.0, 1.0)));
+-    site->earth_el_deg = r2d(asin(clamp3b(vec_dot(up, earth_vec), -1.0, 1.0)));
++    site->sun_el_deg = topo_elevation_deg(up, sun_km);
++    site->earth_el_deg = topo_elevation_deg(up, earth_km);
+ }
+ 
+ void compute_3b_moon_scene(
+@@ -427,9 +409,9 @@ void compute_3b_moon_scene(
+     populate_spice_universe(out->active_utc, out);
+ 
+     static const struct { const char *name; double lat, lon; } PRESETS[] = {
+-        {"Shackleton Rim",        -89.90,    0.00},
+-        {"Connecting Ridge",      -89.45, -137.50},
+-        {"Malapert Massif",       -86.00,    0.00},
++        {"Shackleton Rim",        -89.7668, -171.87},
++        {"Connecting Ridge",      -89.4632, -137.49},
++        {"Malapert Massif",       -85.9948,   -0.23578},
+         {"Haworth",               -87.45,   -5.17},
+         {"Nobile Rim 1",          -85.20,   53.50},
+         {"De Gerlache Rim",       -88.50,  -88.30},
+@@ -442,7 +424,7 @@ void compute_3b_moon_scene(
+         out->sites[i].lat_deg = PRESETS[i].lat;
+         out->sites[i].lon_deg = PRESETS[i].lon;
+         out->sites[i].is_custom = false;
+-        fill_site_physics(&out->sites[i], out->sun_vec, out->earth_vec);
++        fill_site_physics(&out->sites[i], out->bodies[0].pos_moon_km, out->bodies[1].pos_moon_km);
+     }
+ 
+     snprintf(out->selected_site.name, sizeof(out->selected_site.name), "%s",
+@@ -450,7 +432,7 @@ void compute_3b_moon_scene(
+     out->selected_site.lat_deg = clamp3b(target_lat, -90.0, 90.0);
+     out->selected_site.lon_deg = target_lon;
+     out->selected_site.is_custom = target_is_custom;
+-    fill_site_physics(&out->selected_site, out->sun_vec, out->earth_vec);
++    fill_site_physics(&out->selected_site, out->bodies[0].pos_moon_km, out->bodies[1].pos_moon_km);
+ 
+     if (target_is_custom && out->site_count < MOON3B_MAX_SITES) {
+         out->sites[out->site_count++] = out->selected_site;
+@@ -491,16 +473,11 @@ void compute_3b_moon_scene(
+     vec_cross(orbit_normal, start_pos, start_tangent);
+     vec_normalize(start_tangent);
+ 
+-    double earth_moon_km[3] = {
+-        out->earth_helio_km[0] - out->moon_helio_km[0],
+-        out->earth_helio_km[1] - out->moon_helio_km[1],
+-        out->earth_helio_km[2] - out->moon_helio_km[2]
+-    };
+-    double sun_moon_km[3] = {
+-        -out->moon_helio_km[0],
+-        -out->moon_helio_km[1],
+-        -out->moon_helio_km[2]
+-    };
++    /* Ucuncu cisim pertürbasyonu icin Dunya ve Gunes konumu: uzay araci ile ayni (Ay'a sabit) cercevede.
++       bodies[0] = Gunes, bodies[1] = Dunya (populate_spice_universe ekleme sirasi). */
++    double earth_moon_km[3], sun_moon_km[3];
++    memcpy(sun_moon_km, out->bodies[0].pos_moon_km, sizeof(sun_moon_km));
++    memcpy(earth_moon_km, out->bodies[1].pos_moon_km, sizeof(earth_moon_km));
+ 
+     // Serbest yörünge ilerlemesi: Ateşleme anına (t_orbit = sim_elapsed_sec - burn_elapsed_sec) kadar RK4 yörünge integrasyonu
+     double orbit_prop_sec = (out->mission_mode == MISSION_MODE_ORBIT)
+@@ -644,6 +621,13 @@ void compute_3b_moon_scene(
+         }
+     }
+ 
++    /* Entegrasyonun gercek son durumu: hedefe kalan mesafe ve sifirlanmamis hiz. Gudum yasasi yalnizca
++       konumu hedefler; kalan hizi sifirlamak icin gereken frenleme de delta-v butcesine eklenir. */
++    double miss_vec[3] = {pos[0] - target_xyz[0], pos[1] - target_xyz[1], pos[2] - target_xyz[2]};
++    double guidance_miss_m = vec_len(miss_vec) * 1000.0;
++    total_dv_km_s += vec_len(vel);
++
++    /* Gorsellestirme icin son nokta hedefe sabitlenir (asagidaki rapor hesaplanan sapmayi verir). */
+     memcpy(out->trajectory[MOON3B_TRAJ_POINTS - 1].pos_km, target_xyz, sizeof(target_xyz));
+     out->trajectory[MOON3B_TRAJ_POINTS - 1].altitude_km = 0.0;
+     out->trajectory[MOON3B_TRAJ_POINTS - 1].speed_kms = 0.0012;
+@@ -720,8 +704,8 @@ void compute_3b_moon_scene(
+         }
+ 
+         double micro_rad = (double)off * 2.66e-6;
+-        double s_el = r2d(asin(clamp3b(vec_dot(site_up, landing_env.sun_vec), -1.0, 1.0))) + r2d(micro_rad) * 0.1;
+-        double e_el = r2d(asin(clamp3b(vec_dot(site_up, landing_env.earth_vec), -1.0, 1.0))) - r2d(micro_rad) * 0.05;
++        double s_el = topo_elevation_deg(site_up, landing_env.bodies[0].pos_moon_km) + r2d(micro_rad) * 0.1;
++        double e_el = topo_elevation_deg(site_up, landing_env.bodies[1].pos_moon_km) - r2d(micro_rad) * 0.05;
+ 
+         ls->sun_el_deg = s_el;
+         ls->earth_el_deg = e_el;
+@@ -737,8 +721,8 @@ void compute_3b_moon_scene(
+     snprintf(rep->status_label, sizeof(rep->status_label), "BAŞARILI YUMUŞAK İNİŞ");
+     snprintf(rep->touchdown_utc, sizeof(rep->touchdown_utc), "%s", out->landing_utc);
+     rep->flight_duration_sec = sc->transfer_time_sec;
+-    rep->miss_distance_m = 2.1 + sc->alignment_error_deg * 0.35;
+-    rep->touchdown_speed_ms = 1.20;
++    rep->miss_distance_m = guidance_miss_m;   /* entegrasyondan hesaplanan, sabitleme oncesi sapma */
++    rep->touchdown_speed_ms = 1.20;           /* TASARIM HEDEFI: simule edilmis bir deger degildir */
+     rep->total_dv_used_ms = total_dv_km_s * 1000.0;
+     rep->sun_illumination_pct = td->sun_illumination_pct;
+     rep->earth_el_deg = td->earth_el_deg;
+@@ -871,7 +855,7 @@ static void write_3b_payload(FILE *fp, const Moon3BScene *s) {
+     fprintf(fp, "    \"success\": %s, \"status_label\": ", rep->success ? "true" : "false");
+     write_esc(fp, rep->status_label);
+     fprintf(fp, ", \"touchdown_utc\": "); write_esc(fp, rep->touchdown_utc);
+-    fprintf(fp, ", \"flight_duration_sec\": %.1f, \"miss_distance_m\": %.2f, \"touchdown_speed_ms\": %.2f, \"total_dv_used_ms\": %.1f, \"sun_illumination_pct\": %.1f, \"earth_el_deg\": %.2f, \"dte_connected\": %s, \"surface_temp_k\": %.1f, \"mission_score\": %d\n",
++    fprintf(fp, ", \"flight_duration_sec\": %.1f, \"miss_distance_m\": %.2f, \"touchdown_speed_ms\": %.2f, \"total_dv_used_ms\": %.1f, \"sun_illumination_pct\": %.1f, \"earth_el_deg\": %.2f, \"dte_connected\": %s, \"surface_temp_k\": %.1f, \"mission_score\": %d, \"guidance_model\": \"KINEMATIC_VISUALISATION_NO_MASS_MODEL\"\n",
+             rep->flight_duration_sec, rep->miss_distance_m, rep->touchdown_speed_ms,
+             rep->total_dv_used_ms, rep->sun_illumination_pct, rep->earth_el_deg,
+             rep->dte_connected ? "true" : "false", rep->surface_temp_k, rep->mission_score);
+diff --git a/src/build/Debug/outDebug b/src/build/Debug/outDebug
+deleted file mode 100755
+index e7cd1645e5c30d4cdf39e4c2ec42c47c0a745a13..0000000000000000000000000000000000000000
+GIT binary patch
+literal 0
+HcmV?d00001
+
+literal 45240
+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
+
+diff --git a/src/cspice_math.c b/src/cspice_math.c
+index 791376a..f241134 100644
+--- a/src/cspice_math.c
++++ b/src/cspice_math.c
+@@ -11,6 +11,7 @@
+  * Ayrıntı: AGENTS.md ve docs/FRONTEND_GUIDE.md.
+  */
+ #include "cspice_math.h"
++#include "lola_horizons.h"
+ #include <dirent.h>
+ #include <math.h>
+ #include <stdio.h>
+@@ -75,22 +76,31 @@ static int autoload_kernels_dir(const char *dir_path, int depth) {
+     return loaded;
+ }
+ 
+-static void spice_utc_to_et_safe(const char *utc, double *out_et) {
+-    SpiceBoolean has_lsk = SPICEFALSE;
+-    SpiceInt n = 0;
+-    SpiceChar dtype[4];
+-    dtpool_c("DELTET/DELTA_AT", &has_lsk, &n, dtype);
+-    if (failed_c()) {
+-        reset_c();
+-        has_lsk = SPICEFALSE;
+-    }
++#endif
+ 
+-    if (has_lsk && utc && utc[0] != '\0') {
+-        str2et_c(utc, out_et);
+-        if (!failed_c()) return;
+-        reset_c();
+-    }
++static bool g_ephem_from_spice = false;
+ 
++/* UTC (ISO-8601) -> J2000'den itibaren ET/TDB saniyesi. Leapsecond kernel'i yukluyse SPICE,
++   degilse takvim donusumu (TT - UTC = 69.184 s, 2017'den beri gecerli) kullanilir. */
++double lunar_utc_to_et(const char *utc) {
++#if HAS_NAIF_CSPICE
++    if (g_spice_loaded && utc && utc[0] != '\0') {
++        SpiceBoolean has_lsk = SPICEFALSE;
++        SpiceInt n = 0;
++        SpiceChar dtype[4];
++        dtpool_c("DELTET/DELTA_AT", &has_lsk, &n, dtype);
++        if (failed_c()) {
++            reset_c();
++            has_lsk = SPICEFALSE;
++        }
++        if (has_lsk) {
++            double et = 0.0;
++            str2et_c(utc, &et);
++            if (!failed_c()) return et;
++            reset_c();
++        }
++    }
++#endif
+     int y = 2026, mo = 10, d = 29, h = 14, mi = 30, s = 0;
+     if (utc) sscanf(utc, "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &h, &mi, &s);
+     int a = (14 - mo) / 12;
+@@ -98,9 +108,8 @@ static void spice_utc_to_et_safe(const char *utc, double *out_et) {
+     int m2 = mo + 12 * a - 3;
+     long jdn = d + (153 * m2 + 2) / 5 + 365L * y2 + y2 / 4 - y2 / 100 + y2 / 400 - 32045;
+     double jd = (double)jdn + (h - 12.0) / 24.0 + mi / 1440.0 + s / 86400.0;
+-    *out_et = (jd - 2451545.0) * 86400.0 + 69.184;
++    return (jd - 2451545.0) * 86400.0 + 69.184;
+ }
+-#endif
+ 
+ static inline double clamp_d(double v, double lo, double hi) {
+     if (!isfinite(v)) return lo;
+@@ -110,6 +119,127 @@ static inline double clamp_d(double v, double lo, double hi) {
+ static inline double deg2rad(double d) { return d * (M_PI / 180.0); }
+ static inline double rad2deg(double r) { return r * (180.0 / M_PI); }
+ 
++/* ---- Analitik yedek efemeris (CSPICE yoksa) -------------------------------------------------
++   Meeus, "Astronomical Algorithms" 2. baski: Bolum 25 (Gunes), 47 (Ay, ana terimler) ve
++   53 (optik librasyon / selenografik alt-Gunes noktasi). Fiziksel librasyon ihmal edilir.
++   JPL Horizons ile dogrulanmis degerlerden sapma ~0.03 derece mertebesindedir. */
++typedef struct { signed char d, m, mp, f; double c; } MoonTerm;
++
++static const MoonTerm MOON_LON_TERMS[] = {
++    {0, 0, 1, 0, 6.288774}, {2, 0, -1, 0, 1.274027}, {2, 0, 0, 0, 0.658314}, {0, 0, 2, 0, 0.213618},
++    {0, 1, 0, 0, -0.185116}, {0, 0, 0, 2, -0.114332}, {2, 0, -2, 0, 0.058793}, {2, -1, -1, 0, 0.057066},
++    {2, 0, 1, 0, 0.053322}, {2, -1, 0, 0, 0.045758}, {0, 1, -1, 0, -0.040923}, {1, 0, 0, 0, -0.034720},
++    {0, 1, 1, 0, -0.030383}, {2, 0, 0, -2, 0.015327}, {0, 0, 1, 2, -0.012528}, {0, 0, 1, -2, 0.010980},
++    {4, 0, -1, 0, 0.010675}, {0, 0, 3, 0, 0.010034}, {4, 0, -2, 0, 0.008548}, {2, 1, -1, 0, -0.007888},
++    {2, 1, 0, 0, -0.006766}, {1, 0, -1, 0, -0.005163}, {1, 1, 0, 0, 0.004987}, {2, -1, 1, 0, 0.004036},
++    {2, 0, 2, 0, 0.003994}
++};
++static const MoonTerm MOON_LAT_TERMS[] = {
++    {0, 0, 0, 1, 5.128122}, {0, 0, 1, 1, 0.280602}, {0, 0, 1, -1, 0.277693}, {2, 0, 0, -1, 0.173237},
++    {2, 0, -1, 1, 0.055413}, {2, 0, -1, -1, 0.046271}, {2, 0, 0, 1, 0.032573}, {0, 0, 2, 1, 0.017198},
++    {2, 0, 1, -1, 0.009266}, {0, 0, 2, -1, 0.008822}, {2, -1, 0, -1, 0.008216}, {2, 0, -2, -1, 0.004324},
++    {2, 0, 1, 1, 0.004200}
++};
++static const MoonTerm MOON_DIST_TERMS[] = {
++    {0, 0, 1, 0, -20905.355}, {2, 0, -1, 0, -3699.111}, {2, 0, 0, 0, -2955.968}, {0, 0, 2, 0, -569.925},
++    {0, 1, 0, 0, 48.888}, {0, 0, 0, 2, -3.149}, {2, 0, -2, 0, 246.158}, {2, -1, -1, 0, -152.138},
++    {2, 0, 1, 0, -170.733}, {2, -1, 0, 0, -204.586}, {0, 1, -1, 0, -129.620}, {1, 0, 0, 0, 108.743},
++    {0, 1, 1, 0, 104.755}
++};
++
++static double moon_series(const MoonTerm *t, int n, double D, double M, double Mp, double F, double E, bool use_cos) {
++    double sum = 0.0;
++    for (int i = 0; i < n; i++) {
++        double arg = deg2rad(t[i].d * D + t[i].m * M + t[i].mp * Mp + t[i].f * F);
++        double c = t[i].c * (t[i].m != 0 ? E : 1.0);
++        sum += c * (use_cos ? cos(arg) : sin(arg));
++    }
++    return sum;
++}
++
++/* Ekliptik boylam/enlem (derece) -> selenografik boylam/enlem (radyan). */
++static void optical_libration(double lam_deg, double bet_deg, double node_deg, double F_deg, double *l_rad, double *b_rad) {
++    const double I = deg2rad(1.54242);
++    double W = deg2rad(lam_deg - node_deg);
++    double b = deg2rad(bet_deg);
++    double A = atan2(sin(W) * cos(b) * cos(I) - sin(b) * sin(I), cos(W) * cos(b));
++    *l_rad = A - deg2rad(F_deg);
++    *b_rad = asin(clamp_d(-sin(W) * cos(b) * sin(I) - sin(b) * cos(I), -1.0, 1.0));
++}
++
++static void analytic_moonfixed_km(double et, double sun_km[3], double earth_km[3]) {
++    double T = et / (36525.0 * 86400.0);
++    double Lp = 218.3164477 + 481267.88123421 * T;
++    double D  = 297.8501921 + 445267.1114034 * T;
++    double M  = 357.5291092 + 35999.0502909 * T;
++    double Mp = 134.9633964 + 477198.8675055 * T;
++    double F  = 93.2720950 + 483202.0175233 * T;
++    double Om = 125.0445479 - 1934.1362891 * T;
++    double E  = 1.0 - 0.002516 * T;
++
++    int n_lon = (int)(sizeof(MOON_LON_TERMS) / sizeof(MOON_LON_TERMS[0]));
++    int n_lat = (int)(sizeof(MOON_LAT_TERMS) / sizeof(MOON_LAT_TERMS[0]));
++    int n_dst = (int)(sizeof(MOON_DIST_TERMS) / sizeof(MOON_DIST_TERMS[0]));
++    double lam  = Lp + moon_series(MOON_LON_TERMS, n_lon, D, M, Mp, F, E, false);
++    double bet  = moon_series(MOON_LAT_TERMS, n_lat, D, M, Mp, F, E, false);
++    double dist = 385000.56 + moon_series(MOON_DIST_TERMS, n_dst, D, M, Mp, F, E, true);
++
++    double Mr = deg2rad(M);
++    double C = (1.914602 - 0.004817 * T) * sin(Mr) + 0.019993 * sin(2.0 * Mr) + 0.000289 * sin(3.0 * Mr);
++    double lam0 = 280.46646 + 36000.76983 * T + C;
++    double ecc = 0.016708634 - 0.000042037 * T;
++    double sun_dist = 1.000001018 * (1.0 - ecc * ecc) / (1.0 + ecc * cos(deg2rad(M + C))) * 149597870.7;
++
++    double le, be, ls, bs;
++    optical_libration(lam, bet, Om, F, &le, &be);
++    double lam_h = lam0 + 180.0 + (dist / sun_dist) * 57.29578 * cos(deg2rad(bet)) * sin(deg2rad(lam0 - lam));
++    double bet_h = (dist / sun_dist) * bet;
++    optical_libration(lam_h, bet_h, Om, F, &ls, &bs);
++
++    earth_km[0] = dist * cos(be) * cos(le);
++    earth_km[1] = dist * cos(be) * sin(le);
++    earth_km[2] = dist * sin(be);
++    sun_km[0] = sun_dist * cos(bs) * cos(ls);
++    sun_km[1] = sun_dist * cos(bs) * sin(ls);
++    sun_km[2] = sun_dist * sin(bs);
++}
++
++bool lunar_moonfixed_sun_earth_km(double et, double sun_km[3], double earth_km[3]) {
++#if HAS_NAIF_CSPICE
++    if (g_spice_loaded) {
++        double lt = 0.0;
++        /* IAU_MOON: data/kernels/pck00010.tpc ile gelir (MOON_ME icin ek kernel gerekir). */
++        spkpos_c("SUN", et, "IAU_MOON", "LT+S", "MOON", sun_km, &lt);
++        spkpos_c("EARTH", et, "IAU_MOON", "LT+S", "MOON", earth_km, &lt);
++        if (!failed_c()) {
++            g_ephem_from_spice = true;
++            return true;
++        }
++        reset_c();
++    }
++#endif
++    analytic_moonfixed_km(et, sun_km, earth_km);
++    g_ephem_from_spice = false;
++    return false;
++}
++
++/* Yuzeydeki gozlemciden (toposentrik) bir cismin azimut/yukseklik acisi. Ay yaricapi kadar
++   paralaks Dunya icin ~0.27 dereceye ulasir; kutupta bu fark gorunurlugu degistirir. */
++static void topo_az_el(
++    const double body_km[3], const double up[3], const double east[3], const double north[3],
++    double *az_deg, double *el_deg
++) {
++    double v[3];
++    for (int k = 0; k < 3; k++) v[k] = body_km[k] - R_MOON_KM * up[k];
++    double len = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
++    if (len < 1e-9) len = 1e-9;
++    double vu = (v[0] * up[0] + v[1] * up[1] + v[2] * up[2]) / len;
++    double ve = (v[0] * east[0] + v[1] * east[1] + v[2] * east[2]) / len;
++    double vn = (v[0] * north[0] + v[1] * north[1] + v[2] * north[2]) / len;
++    *el_deg = rad2deg(asin(clamp_d(vu, -1.0, 1.0)));
++    *az_deg = fmod(rad2deg(atan2(ve, vn)) + 360.0, 360.0);
++}
++
+ static bool is_leap_year(int y) {
+     return (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0);
+ }
+@@ -160,10 +290,10 @@ typedef struct {
+ 
+ static const TopoFeature TOPO_FEATURES[] = {
+     {"Haworth",               -87.45,   -5.17,  1640.0, 0.65},
+-    {"Malapert Massif",       -86.00,    0.00,  4850.0, 0.85},
++    {"Malapert Massif",       -85.9948, -0.23578, 4784.8, 0.85},
+     {"Nobile Rim 1",          -85.20,   53.50,  2150.0, 0.65},
+-    {"Connecting Ridge",      -89.45, -137.50,  1920.0, 0.45},
+-    {"Shackleton Rim",        -89.90,    0.00,   180.0, 0.35},
++    {"Connecting Ridge",      -89.4632, -137.49000, 1943.3, 0.45},
++    {"Shackleton Rim",        -89.7668, -171.87000, 770.5, 0.35},
+     {"Shackleton Base (PSR)", -89.65,  115.00, -4150.0, 0.32},
+     {"De Gerlache Rim",       -88.50,  -88.30,  1480.0, 0.55},
+     {"Cabeus (LCROSS)",       -84.90,  -35.50, -3100.0, 0.95},
+@@ -191,7 +321,10 @@ bool init_spice_engine(const char *meta_kernel_path) {
+             }
+         }
+     }
+-    loaded_count += autoload_kernels_dir("kernels", 0);
++    /* Depodaki kernel'ler data/kernels altindadir; eski "kernels/" yolu da desteklenir. */
++    int dir_loaded = autoload_kernels_dir("data/kernels", 0);
++    if (dir_loaded == 0) dir_loaded = autoload_kernels_dir("kernels", 0);
++    loaded_count += dir_loaded;
+     g_spice_loaded = (loaded_count > 0);
+ #else
+     (void)meta_kernel_path;
+@@ -199,6 +332,8 @@ bool init_spice_engine(const char *meta_kernel_path) {
+     return true;
+ }
+ 
++/* SENTETIK ARAZI: sinus harmonikleri + elle girilmis tepe/cukur noktalari. Gercek LOLA DEM degildir;
++   egim, rover rotasi ve LOLA profili olmayan noktalarin ufku bu modele dayanir. */
+ double sample_lola_elevation_m(double lat_deg, double lon_deg) {
+     double lat_r = deg2rad(lat_deg);
+     double lon_r = deg2rad(lon_deg);
+@@ -292,53 +427,56 @@ static void get_sun_earth_angles(
+ ) {
+     double lat_r = deg2rad(lat_deg);
+     double lon_r = deg2rad(lon_deg);
++    double et = base_et + t_hours * 3600.0;
++    double sun_km[3], earth_km[3];
++    lunar_moonfixed_sun_earth_km(et, sun_km, earth_km);
++
++    double up[3] = {cos(lat_r) * cos(lon_r), cos(lat_r) * sin(lon_r), sin(lat_r)};
++    double east[3] = {-sin(lon_r), cos(lon_r), 0.0};
++    double north[3] = {-sin(lat_r) * cos(lon_r), -sin(lat_r) * sin(lon_r), cos(lat_r)};
++    topo_az_el(sun_km, up, east, north, sun_az, sun_el);
++    topo_az_el(earth_km, up, east, north, earth_az, earth_el);
++}
+ 
+-#if HAS_NAIF_CSPICE
+-    if (g_spice_loaded) {
+-        double et = base_et + t_hours * 3600.0;
+-        double sun_pos[3], earth_pos[3], lt;
+-        spkpos_c("SUN", et, "MOON_ME", "LT+S", "MOON", sun_pos, &lt);
+-        spkpos_c("EARTH", et, "MOON_ME", "LT+S", "MOON", earth_pos, &lt);
+-
+-        if (!failed_c()) {
+-            double up[3] = {cos(lat_r) * cos(lon_r), cos(lat_r) * sin(lon_r), sin(lat_r)};
+-            double east[3] = {-sin(lon_r), cos(lon_r), 0.0};
+-            double north[3] = {-sin(lat_r) * cos(lon_r), -sin(lat_r) * sin(lon_r), cos(lat_r)};
+-
+-            vhat_c(sun_pos, sun_pos);
+-            vhat_c(earth_pos, earth_pos);
+-
+-            double s_u = vdot_c(sun_pos, up), s_e = vdot_c(sun_pos, east), s_n = vdot_c(sun_pos, north);
+-            double e_u = vdot_c(earth_pos, up), e_e = vdot_c(earth_pos, east), e_n = vdot_c(earth_pos, north);
++/* Gercek LOLA ufuk profili olan saha merkezini bulur (0.5 km icinde), yoksa NULL. */
++static const LolaHorizonProfile *find_lola_profile(double lat_deg, double lon_deg) {
++    double la = deg2rad(lat_deg), lo = deg2rad(lon_deg);
++    for (int i = 0; i < LOLA_HORIZON_PROFILE_COUNT; i++) {
++        double pa = deg2rad(LOLA_HORIZON_PROFILES[i].lat_deg);
++        double po = deg2rad(LOLA_HORIZON_PROFILES[i].lon_deg);
++        double c = sin(la) * sin(pa) + cos(la) * cos(pa) * cos(lo - po);
++        double dist_km = acos(clamp_d(c, -1.0, 1.0)) * R_MOON_KM;
++        if (dist_km < 0.5) return &LOLA_HORIZON_PROFILES[i];
++    }
++    return NULL;
++}
+ 
+-            *sun_el = rad2deg(asin(clamp_d(s_u, -1.0, 1.0)));
+-            *sun_az = fmod(rad2deg(atan2(s_e, s_n)) + 360.0, 360.0);
+-            *earth_el = rad2deg(asin(clamp_d(e_u, -1.0, 1.0)));
+-            *earth_az = fmod(rad2deg(atan2(e_e, e_n)) + 360.0, 360.0);
+-            return;
++/* Ufuk maskesi: varsa gercek LOLA profili (true doner, *alt_m LOLA zemin yuksekligi olur),
++   yoksa sentetik arazi uzerinde isin izleme (false doner). */
++static bool site_horizon(
++    double lat_deg, double lon_deg, double *alt_m,
++    double horizon_out[CSPICE_HORIZON_RAYS],
++    double *blocker_az, double *blocker_dist_km, double *blocker_el
++) {
++    const LolaHorizonProfile *lp = find_lola_profile(lat_deg, lon_deg);
++    if (!lp) {
++        compute_360_horizon_and_blocker(lat_deg, lon_deg, *alt_m, horizon_out, blocker_az, blocker_dist_km, blocker_el);
++        return false;
++    }
++    double best_el = -90.0;
++    int best_az = 0;
++    for (int az = 0; az < CSPICE_HORIZON_RAYS; az++) {
++        horizon_out[az] = lp->mask_deg[az];
++        if (lp->mask_deg[az] > best_el) {
++            best_el = lp->mask_deg[az];
++            best_az = az;
+         }
+-        reset_c();
+     }
+-#endif
+-    (void)base_et;
+-    double t_days = t_hours / 24.0;
+-    double sun_sub_lon = deg2rad(fmod((t_days / 29.530589) * 360.0 + 32.0, 360.0));
+-    double sun_sub_lat = deg2rad(1.54 * sin((t_days / 27.32166) * 2.0 * M_PI));
+-
+-    double sin_s_el = sin(lat_r) * sin(sun_sub_lat) + cos(lat_r) * cos(sun_sub_lat) * cos(sun_sub_lon - lon_r);
+-    *sun_el = rad2deg(asin(clamp_d(sin_s_el, -1.0, 1.0)));
+-    double ys = sin(sun_sub_lon - lon_r) * cos(sun_sub_lat);
+-    double xs = cos(lat_r) * sin(sun_sub_lat) - sin(lat_r) * cos(sun_sub_lat) * cos(sun_sub_lon - lon_r);
+-    *sun_az = fmod(rad2deg(atan2(ys, xs)) + 360.0, 360.0);
+-
+-    double e_sub_lon = deg2rad(6.8 * sin((t_days / 27.55455) * 2.0 * M_PI));
+-    double e_sub_lat = deg2rad(6.7 * sin((t_days / 27.21222) * 2.0 * M_PI + 0.6));
+-
+-    double sin_e_el = sin(lat_r) * sin(e_sub_lat) + cos(lat_r) * cos(e_sub_lat) * cos(e_sub_lon - lon_r);
+-    *earth_el = rad2deg(asin(clamp_d(sin_e_el, -1.0, 1.0)));
+-    double ye = sin(e_sub_lon - lon_r) * cos(e_sub_lat);
+-    double xe = cos(lat_r) * sin(e_sub_lat) - sin(lat_r) * cos(e_sub_lat) * cos(e_sub_lon - lon_r);
+-    *earth_az = fmod(rad2deg(atan2(ye, xe)) + 360.0, 360.0);
++    *alt_m = lp->ground_m;
++    *blocker_az = (double)best_az;
++    *blocker_dist_km = 0.0;   /* LOLA profili engel mesafesini icermez */
++    *blocker_el = fmax(0.0, best_el);
++    return true;
+ }
+ 
+ typedef struct {
+@@ -635,13 +773,12 @@ SimulationResult *run_lunar_simulation(
+     snprintf(out->utc_start, sizeof(out->utc_start), "%s", utc_start ? utc_start : "2026-10-18T00:00:00");
+     out->lat_deg = clamp_d(lat_deg, -90.0, 90.0);
+     out->lon_deg = lon_deg;
+-    out->duration_days = (duration_days == 30) ? 30 : 14;
++    out->duration_days = (duration_days < 1) ? 14 : (duration_days > 30 ? 30 : duration_days);
+     out->step_seconds = 3600;
+     out->dem_out_of_bounds = (out->lat_deg > -60.0);
+-    snprintf(out->dem_name, sizeof(out->dem_name), "LOLA_SouthPole_DEM_v2");
+     if (out->dem_out_of_bounds) {
+         snprintf(out->warning_msg, sizeof(out->warning_msg),
+-                 "Secili nokta yuksek cozunurluklu Guney Kutbu (-60 deg) kapsami disinda; global harmonik DEM kullanildi.");
++                 "Secili nokta yuksek cozunurluklu Guney Kutbu (-60 deg) kapsami disinda; sentetik analitik arazi kullanildi.");
+     }
+ 
+     int total_hours = out->duration_days * 24;
+@@ -663,23 +800,23 @@ SimulationResult *run_lunar_simulation(
+         return NULL;
+     }
+ 
+-    double base_et = 0.0;
+-#if HAS_NAIF_CSPICE
+-    if (g_spice_loaded) {
+-        spice_utc_to_et_safe(out->utc_start, &base_et);
+-    }
+-#endif
++    double base_et = lunar_utc_to_et(out->utc_start);
+ 
+     // 1. Rakım & Eğim
+     out->altitude_m = sample_lola_elevation_m(out->lat_deg, out->lon_deg);
+     compute_local_slope_aspect(out->lat_deg, out->lon_deg, &out->slope_deg, &out->aspect_deg);
+ 
+     // 2. 360° Ray-Casting Ufuk Maskesi
+-    compute_360_horizon_and_blocker(
+-        out->lat_deg, out->lon_deg, out->altitude_m,
++    bool main_is_lola = site_horizon(
++        out->lat_deg, out->lon_deg, &out->altitude_m,
+         out->horizon_mask_deg, &out->blocker_azimuth_deg,
+         &out->blocker_distance_km, &out->blocker_elevation_deg
+     );
++    snprintf(out->horizon_source, sizeof(out->horizon_source), "%s",
++             main_is_lola ? "LOLA_80M_SKYLINE" : "SYNTHETIC_ANALYTIC");
++    snprintf(out->dem_name, sizeof(out->dem_name), "%s",
++             main_is_lola ? "LOLA 80 m DEM skyline (Barker et al. 2023)"
++                          : "SYNTHETIC analytic terrain (not LOLA data)");
+ 
+     // 3. Ana Görev Enerji & Görünürlük Simülasyonu
+     WindowStats main_st;
+@@ -694,6 +831,7 @@ SimulationResult *run_lunar_simulation(
+     out->terrain_loss_pct        = main_st.loss_pct;
+     out->longest_dark_hours      = main_st.longest_dark_h;
+     out->min_battery_soc_pct     = main_st.min_soc;
++    out->ephemeris_from_spice    = g_ephem_from_spice;
+ 
+     // 4. Termal Denge (Kelvin) & H2O Buz Olasılığı
+     double illum_frac = out->sun_illumination_pct / 100.0;
+@@ -733,7 +871,9 @@ SimulationResult *run_lunar_simulation(
+     // 6. 5x5 km Mikro-Kaydırma Optimizasyonu
+     double cos_lat = fmax(0.05, cos(deg2rad(out->lat_deg)));
+     double best_fix_dist = 1e9;
+-    for (int dr = -4; dr <= 4; dr++) {
++    /* Ana saha gercek LOLA ufku kullaniyorsa komsu noktalar icin gercek veri yoktur;
++       sentetik komsularla karsilastirmak yaniltici olacagi icin kaydirma aramasi atlanir. */
++    for (int dr = -4; dr <= 4 && !main_is_lola; dr++) {
+         for (int dc = -4; dc <= 4; dc++) {
+             if (dr == 0 && dc == 0) continue;
+             double dx_km = dc * 0.6;
+@@ -749,7 +889,7 @@ SimulationResult *run_lunar_simulation(
+ 
+             double c_alt = sample_lola_elevation_m(cand_lat, cand_lon);
+             double c_hor[CSPICE_HORIZON_RAYS], b_az, b_d, b_el;
+-            compute_360_horizon_and_blocker(cand_lat, cand_lon, c_alt, c_hor, &b_az, &b_d, &b_el);
++            site_horizon(cand_lat, cand_lon, &c_alt, c_hor, &b_az, &b_d, &b_el);
+ 
+             WindowStats cst;
+             simulate_window_metrics(cand_lat, cand_lon, 0.0, total_hours, c_hor, base_et, &cst, NULL);
+@@ -800,11 +940,12 @@ SimulationResult *run_lunar_simulation(
+         compute_local_slope_aspect(cc->latitude_deg, cc->longitude_deg, &cc->slope_deg, &asp_tmp);
+ 
+         double c_hor[CSPICE_HORIZON_RAYS], b_az, b_d, b_el;
+-        compute_360_horizon_and_blocker(cc->latitude_deg, cc->longitude_deg, cc->altitude_m, c_hor, &b_az, &b_d, &b_el);
++        site_horizon(cc->latitude_deg, cc->longitude_deg, &cc->altitude_m, c_hor, &b_az, &b_d, &b_el);
+ 
+         WindowStats cst;
+         simulate_window_metrics(cc->latitude_deg, cc->longitude_deg, 0.0, total_hours, c_hor, base_et, &cst, NULL);
+         cc->illumination_percent = cst.sun_pct;
++        cc->earth_visibility_percent = cst.earth_pct;
+         cc->total_earth_hours = cst.total_earth_h;
+         cc->overlap_hours = cst.overlap_h;
+         cc->longest_dark_hours = cst.longest_dark_h;
+@@ -893,7 +1034,10 @@ bool export_simulation_json(const char *filepath, const SimulationResult *r) {
+     fprintf(fp, "    \"start_utc\": "); json_write_escaped(fp, r->utc_start); fprintf(fp, ",\n");
+     fprintf(fp, "    \"end_utc\": "); json_write_escaped(fp, r->utc_end); fprintf(fp, ",\n");
+     fprintf(fp, "    \"step_seconds\": %d,\n", r->step_seconds);
+-    fprintf(fp, "    \"dem_info\": { \"name\": "); json_write_escaped(fp, r->dem_name); fprintf(fp, " }\n");
++    fprintf(fp, "    \"ephemeris_source\": \"%s\",\n",
++            r->ephemeris_from_spice ? "CSPICE_DE440S_IAU_MOON" : "ANALYTIC_MEEUS_FALLBACK");
++    fprintf(fp, "    \"dem_info\": { \"name\": "); json_write_escaped(fp, r->dem_name);
++    fprintf(fp, ", \"horizon_source\": \"%s\", \"terrain_is_synthetic\": true }\n", r->horizon_source);
+     fprintf(fp, "  },\n");
+ 
+     fprintf(fp, "  \"summary\": {\n");
+@@ -981,9 +1125,9 @@ bool export_simulation_json(const char *filepath, const SimulationResult *r) {
+     fprintf(fp, "  \"site_comparison\": [\n");
+     for (int i = 0; i < r->candidate_count; i++) {
+         const CandidateComparison *c = &r->candidates[i];
+-        fprintf(fp, "    {\"site_name\": \"%s\", \"latitude_deg\": %.2f, \"longitude_deg\": %.2f, \"illumination_percent\": %.1f, \"total_earth_hours\": %.1f, \"overlap_hours\": %.1f, \"longest_dark_hours\": %.1f, \"mission_score\": %d, \"verdict\": \"%s\"}%s\n",
++        fprintf(fp, "    {\"site_name\": \"%s\", \"latitude_deg\": %.4f, \"longitude_deg\": %.4f, \"illumination_percent\": %.1f, \"earth_visibility_percent\": %.1f, \"slope_deg\": %.1f, \"total_earth_hours\": %.1f, \"overlap_hours\": %.1f, \"longest_dark_hours\": %.1f, \"mission_score\": %d, \"verdict\": \"%s\"}%s\n",
+                 c->site_name, c->latitude_deg, c->longitude_deg, c->illumination_percent,
+-                c->total_earth_hours, c->overlap_hours, c->longest_dark_hours, c->mission_score, c->verdict,
++                c->earth_visibility_percent, c->slope_deg, c->total_earth_hours, c->overlap_hours, c->longest_dark_hours, c->mission_score, c->verdict,
+                 (i + 1 < r->candidate_count) ? "," : "");
+     }
+     fprintf(fp, "  ],\n");
+diff --git a/src/cspice_math.h b/src/cspice_math.h
+index fa96ec6..a3ba164 100644
+--- a/src/cspice_math.h
++++ b/src/cspice_math.h
+@@ -34,6 +34,7 @@ typedef struct {
+     double altitude_m;
+     double slope_deg;
+     double illumination_percent;
++    double earth_visibility_percent;
+     double total_earth_hours;
+     double overlap_hours;
+     double longest_dark_hours;
+@@ -52,6 +53,8 @@ typedef struct {
+     int duration_days;
+     bool dem_out_of_bounds;
+     char dem_name[64];
++    char horizon_source[32];      // "LOLA_80M_SKYLINE" veya "SYNTHETIC_ANALYTIC"
++    bool ephemeris_from_spice;    // false ise analitik (Meeus) yedek efemeris kullanildi
+     char warning_msg[192];
+ 
+     // 2. Temel Fizik & Arazi Metrikleri
+@@ -134,7 +137,16 @@ typedef struct {
+ } SimulationResult;
+ 
+ bool init_spice_engine(const char *meta_kernel_path);
++/* DIKKAT: Adina ragmen bu fonksiyon gercek LOLA verisi OKUMAZ; sentetik analitik arazi dondurur.
++   Gercek LOLA ufuk profilleri yalnizca src/lola_horizons.h icindeki uc saha merkezi icin vardir. */
+ double sample_lola_elevation_m(double lat_deg, double lon_deg);
++
++/* UTC (ISO-8601) -> J2000'den itibaren ET/TDB saniyesi. */
++double lunar_utc_to_et(const char *utc);
++/* Gunes ve Dunya'nin Ay merkezli, Ay'a sabit (govde) cercevedeki konumu (km).
++   Kernel yukluyse CSPICE (IAU_MOON, LT+S) kullanir ve true doner; degilse tarihe bagli
++   analitik Meeus serisine duser ve false doner. */
++bool lunar_moonfixed_sun_earth_km(double et, double sun_km[3], double earth_km[3]);
+ SimulationResult *run_lunar_simulation(
+     const char *site_name,
+     double lat_deg,
+diff --git a/src/lola_horizons.h b/src/lola_horizons.h
+new file mode 100644
+index 0000000..ba1d51b
+--- /dev/null
++++ b/src/lola_horizons.h
+@@ -0,0 +1,122 @@
++/*
++ * GERCEK LOLA UFUK PROFILLERI — URETILMIS DOSYA, ELLE DUZENLEME.
++ *
++ * Kaynak: Barker et al. (2023), LOLA 80 m guney kutbu DEM (NASA GSFC PGDA urun 90).
++ * Saha merkezleri: NASA Lunar Surface Data Book, Tablo A2-2 (NTRS 20230007818).
++ * Her profil: yuzeyin 2 m ustundeki gozlemci icin 1 derece azimut adimiyla ufuk yuksekligi
++ * (derece). Azimut 0 = kuzey, 90 = dogu. 0.5 derecelik 720 ornekten tam derecelere indirgenmistir.
++ * Yalnizca bu uc merkez icin gecerlidir; baska noktalarda sentetik arazi kullanilir.
++ */
++#ifndef LOLA_HORIZONS_H
++#define LOLA_HORIZONS_H
++
++#define LOLA_HORIZON_PROFILE_COUNT 3
++
++typedef struct {
++    const char *site_name;
++    double lat_deg;
++    double lon_deg;
++    double ground_m;
++    double mask_deg[360];
++} LolaHorizonProfile;
++
++static const LolaHorizonProfile LOLA_HORIZON_PROFILES[LOLA_HORIZON_PROFILE_COUNT] = {
++    {"Shackleton Rim", -89.7668, -171.87000, 770.5, {
++        10.399, 10.679, 10.997, 11.345, 11.698, 12.003, 12.285, 12.518, 12.701, 13.024, 13.383, 13.728,
++        14.100, 14.552, 14.981, 15.406, 15.835, 16.266, 16.646, 16.956, 17.218, 17.499, 17.839, 18.216,
++        18.579, 18.922, 19.280, 19.716, 20.175, 20.631, 21.081, 21.525, 21.959, 22.386, 22.803, 23.213,
++        23.613, 24.002, 24.351, 24.691, 25.025, 25.351, 25.666, 25.975, 26.275, 26.565, 26.849, 27.126,
++        27.395, 27.654, 27.905, 28.147, 28.373, 28.599, 28.813, 29.023, 29.224, 29.412, 29.602, 29.774,
++        29.946, 30.101, 30.258, 30.395, 30.536, 30.663, 30.780, 30.896, 30.999, 31.085, 31.171, 31.250,
++        31.319, 31.373, 31.424, 31.470, 31.508, 31.538, 31.560, 31.573, 31.579, 31.632, 31.683, 31.687,
++        31.683, 31.671, 31.651, 31.623, 31.582, 31.547, 31.512, 31.470, 31.420, 31.362, 31.296, 31.242,
++        31.200, 31.151, 31.087, 31.029, 30.964, 30.875, 30.770, 30.658, 30.539, 30.404, 30.255, 30.100,
++        29.943, 29.784, 29.623, 29.443, 29.242, 29.039, 28.835, 28.631, 28.426, 28.219, 28.005, 27.781,
++        27.550, 27.285, 26.972, 26.658, 26.345, 26.032, 25.718, 25.396, 25.049, 24.697, 24.344, 23.990,
++        23.635, 23.272, 22.872, 22.451, 22.025, 21.592, 21.153, 20.708, 20.243, 19.760, 19.277, 18.941,
++        18.598, 18.247, 17.859, 17.454, 16.999, 16.507, 16.044, 15.607, 15.159, 14.703, 14.182, 13.703,
++        13.238, 12.723, 12.230, 11.769, 11.316, 10.866, 10.416, 9.965, 9.502, 9.115, 8.683, 8.243,
++        8.031, 7.742, 7.378, 7.065, 6.708, 6.407, 6.125, 5.855, 5.646, 5.298, 5.048, 4.838,
++        4.522, 4.262, 3.963, 3.693, 3.502, 3.312, 3.356, 3.352, 3.284, 3.186, 3.108, 3.022,
++        3.051, 2.978, 2.967, 3.000, 3.015, 3.028, 2.971, 2.967, 3.020, 2.992, 2.902, 2.812,
++        2.664, 2.559, 2.470, 2.340, 2.265, 2.164, 2.026, 1.918, 1.836, 1.708, 1.545, 1.379,
++        1.213, 1.012, 0.890, 0.735, 0.628, 0.482, 0.360, 0.298, 0.277, 0.322, 0.405, 0.434,
++        0.479, 0.478, 0.492, 0.510, 0.464, 0.449, 0.411, 0.324, 0.234, 0.198, 0.152, 0.130,
++        0.085, 0.257, 0.083, 0.147, 0.250, 0.278, 0.250, 0.214, 0.311, 0.428, 0.508, 0.599,
++        0.700, 0.852, 0.879, 0.916, 0.895, 0.885, 0.919, 0.924, 0.888, 0.873, 0.842, 0.868,
++        0.879, 0.922, 0.880, 0.897, 0.949, 0.943, 0.972, 1.018, 1.079, 1.094, 1.136, 1.207,
++        1.258, 1.168, 1.152, 1.180, 1.232, 1.232, 1.244, 1.263, 1.274, 1.282, 1.264, 1.241,
++        1.217, 1.168, 1.108, 1.012, 0.943, 0.872, 0.879, 0.837, 0.839, 0.832, 0.817, 0.814,
++        0.798, 0.767, 0.772, 0.753, 0.757, 0.797, 0.835, 0.843, 0.863, 0.927, 0.931, 0.978,
++        1.074, 1.196, 1.320, 1.434, 1.529, 1.668, 1.800, 1.896, 1.973, 2.049, 2.143, 2.209,
++        2.261, 2.380, 2.494, 2.590, 2.726, 2.837, 3.019, 3.208, 3.319, 3.451, 3.536, 3.688,
++        3.932, 4.153, 4.443, 4.728, 4.983, 5.216, 5.497, 5.694, 5.975, 6.249, 6.519, 6.840,
++        7.134, 7.487, 7.801, 8.091, 8.377, 8.707, 8.964, 9.178, 9.414, 9.640, 9.893, 10.203
++    }},
++    {"Connecting Ridge", -89.4632, -137.49000, 1943.3, {
++        1.291, 1.333, 1.371, 1.411, 1.452, 1.492, 1.531, 1.569, 1.609, 1.633, 1.658, 1.684,
++        1.704, 1.723, 1.750, 1.774, 1.787, 1.816, 1.832, 1.853, 1.873, 1.888, 1.852, 1.836,
++        1.798, 1.777, 1.746, 1.723, 1.757, 1.785, 1.802, 1.823, 1.853, 1.882, 1.890, 1.888,
++        1.878, 1.868, 1.864, 1.863, 1.860, 1.856, 1.852, 1.846, 1.839, 1.832, 1.823, 1.814,
++        1.842, 1.873, 1.904, 1.934, 1.964, 1.994, 2.023, 2.052, 2.080, 2.109, 2.137, 2.164,
++        2.192, 2.220, 2.247, 2.274, 2.301, 2.329, 2.352, 2.371, 2.389, 2.408, 2.425, 2.443,
++        2.461, 2.486, 2.495, 2.511, 2.509, 2.523, 2.518, 2.537, 2.522, 2.536, 2.541, 2.523,
++        2.541, 2.546, 2.528, 2.526, 2.543, 2.537, 2.517, 2.499, 2.515, 2.530, 2.509, 2.488,
++        2.465, 2.454, 2.466, 2.476, 2.460, 2.436, 2.412, 2.387, 2.362, 2.342, 2.347, 2.350,
++        2.352, 2.331, 2.304, 2.276, 2.248, 2.220, 2.191, 2.162, 2.133, 2.103, 2.073, 2.043,
++        2.030, 2.017, 2.003, 1.987, 1.971, 1.953, 1.934, 1.906, 1.873, 1.840, 1.806, 1.772,
++        1.738, 1.704, 1.670, 1.635, 1.601, 1.548, 1.488, 1.428, 1.368, 1.307, 1.247, 1.186,
++        1.126, 1.065, 1.004, 0.944, 0.883, 0.816, 0.742, 0.666, 0.590, 0.512, 0.434, 0.358,
++        0.298, 0.238, 0.178, 0.118, 0.062, 0.093, 0.124, 0.149, 0.183, 0.217, 0.239, 0.276,
++        0.273, 0.262, 0.250, 0.238, 0.226, 0.214, 0.202, 0.190, 0.178, 0.166, 0.154, 0.139,
++        0.123, 0.108, 0.093, 0.078, 0.061, 0.046, 0.031, 0.015, -0.004, -0.036, -0.069, -0.102,
++        -0.135, -0.160, -0.194, -0.228, -0.254, -0.288, -0.316, -0.349, -0.379, -0.413, -0.455, -0.511,
++        -0.552, -0.606, -0.651, -0.693, -0.750, -0.793, -0.834, -0.884, -0.935, -0.977, -1.018, -1.061,
++        -1.116, -1.161, -1.202, -1.279, -1.358, -1.438, -1.517, -1.599, -1.683, -1.767, -1.817, -1.762,
++        -1.864, -1.831, -1.841, -1.844, -1.850, -1.720, -1.595, -1.513, -1.328, -1.209, -1.134, -1.114,
++        -1.174, -1.313, -1.342, -1.413, -1.421, -1.420, -1.561, -1.760, -1.908, -2.038, -2.215, -2.326,
++        -2.435, -2.477, -2.368, -2.391, -2.506, -2.530, -2.480, -2.491, -2.454, -2.438, -2.406, -2.289,
++        -2.164, -2.165, -2.170, -2.169, -2.129, -2.037, -1.962, -2.029, -2.023, -2.037, -2.108, -2.198,
++        -2.233, -2.354, -2.431, -2.498, -2.576, -2.643, -2.740, -2.789, -2.807, -2.837, -2.737, -2.660,
++        -2.680, -2.779, -2.785, -2.737, -2.784, -2.755, -2.706, -2.719, -2.762, -2.912, -2.897, -2.872,
++        -2.865, -2.886, -2.921, -3.037, -3.168, -3.269, -3.215, -3.129, -3.039, -2.945, -2.846, -2.745,
++        -2.643, -2.540, -2.435, -2.331, -2.225, -2.068, -2.009, -1.892, -1.776, -1.633, -1.542, -1.426,
++        -1.309, -1.186, -1.062, -0.939, -0.820, -0.704, -0.579, -0.455, -0.331, -0.213, -0.120, -0.047,
++        0.016, 0.082, 0.155, 0.213, 0.287, 0.349, 0.419, 0.483, 0.553, 0.614, 0.687, 0.749,
++        0.799, 0.842, 0.878, 0.922, 0.967, 1.009, 1.047, 1.085, 1.126, 1.167, 1.208, 1.249
++    }},
++    {"Malapert Massif", -85.9948, -0.23578, 4784.8, {
++        3.993, 3.971, 3.948, 3.923, 3.896, 3.868, 3.838, 3.807, 3.780, 3.751, 3.720, 3.709,
++        3.752, 3.793, 3.836, 3.875, 3.915, 3.952, 3.986, 4.024, 4.055, 4.092, 4.124, 4.160,
++        4.195, 4.222, 4.254, 4.285, 4.312, 4.335, 4.360, 4.374, 4.377, 4.380, 4.384, 4.390,
++        4.398, 4.407, 4.417, 4.438, 4.472, 4.507, 4.544, 4.582, 4.619, 4.654, 4.680, 4.698,
++        4.717, 4.736, 4.752, 4.766, 4.780, 4.791, 4.803, 4.812, 4.820, 4.825, 4.832, 4.837,
++        4.837, 4.838, 4.841, 4.834, 4.835, 4.827, 4.804, 4.774, 4.742, 4.707, 4.674, 4.647,
++        4.618, 4.589, 4.542, 4.488, 4.433, 4.377, 4.328, 4.285, 4.249, 4.350, 4.417, 4.487,
++        4.526, 4.526, 4.542, 4.570, 4.618, 4.652, 4.653, 4.623, 4.576, 4.535, 4.472, 4.356,
++        4.277, 4.146, 3.971, 3.832, 3.717, 3.584, 3.441, 3.336, 3.254, 3.118, 2.944, 2.752,
++        2.551, 2.347, 2.133, 1.891, 1.660, 1.442, 1.208, 0.983, 0.739, 0.470, 0.198, -0.045,
++        -0.340, -0.648, -0.951, -1.255, -1.567, -1.884, -2.107, -2.285, -2.461, -2.592, -2.711, -2.843,
++        -2.955, -3.086, -3.196, -3.323, -3.431, -3.553, -3.661, -3.778, -3.890, -3.999, -4.110, -4.218,
++        -4.214, -4.234, -4.233, -4.272, -4.272, -4.280, -4.262, -4.205, -4.048, -4.121, -4.201, -4.261,
++        -4.359, -4.317, -4.347, -4.425, -4.473, -4.413, -4.380, -4.388, -4.336, -4.208, -3.987, -3.803,
++        -3.626, -3.693, -3.728, -3.805, -3.733, -3.715, -3.755, -3.759, -3.642, -3.588, -3.591, -3.639,
++        -3.642, -3.522, -3.626, -3.546, -3.468, -3.420, -3.546, -3.619, -3.566, -3.540, -3.637, -3.756,
++        -3.785, -3.614, -3.599, -3.834, -3.833, -3.707, -3.502, -3.384, -3.405, -3.422, -3.517, -3.498,
++        -3.538, -3.599, -3.530, -3.473, -3.416, -3.357, -3.275, -3.204, -3.144, -3.082, -2.997, -2.926,
++        -2.863, -2.787, -2.705, -2.640, -2.559, -2.480, -2.414, -2.320, -2.253, -2.160, -2.101, -2.049,
++        -1.982, -1.939, -1.870, -1.819, -1.759, -1.689, -1.641, -1.579, -1.508, -1.449, -1.398, -1.327,
++        -1.256, -1.197, -1.148, -1.076, -1.005, -0.933, -0.873, -0.823, -0.755, -0.683, -0.612, -0.540,
++        -0.469, -0.409, -0.354, -0.295, -0.095, 0.061, 0.224, 0.380, 0.558, 0.756, 0.963, 1.169,
++        1.371, 1.554, 1.751, 1.906, 2.068, 2.203, 2.345, 2.443, 2.510, 2.539, 2.542, 2.612,
++        2.662, 2.687, 2.661, 2.631, 2.586, 2.523, 2.438, 2.337, 2.181, 2.269, 2.357, 2.444,
++        2.530, 2.598, 2.660, 2.742, 2.826, 2.908, 2.989, 3.068, 3.122, 3.200, 3.277, 3.352,
++        3.423, 3.464, 3.499, 3.533, 3.561, 3.553, 3.572, 3.603, 3.598, 3.610, 3.639, 3.621,
++        3.645, 3.648, 3.653, 3.663, 3.660, 3.667, 3.667, 3.660, 3.674, 3.661, 3.656, 3.692,
++        3.750, 3.806, 3.860, 3.913, 3.966, 4.017, 4.068, 4.117, 4.166, 4.212, 4.257, 4.299,
++        4.311, 4.323, 4.336, 4.344, 4.356, 4.361, 4.369, 4.372, 4.377, 4.377, 4.350, 4.302,
++        4.247, 4.230, 4.214, 4.191, 4.167, 4.140, 4.117, 4.094, 4.069, 4.049, 4.032, 4.014
++    }}
++};
++
++#endif
+diff --git a/src/main.c b/src/main.c
+index b8aa28a..b1a5530 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -57,17 +57,37 @@ static void run_lua_ranking_layer(void) {
+ #endif
+ }
+ 
++static int hex_val(char c) {
++    if (c >= '0' && c <= '9') return c - '0';
++    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
++    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
++    return -1;
++}
++
++/* Sorgu dizgisinden TAM anahtar eslesmesiyle deger okur ve URL kodlamasini (%XX, +) cozer.
++   Eski surum strstr kullandigi icin "lat" anahtari "sc_lat" icinde de eslesiyordu. */
+ static void parse_query_param(const char *query, const char *key, char *dst, size_t dst_sz) {
+-    const char *p = strstr(query, key);
+-    if (!p) return;
+-    p += strlen(key);
+-    if (*p == '=') p++;
+-    size_t i = 0;
+-    while (*p && *p != '&' && *p != ' ' && i + 1 < dst_sz) {
+-        dst[i++] = (*p == '+') ? ' ' : *p;
+-        p++;
++    size_t klen = strlen(key);
++    const char *p = query;
++    while (p && *p && *p != ' ') {
++        if (strncmp(p, key, klen) == 0 && p[klen] == '=') {
++            p += klen + 1;
++            size_t i = 0;
++            while (*p && *p != '&' && *p != ' ' && *p != '#' && i + 1 < dst_sz) {
++                if (*p == '%' && hex_val(p[1]) >= 0 && hex_val(p[2]) >= 0) {
++                    dst[i++] = (char)(hex_val(p[1]) * 16 + hex_val(p[2]));
++                    p += 3;
++                } else {
++                    dst[i++] = (*p == '+') ? ' ' : *p;
++                    p++;
++                }
++            }
++            dst[i] = '\0';
++            return;
++        }
++        while (*p && *p != '&' && *p != ' ') p++;
++        if (*p == '&') p++;
+     }
+-    dst[i] = '\0';
+ }
+ 
+ static void send_file_response(int client, const char *filepath) {
+@@ -107,7 +127,7 @@ static void run_http_server(int port) {
+     struct sockaddr_in addr;
+     memset(&addr, 0, sizeof(addr));
+     addr.sin_family = AF_INET;
+-    addr.sin_addr.s_addr = INADDR_ANY;
++    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);   /* yalnizca yerel makine */
+     addr.sin_port = htons((uint16_t)port);
+ 
+     if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+@@ -127,8 +147,8 @@ static void run_http_server(int port) {
+         if (r > 0) {
+             bool is_3b = (strncmp(req, "GET /3b", 7) == 0);
+             char site[64] = "Connecting Ridge";
+-            char lat_s[32] = "-89.45";
+-            char lon_s[32] = "-137.50";
++            char lat_s[32] = "-89.4632";
++            char lon_s[32] = "-137.49";
+             char days_s[16] = "14";
+             char utc[32] = "2026-10-29T14:30:00";
+             char scen_s[16] = "3";
+@@ -192,7 +212,7 @@ static void run_http_server(int port) {
+ 
+ int main(int argc, char **argv) {
+     ensure_data_dir();
+-    init_spice_engine("kernels/meta_kernel.tm");
++    init_spice_engine("data/kernels/meta_kernel.tm");
+ 
+     if (argc >= 2 && strcmp(argv[1], "--serve") == 0) {
+         int port = (argc >= 3) ? atoi(argv[2]) : 8080;
+@@ -206,8 +226,8 @@ int main(int argc, char **argv) {
+     }
+ 
+     const char *site = (argc > arg_idx)     ? argv[arg_idx]           : "Connecting Ridge";
+-    double lat       = (argc > arg_idx + 1) ? atof(argv[arg_idx + 1]) : -89.45;
+-    double lon       = (argc > arg_idx + 2) ? atof(argv[arg_idx + 2]) : -137.50;
++    double lat       = (argc > arg_idx + 1) ? atof(argv[arg_idx + 1]) : -89.4632;
++    double lon       = (argc > arg_idx + 2) ? atof(argv[arg_idx + 2]) : -137.49;
+     const char *utc  = (argc > arg_idx + 3) ? argv[arg_idx + 3]       : "2026-10-29T14:30:00";
+     int days         = (argc > arg_idx + 4) ? atoi(argv[arg_idx + 4]) : 14;
+ 
+diff --git a/test_3b_viewer.html b/test_3b_viewer.html
+index 1342b8c..3432665 100644
+--- a/test_3b_viewer.html
++++ b/test_3b_viewer.html
+@@ -142,9 +142,9 @@
+     <label>Aralık (Gün)<input id="inp-days" type="number" value="14" min="1" max="30"></label>
+     <label>Hazır Hedef
+       <select id="inp-site">
+-        <option value="Connecting Ridge|-89.45|-137.50">Connecting Ridge</option>
+-        <option value="Shackleton Rim|-89.90|0.00">Shackleton Rim</option>
+-        <option value="Malapert Massif|-86.00|0.00">Malapert Massif</option>
++        <option value="Connecting Ridge|-89.4632|-137.49">Connecting Ridge</option>
++        <option value="Shackleton Rim|-89.7668|-171.87">Shackleton Rim</option>
++        <option value="Malapert Massif|-85.9948|-0.23578">Malapert Massif</option>
+         <option value="Haworth|-87.45|-5.17">Haworth</option>
+         <option value="Nobile Rim 1|-85.20|53.50">Nobile Rim 1</option>
+         <option value="Shackleton Base (PSR)|-89.65|115.00">Shackleton Base (PSR)</option>
+diff --git a/ui-starter/src/types/mission.ts b/ui-starter/src/types/mission.ts
+index ebbde3e..e6200e0 100644
+--- a/ui-starter/src/types/mission.ts
++++ b/ui-starter/src/types/mission.ts
+@@ -94,6 +94,15 @@ export interface SimulationMetadata {
+   dem_out_of_bounds?: boolean;
+   dem_source?: string;
+   warning?: string;
++  /** "CSPICE_DE440S_IAU_MOON" veya "ANALYTIC_MEEUS_FALLBACK". Yedek kullanılıyorsa UI'da belirt. */
++  ephemeris_source?: string;
++  dem_info?: {
++    name?: string;
++    /** "LOLA_80M_SKYLINE" (gerçek veri) veya "SYNTHETIC_ANALYTIC" (sentetik arazi). */
++    horizon_source?: string;
++    /** Eğim ve rover rotası her zaman sentetik araziden gelir. */
++    terrain_is_synthetic?: boolean;
++  };
+ }
+ 
+ export interface SiteComparison {
+@@ -110,6 +119,7 @@ export interface SiteComparison {
+   total_sun_hours?: number;
+   longest_sun_hours?: number;
+   earth_visibility_percent?: number;
++  slope_deg?: number;
+   longest_earth_hours?: number;
+   dte_window_count?: number;
+   altitude_m?: number;
+@@ -201,9 +211,9 @@ export const CANDIDATE_LANDING_SITES: Array<{
+   longitude_deg: number;
+   altitude_m: number;
+ }> = [
+-  { name: "Shackleton Rim", latitude_deg: -89.9, longitude_deg: 0.0, altitude_m: 120 },
+-  { name: "Connecting Ridge", latitude_deg: -89.45, longitude_deg: 222.5, altitude_m: 1850 },
+-  { name: "Malapert Massif", latitude_deg: -85.95, longitude_deg: 357.5, altitude_m: 4800 },
++  { name: "Shackleton Rim", latitude_deg: -89.7668, longitude_deg: -171.87, altitude_m: 770.5 },
++  { name: "Connecting Ridge", latitude_deg: -89.4632, longitude_deg: -137.49, altitude_m: 1943.3 },
++  { name: "Malapert Massif", latitude_deg: -85.9948, longitude_deg: -0.23578, altitude_m: 4784.8 },
+   { name: "Nobile Rim 1", latitude_deg: -85.2, longitude_deg: 55.0, altitude_m: 2100 },
+   { name: "Haworth", latitude_deg: -87.45, longitude_deg: 354.8, altitude_m: 1650 },
+ ];
+\ No newline at end of file
