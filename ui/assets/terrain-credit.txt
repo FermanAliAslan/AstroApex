@@ -1,0 +1,7 @@
+Shackleton Crater, lunar south pole — orbital mosaic.
+Mosaic by the LROC and ShadowCam teams; imagery from NASA, KARI and Arizona State University.
+Published by NASA, 19 September 2023.
+https://www.nasa.gov/missions/lro/nasa-moon-camera-mosaic-sheds-light-on-lunar-south-pole/
+Source image: https://www.nasa.gov/wp-content/uploads/2023/09/shadowcam_shackleton_crater_mosaic_072823.jpeg
+
+This locally bundled 985 × 576 WebP is a horizontal crop of the 985 × 985 NASA-published image. The two instruments show sunlit flanks and shadowed terrain under different imaging conditions. This static geographic reference does not depict the selected mission time. No NASA identity mark is used.

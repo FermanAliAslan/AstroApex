@@ -1,0 +1,23 @@
+/* Duration and distance are deliberately short on this instrument panel. */
+.mast nav{position:relative}
+.nav-tracer{position:absolute;pointer-events:none;left:0;bottom:0;height:2px;transform-origin:left center;background:#82eaff;box-shadow:0 0 10px #69c8e680;opacity:0}
+nav[data-traced=true] .nav-tracer{opacity:1}
+nav[data-traced=true] a[aria-current=page]::after{display:none}
+.terrain-scan{position:absolute;top:0;bottom:0;left:0;width:30%;z-index:1;opacity:0;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(125,224,245,.09) 88%,rgba(156,237,250,.24) 99%,transparent)}
+.terrain-scan i{display:block;position:absolute;inset:0 0 0 auto;width:1px;background:linear-gradient(transparent,#9cf5ff 50%,transparent)}
+.image-label,.image-bottom{z-index:2}
+.kpi strong,.kpi [data-out],.s-vectors small{display:inline-block}
+.kpi strong{display:block}
+@media(prefers-reduced-motion:no-preference){
+  .brand img,.sub-link span,.command-action span,.image-bottom .photo-action,.s-globe-controls button,.s-button,.window-link,.command-deck label,.console-grid>.instrument,.terrain-image>img{transition:transform .22s cubic-bezier(.2,.8,.25,1),border-color .17s,background-color .17s,color .17s}
+  .command-deck label:focus-within{background:#172b39}
+  .s-button:active,.s-globe-controls button:active,.photo-action:active{transform:scale(.97)}
+  .window-table tr:focus-within,.window-table tr:hover{background:#1b2d3b}
+  @media(hover:hover) and (pointer:fine){
+    .brand:hover img{transform:translateY(-2px)}
+    .console-grid>.instrument:is(:hover,:focus-within){border-color:#567589}
+    .terrain-image:hover>img{transform:scale(1.026);transition-duration:.55s}
+    .sub-link:hover span,.command-action:hover span{transform:translateX(3px)}
+    .image-bottom .photo-action:hover,.s-globe-controls button:hover:enabled{transform:translateY(-1px)}
+  }
+}

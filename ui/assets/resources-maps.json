@@ -1,0 +1,92 @@
+{
+  "layers": {
+    "sun": {
+      "image": "assets/resources-wac.webp",
+      "name": "Güneş aydınlanması",
+      "product": "WAC_POLE_ILL_PCT_SOUTH_100M",
+      "sampleMeters": 100,
+      "source": "LROC WAC · NASA / GSFC / ASU",
+      "units": "%",
+      "colors": [
+        "#132134",
+        "#53402e",
+        "#9c703b",
+        "#dfad5a",
+        "#ffe6a5"
+      ],
+      "period": "15 Şub 2010 – 5 Şub 2011",
+      "definition": "Aydınlık olarak sınıflandırılan WAC gözlemlerinin, pikselin görüntülendiği gözlemlere oranı. Bazı gözlem boşlukları benzer aydınlanmadaki görüntülerle tamamlanmıştır.",
+      "metadata": "https://data.lroc.im-ldi.com/lroc/view_rdr/WAC_POLE_ILL_PCT_SOUTH",
+      "raw": "https://pds.lroc.im-ldi.com/data/LRO-L-LROC-5-RDR-V1.0/LROLRC_2001/DATA/BDR/WAC_POLE/WAC_POLE_ILL_PCT_SOUTH/WAC_POLE_ILL_PCT_SOUTH_100M.IMG",
+      "wmts": "https://trek.nasa.gov/tiles/Moon/SP/WAC_POLE_ILL_PCT_SOUTH_100M/1.0.0/WMTSCapabilities.xml",
+      "sha256": "30b35ae2de695198f62afe2845c3a67cbc4975dca199be3c848d931414aced5f"
+    },
+    "earth": {
+      "image": "assets/resources-earth.webp",
+      "name": "Dünya görüşü",
+      "product": "AVGVISIB_85S_060M_201608_EARTH",
+      "sampleMeters": 60,
+      "source": "NASA / GSFC · LRO LOLA",
+      "units": "%",
+      "colors": [
+        "#132134",
+        "#154659",
+        "#337b8d",
+        "#72b5c1",
+        "#cef5fa"
+      ],
+      "period": "18,6 yıllık ortalama",
+      "definition": "LOLA topografyasıyla modellenen saatlik adımların kaçında Dünya diskinin herhangi bir kısmı görülür? Bu katman radyo bağlantısı tahmini değildir.",
+      "metadata": "https://pgda.gsfc.nasa.gov/products/69",
+      "raw": "https://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/AVGVISIB_85S_060M_201608_EARTH.IMG",
+      "label": "https://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/AVGVISIB_85S_060M_201608_EARTH.LBL",
+      "wmts": "https://trek.nasa.gov/tiles/Moon/SP/AVGVISIB_85S_060M_201608_EARTH_SP/1.0.0/WMTSCapabilities.xml",
+      "sha256": "0958313069d6039b2474c875ff662f28dbcba2bd853d9ea458aa807b7948c11f"
+    }
+  },
+  "sites": {
+    "Shackleton Rim": {
+      "lat": -89.7668,
+      "lon": -171.87,
+      "x": 49.0,
+      "y": 57.0003,
+      "sun": 11.94,
+      "earth": 11.07
+    },
+    "Connecting Ridge": {
+      "lat": -89.4632,
+      "lon": -137.49,
+      "x": 39.0009,
+      "y": 61.9993,
+      "sun": 33.34,
+      "earth": 39.05
+    },
+    "Malapert Massif": {
+      "lat": -85.9948,
+      "lon": -0.23578,
+      "x": null,
+      "y": null,
+      "sun": null,
+      "earth": 52.41
+    }
+  },
+  "extentKm": 100,
+  "browsePixels": 512,
+  "browseMetersPerPixel": 195.3125,
+  "projection": "Güney kutup stereografik · 0° doğu boylamı üstte",
+  "readout": "Çalışma bölgesi merkezine en yakın özgün piksel; görüntü 512 × 512 önizlemedir. Koyu gri, veri alanının dışıdır.",
+  "trekBrowse": {
+    "image": "assets/resources-trek.webp",
+    "name": "Moon Trek · WAC özgün görünümü",
+    "definition": "Moon Trek servisinin özgün gri tonlaması. Tonlar görsel karşılaştırma içindir; sayısal oranlar arşivdeki PDS pikselinden okunur.",
+    "wmts": "https://trek.nasa.gov/tiles/Moon/SP/WAC_POLE_ILL_PCT_SOUTH_100M/1.0.0/WMTSCapabilities.xml",
+    "tileMatrix": 5,
+    "nativeTileMetersPerPixel": 267.5610351562496,
+    "tileUrls": [
+      "https://trek.nasa.gov/tiles/Moon/SP/WAC_POLE_ILL_PCT_SOUTH_100M/1.0.0/default/default028mm/5/15/15.png",
+      "https://trek.nasa.gov/tiles/Moon/SP/WAC_POLE_ILL_PCT_SOUTH_100M/1.0.0/default/default028mm/5/15/16.png",
+      "https://trek.nasa.gov/tiles/Moon/SP/WAC_POLE_ILL_PCT_SOUTH_100M/1.0.0/default/default028mm/5/16/15.png",
+      "https://trek.nasa.gov/tiles/Moon/SP/WAC_POLE_ILL_PCT_SOUTH_100M/1.0.0/default/default028mm/5/16/16.png"
+    ]
+  }
+}

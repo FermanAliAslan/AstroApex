@@ -1,0 +1,141 @@
+{
+  "snapshotDate": "2026-11-14",
+  "items": [
+    {
+      "id": "csa-moon",
+      "title": "Kanada’nın Ay aracı",
+      "domain": "Ay · görev bağlamı",
+      "description": "CSA, aracın Dünya’dan kumanda edilebilmesini ve yaklaşık iki haftalık Ay gecesine dayanabilmesini tasarım hedefleri arasında sayıyor. Görev planlarken karanlık süre ve Dünya görüşünü ayrı ayrı izlemenin nedeni bu.",
+      "facts": [
+        {
+          "label": "Program",
+          "value": "Canadian utility rover"
+        },
+        {
+          "label": "Durum",
+          "value": "Konsept geliştirme"
+        },
+        {
+          "label": "Sayfa güncellemesi",
+          "value": "3 Eylül 2026"
+        }
+      ],
+      "sourceUrl": "https://www.asc-csa.gc.ca/eng/astronomy/moon-exploration/",
+      "recordUrl": "https://www.asc-csa.gc.ca/eng/astronomy/moon-exploration/canadian-utility-rover-on-the-moon.asp",
+      "recordLabel": "CSA görev sayfası"
+    },
+    {
+      "id": "radarsat1",
+      "title": "RADARSAT‑1 · Alberta",
+      "domain": "Dünya · radar görüntüsü",
+      "description": "Kanada arşivinden tek bir HH radar sahnesi. Önizleme, GeoTIFF dosyasının ilk bandından küçültüldü ve kontrastı artırıldı. Açık ve koyu tonlar radar geri saçılımını gösterir; görüntü bir yükseklik haritası değildir.",
+      "facts": [
+        {
+          "label": "Çekim tarihi",
+          "value": "4 Ekim 1996"
+        },
+        {
+          "label": "Piksel aralığı",
+          "value": "25 × 25 m"
+        },
+        {
+          "label": "Kaynak boyutu",
+          "value": "13.632 × 13.616 piksel"
+        },
+        {
+          "label": "Yörünge",
+          "value": "4788 · alçalan"
+        }
+      ],
+      "sourceUrl": "https://donnees-data.asc-csa.gc.ca/en/dataset/radarsat1",
+      "recordUrl": "https://registry.opendata.aws/radarsat-1/",
+      "recordLabel": "Arşiv deposu",
+      "image": "assets/radarsat1-scene.webp",
+      "imageAlt": "Alberta çevresinde RADARSAT‑1 tarafından kaydedilmiş gri tonlu radar sahnesi",
+      "credit": "RADARSAT‑1 verisi © Kanada Uzay Ajansı. Açık Hükümet Lisansı – Kanada. Önizleme kontrastı AstroApex tarafından düzenlendi.",
+      "productId": "RS1_C0003310_SCNA_19961004_140742_HH_SCN.tif",
+      "assetUrl": "https://radarsat-r1-l1-cog.s3.ca-central-1.amazonaws.com/1996/10/RS1_C0003310_SCNA_19961004_140742_HH_SCN.tif",
+      "licenseUrl": "https://open.canada.ca/en/open-government-licence-canada"
+    },
+    {
+      "id": "csa-sar",
+      "title": "Radar rasterini haritaya yerleştir",
+      "domain": "Dünya · işleme yöntemi",
+      "description": "CSA’nın Python defteri, British Columbia orman yangınına ilişkin RCM3 radar rasterini rasterio ile açar; GDAL ile koordinat sistemini okur ve rasteri Cartopy üzerinde çizdirir. Bu örneğin uydusu RCM3’tür.",
+      "facts": [
+        {
+          "label": "Örnek",
+          "value": "British Columbia orman yangını"
+        },
+        {
+          "label": "Veri türü",
+          "value": "Raster ve vektör"
+        },
+        {
+          "label": "Araçlar",
+          "value": "GDAL · Rasterio · Cartopy"
+        }
+      ],
+      "sourceUrl": "https://github.com/asc-csa/Synthetic_Aperture_Radar_Tutorial",
+      "recordUrl": "https://github.com/asc-csa/Synthetic_Aperture_Radar_Tutorial/blob/bbbfd0a049f50801b7139b5f5000ad4ab4292fb4/Option%202%20-%20Python/BC%20Wildfire%20raster%20plot.ipynb",
+      "recordLabel": "Python defterini aç"
+    },
+    {
+      "id": "copernicus",
+      "title": "Sentinel‑1A · Ankara çevresi",
+      "domain": "Dünya · radar görüntüsü",
+      "description": "Ankara çevresini kesen bu Sentinel‑1A sahnesinin ürün kimliği, çekim zamanı ve polarizasyonu Copernicus Data Space STAC kaydından alındı. Önizleme, sağlayıcının ürün küçük resmidir.",
+      "facts": [
+        {
+          "label": "Çekim başlangıcı",
+          "value": "28 Mart 2024 · 15:43:31 UTC"
+        },
+        {
+          "label": "Ölçüm",
+          "value": "C bandı · VV + VH"
+        },
+        {
+          "label": "Piksel aralığı",
+          "value": "10 × 10 m"
+        },
+        {
+          "label": "Yörünge",
+          "value": "Yükselen"
+        }
+      ],
+      "sourceUrl": "https://dataspace.copernicus.eu/",
+      "recordUrl": "https://stac.dataspace.copernicus.eu/v1/collections/sentinel-1-grd/items/S1A_IW_GRDH_1SDV_20240328T154331_20240328T154356_053184_0671A3_6C27_COG",
+      "recordLabel": "STAC ürün kaydı",
+      "image": "assets/sentinel1-scene.webp",
+      "imageAlt": "Ankara çevresini kesen Sentinel‑1A radar sahnesinin katalog önizlemesi",
+      "credit": "Contains modified Copernicus Sentinel data (2024).",
+      "productId": "S1A_IW_GRDH_1SDV_20240328T154331_20240328T154356_053184_0671A3_6C27_COG",
+      "acquisitionUTC": "2024-03-28T15:43:31.494450Z",
+      "thumbnailSource": "https://datahub.creodias.eu/odata/v1/Assets(3ee97cd4-e671-4e0a-b015-04732f6381fe)/$value"
+    },
+    {
+      "id": "esa-open-science",
+      "title": "Antarktika buz sahanlığı cepheleri",
+      "domain": "Dünya · araştırma koleksiyonu",
+      "description": "ESA Open Science Catalogue, Greene ve çalışma arkadaşlarının gözlemlerden çıkardığı Antarctic Ice Shelf Calving Fronts 1997–2021 koleksiyonunu listeliyor. Ölçülen değişken buz cephesinin konumudur.",
+      "facts": [
+        {
+          "label": "Ürünün kapsadığı dönem",
+          "value": "1997–2021"
+        },
+        {
+          "label": "Alan",
+          "value": "Antarktika kıyıları"
+        },
+        {
+          "label": "Katalog lisansı",
+          "value": "CC-BY-4.0"
+        }
+      ],
+      "sourceUrl": "https://opensciencedata.esa.int/",
+      "recordUrl": "https://esa-earthcode.github.io/open-science-catalog-metadata/products/antarctic-ice-shelf-calving-fronts/collection.json",
+      "recordLabel": "ESA koleksiyon kaydı",
+      "dataUrl": "https://zenodo.org/records/5903643"
+    }
+  ]
+}

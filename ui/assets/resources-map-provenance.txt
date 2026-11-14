@@ -1,0 +1,13 @@
+AstroApex south polar reference plates
+Display geometry: 100 km square; 512 × 512 nearest-sample browse. Origin at the south pole, projected bounds X/Y -50 km to +50 km. Spherical polar stereographic, central meridian 0° east, reference radius 1737.4 km. Projection-grid distances are true at the pole. Each current marker indicates a NASA study-region center, not a lander coordinate. Raster values refer to a single nearest source pixel, not a regional spatial average. Coordinates available in NASA Lunar Surface Data Book Rev A, Table A2-2 (https://ntrs.nasa.gov/citations/20230007818). Variation in location, observing height, reference frame and geographic registration can change the result.
+
+resources-wac.webp: NASA LRO / LROC team, Arizona State University. WAC_POLE_ILL_PCT_SOUTH_100M, v1.3, RDR 100 m/pixel. 32-bit float PC_REAL PDS3 image stored in percent. Pin readouts use scientific pixel values. The original 88–90°S product shows the percentage of observations whose pixel was illuminated, not a duration-weighted percentage or an ephemeris prediction. It includes 3,807 WAC images over 2010-02-15 to 2011-02-05 with 229 additional observations used to fill similar-lighting gaps. Image noise and scattered light can produce small nonzero percentages in persistently shadowed areas.
+Product metadata: https://data.lroc.im-ldi.com/lroc/view_rdr/WAC_POLE_ILL_PCT_SOUTH
+Product identifier: https://data.lroc.imldi.com/lroc/view_rdr_product/WAC_POLE_ILL_PCT_SOUTH_100M
+Reference: Speyerer and Robinson, 2013, Icarus 222, 122-136. https://doi.org/10.1016/j.icarus.2012.10.010
+
+resources-earth.webp: LRO LOLA team / NASA Goddard Space Flight Center. AVGVISIB_85S_060M_201608_EARTH, V1.05, archived at 60 m/pixel. PDS3 signed 16-bit little-endian integer, fractional mean visibility = DN × 0.00004. Multiply by 100 for percent. Average presence of any portion of the Earth disc over the modeled 18.6-year nutation cycle, sampled hourly using LOLA topography. Visibility does not establish a radio link or an exact dated communication window.
+Description: https://pgda.gsfc.nasa.gov/products/69
+Detached label: https://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/AVGVISIB_85S_060M_201608_EARTH.LBL
+
+resources-trek.webp: NASA Moon Trek, WAC percentage-illumination tiled map, default028mm matrix 5, rows 15/16 and columns 15/16. Four 256-pixel gray+alpha tiles assembled and resampled; original WMTS display contrast is retained. The WAC and LOLA quantitative plates use AstroApex's own color scales. Full raw and service URLs and SHA-256 hashes of both science arrays are in resources-maps.json. The supplied LROC QuickMap URL is a complementary live map for exploration. It is not presented as the origin of the calibrated raster array.

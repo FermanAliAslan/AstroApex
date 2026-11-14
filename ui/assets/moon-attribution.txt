@@ -1,0 +1,25 @@
+AstroApex lunar globe
+
+Maps: NASA's Scientific Visualization Studio, Ernie Wright.
+Source: CGI Moon Kit https://svs.gsfc.nasa.gov/4720/
+Data: Lunar Reconnaissance Orbiter Camera (LROC WAC) and Lunar Orbiter Laser Altimeter (LOLA).
+
+The embedded 2048 by 1024 JPEG is the 2025 NASA visualization color map:
+https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg
+The color product includes adjusted exposure and lower-resolution laser albedo at high latitudes.
+
+The source LOLA elevation grid is 1440 by 720 floating-point samples (4 pixels/degree):
+https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_4.tif
+Heights are kilometers above a reference radius of 1737.4 km. The Blender mesh uses
+true-scale bilinear radial displacement on 144 longitude sectors and 72 latitude
+intervals. A 1024 by 512 tangent-space normal map derived from DEM gradients adds
+finer shading relief. Polar vertices use longitudinally averaged elevations.
+
+Longitude increases eastward. Image top is lunar north. The prime meridian is
+at the center of the equirectangular map. In the exported glTF coordinate frame,
++Y is north; +Z points to (0 N, 0 E); +X points to (0 N, 90 E).
+The radius of the reference sphere is one scene unit.
+
+This is a generalized global visualization. Its resolution cannot characterize a
+landing pad, individual local obstructions, or precise site horizon profiles.
+Photometric adjustments, display lighting and normal shading are illustrative.

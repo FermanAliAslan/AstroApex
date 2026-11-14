@@ -1,0 +1,28 @@
+name: Backend regression tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential pkg-config liblua5.4-dev
+      - name: Install official NAIF CSPICE N0067 for Linux x86-64
+        run: |
+          curl --fail --show-error --location --retry 3 --output "$RUNNER_TEMP/cspice.tar.Z" \
+            https://naif.jpl.nasa.gov/pub/naif/toolkit/C/PC_Linux_GCC_64bit/packages/cspice.tar.Z
+          echo "60a95b51a6472f1afe7e40d77ebdee43c12bb5b8823676ccc74692ddfede06ce  $RUNNER_TEMP/cspice.tar.Z" | sha256sum --check
+          gzip -dc "$RUNNER_TEMP/cspice.tar.Z" | tar -xf - cspice/include cspice/lib/cspice.a
+      - name: Build and exercise the native pipeline
+        run: make test
