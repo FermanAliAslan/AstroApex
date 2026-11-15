@@ -4,7 +4,7 @@
 
 AstroApex, Ay’daki iniş sahalarını ve görev tarihlerini güneş ışığı, yerel arazi ufku ve Dünya’yla doğrudan görüş açısından karşılaştıran bir web uygulamasıdır. NASA Space Apps 2026’nın **Lunar Landing Site Navigator / CLPS Lunar Mission Browser** problemi için geliştirilmiştir.
 
-[Canlı uygulama](https://fermanaliaslan.github.io/AstroApex/) · [Türkçe sunum PDF’si](doc/AstroApex-Gorev-Gezgini-Turuncu.pdf) · [İngilizce Navigator rehberi](navigator/README.md) · [Yarışma problemi](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/)
+[Canlı uygulama](https://fermanaliaslan.github.io/AstroApex/) · [İngilizce sunum PDF’si](doc/AstroApex-Lunar-Navigator-English.pdf) · [İngilizce Navigator rehberi](navigator/README.md) · [Yarışma problemi](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/)
 
 ## Neyi çözüyor?
 
