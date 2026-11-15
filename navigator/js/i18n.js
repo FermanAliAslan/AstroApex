@@ -626,3 +626,31 @@ Object.assign(I18N.en, {
  "leg_ice": "Permanent shadow (exists only near the poles)",
  "limits_5": "Whole Moon: the slope layer and the “Whole Moon” scan use a coarse slope map derived from the NASA LOLA global elevation model (16 pixels per degree; cells of about 7.6 km at the equator). It shows crater walls and mountain fronts, not landing-scale roughness. Relief, slope and permanent shadow at the north pole (80°N–90°N) are map layers only; real horizons, the ice-access score and the rover route are computed for the south pole only. Permanent shadow exists only near the poles."
 });
+
+/* v5: honest horizons, short windows, eclipse */
+Object.assign(I18N.tr, {
+ "verdict_more2": "{w} senaryosunda ortak görüş {h} daha uzun",
+ "verdict_eq2": "İki senaryoda ortak görüş süresi eşit ({h})",
+ "ws_sun_most2": "Güneş neredeyse hiç batmıyor; en uzun karanlık {d}.",
+ "ws_earth_most": "Dünya neredeyse sürekli görünüyor; en uzun kesinti {d}.",
+ "ws_eclipse": "Ay tutulması: Dünya, Güneş’i toplam {d} boyunca kısmen ya da tamamen örtüyor.",
+ "hz_480": "Ufuk 480 m’lik LOLA ızgarasından hesaplandı. Bu ızgara yakındaki dar sırtları kaçırabilir; güneş süresi gerçekte daha kısa olabilir.",
+ "a_note_lola480": "Ufuk, 480 m’lik LOLA ızgarasından hesaplandı; yakındaki dar sırtları kaçırabilir, güneş süresi gerçekte daha kısa olabilir.",
+ "sct_caveat": "Puanlar 480 m’lik ızgaradan gelir ve üst sınırdır: ızgara yakındaki dar sırtları kaçırabilir.",
+ "ch_sun_h": "Çizgi gri bölgeye inince Güneş’in merkezi ufkun altındadır; diskin görünen kısmı kadar güç sürer, disk tümüyle batınca kesilir. Değerler yerel ufka (arazi dahil) göredir.",
+ "limits_1": "Arazi ufku iki kaynaktan gelir: üç NASA çalışma bölgesi merkezi (Shackleton Rim, Connecting Ridge, Malapert Massif) için LOLA 80 m modelinden önceden hesaplanmış profil; 82°G’nin güneyindeki diğer tüm noktalar için 480 m’lik LOLA ızgarasından tarayıcıda hesaplanan profil. İki yöntem bu üç noktada ortalama 0,2°–1,3°, tek tek yönlerde 2,8°’ye kadar ayrışır; ızgara dar sırtları kaçırdığı için genellikle daha alçak ufuk verir. Kutupta Güneş ufkun en fazla 1,5° üstüne çıktığından bu fark sonucu saatlerce, sırt üstü noktalarda günlerce değiştirebilir (Connecting Ridge’de 14 günde 157 saat). 480 m’lik ızgaradan gelen güneş süreleri ve tarama puanları bu yüzden üst sınırdır. Bu alanın dışında ufuk, küresel Ay ve seçtiğiniz sabit açıyla modellenir.",
+ "limits_6": "Güç modeli Ay tutulmalarını içerir (Dünya’nın Güneş diskini örttüğü pay); Dünya atmosferinden kırılan zayıf ışık hesaba katılmaz. Uygunluk skoru sahayı ve tarihi ölçer; seçtiğiniz batarya ayrı bir kısıttır: bataryası tükenen senaryo, dayanan senaryonun önüne önerilmez."
+});
+Object.assign(I18N.en, {
+ "verdict_more2": "Scenario {w} has {h} more joint visibility",
+ "verdict_eq2": "Both scenarios have equal joint visibility ({h})",
+ "ws_sun_most2": "The Sun almost never sets; the longest darkness is {d}.",
+ "ws_earth_most": "Earth is almost always visible; the longest outage is {d}.",
+ "ws_eclipse": "Lunar eclipse: the Earth covers part or all of the Sun for {d} in total.",
+ "hz_480": "Horizon computed from the 480 m LOLA grid. That grid can miss narrow nearby ridges; real sunlight may be shorter.",
+ "a_note_lola480": "The horizon comes from the 480 m LOLA grid; it can miss narrow nearby ridges, so real sunlight may be shorter.",
+ "sct_caveat": "Scores come from the 480 m grid and are upper bounds: the grid can miss narrow nearby ridges.",
+ "ch_sun_h": "When the line drops into the grey zone the Sun’s centre is below the horizon; power continues in proportion to the visible part of the disc and stops once the disc is fully hidden. Values are relative to the local horizon (terrain included).",
+ "limits_1": "Terrain horizons come from two sources: a profile precomputed from the LOLA 80 m model for three NASA study-region centres (Shackleton Rim, Connecting Ridge, Malapert Massif), and a profile computed in the browser from the 480 m LOLA grid for every other point south of 82°S. At those three centres the two methods differ by 0.2°–1.3° on average and by up to 2.8° in single directions; the grid misses narrow ridges and usually gives the lower horizon. Because the Sun never rises more than about 1.5° at the pole, that difference can change the result by hours, and on a ridge crest by days (157 hours in 14 days at Connecting Ridge). Sunlight hours and scan scores from the 480 m grid are therefore upper bounds. Outside that area the horizon is a spherical Moon plus the fixed angle you choose.",
+ "limits_6": "The power model includes lunar eclipses (the share of the solar disc covered by the Earth); the faint sunlight bent through the Earth’s atmosphere is ignored. The suitability score measures the site and the date; the battery you choose is a separate constraint: a scenario whose battery runs empty is not recommended over one that survives."
+});

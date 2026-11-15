@@ -368,6 +368,7 @@ ul.acc-body { margin: 0; padding-left: 38px; color: var(--muted); font-size: 13.
 .wcard { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--panel2); }
 .wcard-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .wsum { margin: 10px 0 6px; font-size: 14.5px; line-height: 1.5; color: var(--text); }
+.wsum.hz-note { margin: -2px 0 8px; font-size: 12.5px; color: var(--muted); }
 .wrow { display: grid; grid-template-columns: 150px minmax(0, 1fr) 118px; grid-template-areas: "l t v"; gap: 10px; align-items: center; margin-top: 8px; font-size: 13px; }
 .wrow .wl { grid-area: l; display: inline-flex; align-items: center; gap: 8px; }
 .wrow .track, .wrow.waxis > div { grid-area: t; }
@@ -852,7 +853,7 @@ html.rep-on { overflow: hidden; }
     </details>
     <details class="acc">
       <summary><span data-i18n="limits_t"></span></summary>
-      <ul class="acc-body"><li data-i18n="limits_1"></li><li data-i18n="limits_3"></li><li data-i18n="limits_4"></li><li data-i18n="limits_5"></li><li data-i18n="limits_2"></li></ul>
+      <ul class="acc-body"><li data-i18n="limits_1"></li><li data-i18n="limits_3"></li><li data-i18n="limits_4"></li><li data-i18n="limits_5"></li><li data-i18n="limits_6"></li><li data-i18n="limits_2"></li></ul>
     </details>
   </div>
   <p class="hint keys" data-i18n="keys_help"></p>
@@ -1808,6 +1809,34 @@ Object.assign(I18N.en, {
  "limits_5": "Whole Moon: the slope layer and the “Whole Moon” scan use a coarse slope map derived from the NASA LOLA global elevation model (16 pixels per degree; cells of about 7.6 km at the equator). It shows crater walls and mountain fronts, not landing-scale roughness. Relief, slope and permanent shadow at the north pole (80°N–90°N) are map layers only; real horizons, the ice-access score and the rover route are computed for the south pole only. Permanent shadow exists only near the poles."
 });
 
+/* v5: honest horizons, short windows, eclipse */
+Object.assign(I18N.tr, {
+ "verdict_more2": "{w} senaryosunda ortak görüş {h} daha uzun",
+ "verdict_eq2": "İki senaryoda ortak görüş süresi eşit ({h})",
+ "ws_sun_most2": "Güneş neredeyse hiç batmıyor; en uzun karanlık {d}.",
+ "ws_earth_most": "Dünya neredeyse sürekli görünüyor; en uzun kesinti {d}.",
+ "ws_eclipse": "Ay tutulması: Dünya, Güneş’i toplam {d} boyunca kısmen ya da tamamen örtüyor.",
+ "hz_480": "Ufuk 480 m’lik LOLA ızgarasından hesaplandı. Bu ızgara yakındaki dar sırtları kaçırabilir; güneş süresi gerçekte daha kısa olabilir.",
+ "a_note_lola480": "Ufuk, 480 m’lik LOLA ızgarasından hesaplandı; yakındaki dar sırtları kaçırabilir, güneş süresi gerçekte daha kısa olabilir.",
+ "sct_caveat": "Puanlar 480 m’lik ızgaradan gelir ve üst sınırdır: ızgara yakındaki dar sırtları kaçırabilir.",
+ "ch_sun_h": "Çizgi gri bölgeye inince Güneş’in merkezi ufkun altındadır; diskin görünen kısmı kadar güç sürer, disk tümüyle batınca kesilir. Değerler yerel ufka (arazi dahil) göredir.",
+ "limits_1": "Arazi ufku iki kaynaktan gelir: üç NASA çalışma bölgesi merkezi (Shackleton Rim, Connecting Ridge, Malapert Massif) için LOLA 80 m modelinden önceden hesaplanmış profil; 82°G’nin güneyindeki diğer tüm noktalar için 480 m’lik LOLA ızgarasından tarayıcıda hesaplanan profil. İki yöntem bu üç noktada ortalama 0,2°–1,3°, tek tek yönlerde 2,8°’ye kadar ayrışır; ızgara dar sırtları kaçırdığı için genellikle daha alçak ufuk verir. Kutupta Güneş ufkun en fazla 1,5° üstüne çıktığından bu fark sonucu saatlerce, sırt üstü noktalarda günlerce değiştirebilir (Connecting Ridge’de 14 günde 157 saat). 480 m’lik ızgaradan gelen güneş süreleri ve tarama puanları bu yüzden üst sınırdır. Bu alanın dışında ufuk, küresel Ay ve seçtiğiniz sabit açıyla modellenir.",
+ "limits_6": "Güç modeli Ay tutulmalarını içerir (Dünya’nın Güneş diskini örttüğü pay); Dünya atmosferinden kırılan zayıf ışık hesaba katılmaz. Uygunluk skoru sahayı ve tarihi ölçer; seçtiğiniz batarya ayrı bir kısıttır: bataryası tükenen senaryo, dayanan senaryonun önüne önerilmez."
+});
+Object.assign(I18N.en, {
+ "verdict_more2": "Scenario {w} has {h} more joint visibility",
+ "verdict_eq2": "Both scenarios have equal joint visibility ({h})",
+ "ws_sun_most2": "The Sun almost never sets; the longest darkness is {d}.",
+ "ws_earth_most": "Earth is almost always visible; the longest outage is {d}.",
+ "ws_eclipse": "Lunar eclipse: the Earth covers part or all of the Sun for {d} in total.",
+ "hz_480": "Horizon computed from the 480 m LOLA grid. That grid can miss narrow nearby ridges; real sunlight may be shorter.",
+ "a_note_lola480": "The horizon comes from the 480 m LOLA grid; it can miss narrow nearby ridges, so real sunlight may be shorter.",
+ "sct_caveat": "Scores come from the 480 m grid and are upper bounds: the grid can miss narrow nearby ridges.",
+ "ch_sun_h": "When the line drops into the grey zone the Sun’s centre is below the horizon; power continues in proportion to the visible part of the disc and stops once the disc is fully hidden. Values are relative to the local horizon (terrain included).",
+ "limits_1": "Terrain horizons come from two sources: a profile precomputed from the LOLA 80 m model for three NASA study-region centres (Shackleton Rim, Connecting Ridge, Malapert Massif), and a profile computed in the browser from the 480 m LOLA grid for every other point south of 82°S. At those three centres the two methods differ by 0.2°–1.3° on average and by up to 2.8° in single directions; the grid misses narrow ridges and usually gives the lower horizon. Because the Sun never rises more than about 1.5° at the pole, that difference can change the result by hours, and on a ridge crest by days (157 hours in 14 days at Connecting Ridge). Sunlight hours and scan scores from the 480 m grid are therefore upper bounds. Outside that area the horizon is a spherical Moon plus the fixed angle you choose.",
+ "limits_6": "The power model includes lunar eclipses (the share of the solar disc covered by the Earth); the faint sunlight bent through the Earth’s atmosphere is ignored. The suitability score measures the site and the date; the battery you choose is a separate constraint: a scenario whose battery runs empty is not recommended over one that survives."
+});
+
 </script>
 <script>
 /* js/terrain.js */
@@ -2366,10 +2395,15 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   // Skyline samples for a scenario, or null when only a fixed angle applies. Three NASA study-region centres
   // carry a precomputed 80 m skyline; any other point south of 82 S gets one computed here from the 480 m LOLA grid.
   const skyCache = new Map();
+  // The 80 m skyline belongs to a place, not to a menu entry: a custom point at the same coordinates gets it too.
+  const terrainEntry = sc => TERRAIN[sc.site] || Object.values(TERRAIN).find(T => Math.abs(T.lat - sc.lat) < 6e-4 && Math.abs(T.lon - sc.lon) < 6e-4) || null;
+  // Which horizon a scenario really uses: 'lola80' (precomputed 80 m profile), 'lola480' (480 m grid) or 'flat'.
+  const horizonSrc = sc => sc.mask !== 'lola' ? 'flat' : sc.sky ? 'lola480' : terrainEntry(sc) ? 'lola80' : profile(sc) ? 'lola480' : 'flat';
   function profile(sc) {
     if (sc.sky) return sc.sky;
     if (sc.mask !== 'lola') return null;
-    if (TERRAIN[sc.site]) return TERRAIN[sc.site].angles;
+    const T80 = terrainEntry(sc);
+    if (T80) return T80.angles;
     if (!Polar.covered(sc.lat, sc.lon)) return null;
     const key = sc.lat + '|' + sc.lon;
     let p = skyCache.get(key);
@@ -2385,7 +2419,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       return a[i % n] * (1 - f) + a[(i + 1) % n] * f;
     };
   }
-  const terrainOK = sc => !!TERRAIN[sc.site] || Polar.covered(sc.lat, sc.lon);
+  const terrainOK = sc => !!terrainEntry(sc) || Polar.covered(sc.lat, sc.lon);
   const hasTerrain = sc => sc.mask === 'lola' && !!profile(sc);
   // While the terrain pack is still unpacking, a 'lola' choice is kept as it is.
   function normalize(sc) { if (sc.mask === 'lola' && !terrainOK(sc) && !Polar.pending) sc.mask = 0; }
@@ -2429,6 +2463,19 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     if (s >= 0) out.push([s, n]);
     return out;
   }
+  // Share of the solar disc NOT covered by the Earth, seen from the site (below 1 during a lunar eclipse).
+  // Two-circle overlap with the apparent radii; sunlight bent through the Earth's atmosphere is ignored.
+  function sunUncovered(o) {
+    const D = Math.PI / 180, a1 = o.sun.el * D, a2 = o.earth.el * D;
+    const cs = Math.sin(a1) * Math.sin(a2) + Math.cos(a1) * Math.cos(a2) * Math.cos((o.sun.az - o.earth.az) * D);
+    const sep = Math.acos(Math.max(-1, Math.min(1, cs))) / D, r = o.sun.rad, R = o.earth.rad;
+    if (sep >= r + R) return 1;
+    if (sep <= R - r) return 0;
+    const cl = v => Math.max(-1, Math.min(1, v));
+    const area = r * r * Math.acos(cl((sep * sep + r * r - R * R) / (2 * sep * r))) + R * R * Math.acos(cl((sep * sep + R * R - r * r) / (2 * sep * R)))
+      - 0.5 * Math.sqrt(Math.max(0, (-sep + r + R) * (sep + r - R) * (sep - r + R) * (sep + r + R)));
+    return Math.max(0, 1 - area / (Math.PI * r * r));
+  }
   // Pure simulation of one scenario: sc = {site, lat, lon, start, mask}, dur in days, sm = step in minutes.
   function simulate(sc, dur, sm) {
     const n = Math.round(dur * 1440 / sm) + 1, dtH = sm / 60;
@@ -2439,14 +2486,15 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       sunM: new Float32Array(n), earthM: new Float32Array(n), // elevation above the LOCAL horizon (terrain included)
       sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), sunR: 0.27, earthR: 0.95
     };
-    let sunC = 0, earthC = 0, bothC = 0, elSum = 0, energy = 0;
+    let sunC = 0, earthC = 0, bothC = 0, elSum = 0, energy = 0, eclC = 0;
     let maxEl = -90, eMin = 90, eMax = -90, sMin = 90, nSpice = 0;
     for (let i = 0; i < n; i++) {
       const o = Ephem.observe(st, sc.start + i * sm * 60000);
       if (o.src === 'spice') nSpice++;
       d.sunEl[i] = o.sun.el; d.sunAz[i] = o.sun.az; d.earthEl[i] = o.earth.el; d.earthAz[i] = o.earth.az;
       d.sunM[i] = o.sun.el - hz(o.sun.az); d.earthM[i] = o.earth.el - hz(o.earth.az);
-      const f = Ephem.discFrac(d.sunM[i] / o.sun.rad);
+      const fT = Ephem.discFrac(d.sunM[i] / o.sun.rad), unc = fT > 0 ? sunUncovered(o) : 1, f = fT * unc; // terrain, then the Earth
+      if (unc < 1 && i < n - 1) eclC++;
       d.frac[i] = f;
       d.flux[i] = 1361 * Math.pow(Ephem.AU / o.sun.dist, 2) * f;
       d.sunUp[i] = f > 0 ? 1 : 0;
@@ -2468,8 +2516,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     d.stats = {
       total, sun: sunC * dtH, earth: earthC * dtH, both: bothC * dtH,
       dark: Math.min(total, longest(runs(inv(d.sunUp), n))), nocomm: Math.min(total, longest(runs(inv(d.earthUp), n))),
-      maxEl, sMin, meanEl: sunC ? elSum / sunC : null, energy, eMin, eMax
+      maxEl, sMin, meanEl: sunC ? elSum / sunC : null, energy, eMin, eMax, eclipse: eclC * dtH
     };
+    d.hz = horizonSrc(sc);
     d.src = nSpice === n ? 'spice' : nSpice ? 'mixed' : 'ae';
     return d;
   }
@@ -2606,9 +2655,11 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   /* ---------- verdict, windows, table ---------- */
   function renderVerdict() {
     const a = S.data.A.stats, b = S.data.B.stats, diff = b.both - a.both;
-    $('#verdict-h').textContent = a.both < 0.5 && b.both < 0.5 ? t('verdict_none')
-      : Math.abs(diff) < 0.5 ? t('verdict_eq')
-        : t('verdict_more', { w: diff > 0 ? 'B' : 'A', h: nf(Math.abs(diff)) });
+    const tol = S.data.A.dtH / 2; // less than half a time step is no difference
+    const hm = h => h < 10 ? fmtDur(h) : nf(h) + ' ' + t('h'); // minutes stay visible for short windows
+    $('#verdict-h').textContent = a.both <= 0 && b.both <= 0 ? t('verdict_none')
+      : Math.abs(diff) < tol ? t('verdict_eq2', { h: hm(a.both) })
+        : t('verdict_more2', { w: diff > 0 ? 'B' : 'A', h: hm(Math.abs(diff)) });
     $('#verdict-chips').innerHTML = KEYS.map(k => {
       const s = S.data[k].stats, ps = s.sun / s.total, pe = s.earth / s.total;
       const pc = ps > 0.8 ? 'good' : ps > 0.4 ? 'mid' : 'bad', pl = { good: 'p_good', mid: 'p_mid', bad: 'p_bad' }[pc];
@@ -2621,11 +2672,11 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   // One plain sentence per scenario, so the bars can be understood without reading them.
   function winSummary(k) {
     const s = S.data[k].stats, ps = s.sun / s.total, pe = s.earth / s.total;
-    const a = ps >= 0.98 ? t('ws_sun_all') : ps >= 0.85 ? t('ws_sun_most')
+    const a = s.dark <= 0 ? t('ws_sun_all') : ps >= 0.85 ? t('ws_sun_most2', { d: fmtDur(s.dark) })
       : ps >= 0.5 ? t('ws_sun_part', { p: nf(ps * 100), d: nf(s.dark) })
         : ps > 0 ? t('ws_sun_low', { d: nf(s.dark) }) : t('ws_sun_none');
-    const b = pe >= 0.995 ? t('ws_earth_all') : pe <= 0 ? t('ws_earth_none') : t('ws_earth_part', { p: nf(pe * 100), d: nf(s.nocomm) });
-    return a + ' ' + b;
+    const b = s.nocomm <= 0 ? t('ws_earth_all') : pe <= 0 ? t('ws_earth_none') : pe >= 0.995 ? t('ws_earth_most', { d: fmtDur(s.nocomm) }) : t('ws_earth_part', { p: pe < 0.01 ? '<1' : nf(pe * 100), d: nf(s.nocomm) });
+    return a + ' ' + b + (s.eclipse > 0 ? ' ' + t('ws_eclipse', { d: fmtDur(s.eclipse) }) : '');
   }
   const fmtDay = ms => new Date(ms).toLocaleString(S.lang, { timeZone: 'UTC', day: 'numeric', month: 'short' });
   function renderWindows() {
@@ -2647,13 +2698,14 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
         return `<div class="wrow"><span class="wl"><i class="sw ${b}"></i>${t('w_' + b)}</span>
           <div class="track ${b}" title="${k} · ${t(b)}">${segs}${gaps}<b class="wcur"></b></div><span class="wv">${val}</span></div>`;
       };
-      const pv = (h) => `<b>${nf(h / s.total * 100)}%</b> · ${nf(h)} ${t('h')}`;
+      const hShort = h => h > 0 && h < 10 ? fmtDur(h) : nf(h) + ' ' + t('h'); // minutes stay visible
+      const pv = (h) => `<b>${nf(h / s.total * 100)}%</b> · ${hShort(h)}`;
       const ticks = [0, 1, 2, 3, 4].map(i => `<span>${fmtDay(sc.start + i / 4 * tot * H)}</span>`).join('');
       return `<div class="wcard">
         <div class="wcard-head"><div class="scn-title"><span class="badge ${k.toLowerCase()}">${k}</span><b>${siteName(k)}</b></div>
           <span class="mono coord">${fmtDay(sc.start)} – ${fmtDate(sc.start + tot * H, false)} · ${nf(S.dur, S.dur % 1 ? 1 : 0)} ${t('days')}</span></div>
-        <p class="wsum">${winSummary(k)}</p>
-        ${row('sun', pv(s.sun))}${row('earth', pv(s.earth))}${row('both', `<b>${nf(s.both)} ${t('h')}</b>`)}
+        <p class="wsum">${winSummary(k)}</p>${d.hz === 'lola480' ? `<p class="wsum hz-note">${t('hz_480')}</p>` : ''}
+        ${row('sun', pv(s.sun))}${row('earth', pv(s.earth))}${row('both', `<b>${hShort(s.both)}</b>`)}
         <div class="wrow waxis"><span></span><div>${ticks}</div><span></span></div>
       </div>`;
     }).join('');
@@ -2692,8 +2744,8 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const d = S.data[k], sc = S.sc[k], st = d.stats, i = idxAt(k), hz = horizonFn(sc), terr = hasTerrain(sc);
     const { ctx, w, h } = fit($(`#sky-${k} [data-sky]`));
     const L = 40, R = 10, T = 12, B = 26;
-    let hMin = hz(0), hMax = hMin;
-    if (terr) for (let a = 0; a < 360; a += 2) { const v = hz(a); hMin = Math.min(hMin, v); hMax = Math.max(hMax, v); }
+    let hMin = hz(0), hMax = hMin, azMax = 0;
+    if (terr) for (let a = 0; a < 360; a += 1) { const v = hz(a); hMin = Math.min(hMin, v); if (v > hMax) { hMax = v; azMax = a; } }
     const lo = Math.max(-90, Math.min(-5, Math.floor(Math.min(st.sMin, st.eMin, hMin) - 2)));
     const hi = Math.min(90, Math.max(8, Math.ceil(Math.max(st.maxEl, st.eMax, Math.min(hMax, 14)) + 3)));
     const X = az => L + az / 360 * (w - L - R), Y = el => T + (hi - el) / (hi - lo) * (h - T - B);
@@ -2724,9 +2776,13 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     ctx.save(); ctx.beginPath(); ctx.rect(L, T, w - L - R, h - T - B); ctx.clip();
     // local horizon line
     ctx.strokeStyle = '#9aa0ad'; ctx.lineWidth = 1.5; skyline(); ctx.stroke();
+    if (terr && hMax > hi) { // the ridge continues above the plot: say how high it really is
+      ctx.fillStyle = '#d7dbe3'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('▲ ' + nf(hMax, 1) + '°', Math.min(w - R - 34, Math.max(L + 34, X(azMax))), T + 4); ctx.textBaseline = 'middle';
+    }
     if (terr || sc.mask !== 0) {
       ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      ctx.fillText(terr ? 'LOLA' : t('loc_h'), w - R - 4, Y(hz(359)) - 3); ctx.textBaseline = 'middle';
+      ctx.fillText(terr ? (d.hz === 'lola80' ? 'LOLA 80 m' : 'LOLA 480 m') : t('loc_h'), w - R - 4, Math.max(T + 14, Y(hz(359)) - 3)); ctx.textBaseline = 'middle';
     }
     // paths
     const path = (az, el, col) => {
@@ -3513,7 +3569,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
     // shared API for the assistant module
     window.AA = {
-      S, KEYS, DURS, TERRAIN, Polar, C, t, nf, fmtDur, fmtDate, fmtCoord, fmtDay, siteName, winSummary, idxAt, hasTerrain, terrainOK, countdown, showTab, refresh,
+      S, KEYS, DURS, TERRAIN, Polar, C, t, nf, fmtDur, fmtDate, fmtCoord, fmtDay, siteName, winSummary, idxAt, hasTerrain, terrainOK, horizonSrc, countdown, showTab, refresh,
       simulate, setSite, setPoint, stepMin, facts, powerSim, setPower, applyPreset, queueGlobe, syncForms, heatColor, horizonFn, routeFor, surfaceTemp, REGIONS, ROVER_KMH,
       POWER: { PV_EFF, CHG_EFF, DOD, WH_KG },
       onChange(fn) { hooks.push(fn); } // other modules re-render after every recomputation
@@ -3630,11 +3686,19 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     else if (tc === 'mare') pros.push(t('pc_mare'));
     else if (tc === 'highland') cons.push(t('pc_highland'));
     else cons.push(t('pc_unknown'));
-    if (d.pw && d.pw.state === 'bad') cons.push(t('pc_batt_bad', { h: nf(d.pw.emptyH), c: nf(d.pw.need, 1) }));
+    if (d.pw && d.pw.state === 'bad') cons.unshift(t('pc_batt_bad', { h: nf(d.pw.emptyH, d.pw.emptyH < 100 ? 1 : 0), c: nf(d.pw.need, 1) }));
     if (site && site.her) pros.push(t('pc_heritage'));
-    return { k: null, name: site ? site.name : t('custom'), score, parts, dv, frac, tc, pros, cons, lola: AA.hasTerrain(sc), sc, stats: s, src: d.src, f, pw: d.pw || null };
+    return { k: null, name: site ? site.name : t('custom'), score, parts, dv, frac, tc, pros, cons, lola: AA.hasTerrain(sc), hz: d.hz || AA.horizonSrc(sc), sc, stats: s, src: d.src, f, pw: d.pw || null };
   }
   const analyze = k => Object.assign(evaluate(S.sc[k], S.data[k]), { k });
+  // Which scenario to recommend. The score describes the place and the date; the chosen battery is a hard
+  // constraint on top of it: a scenario whose battery runs empty is not recommended over one that survives.
+  function recommend(a, b) {
+    const bad = x => !!(x.pw && x.pw.state === 'bad');
+    let lead = a.score === b.score ? null : a.score > b.score ? a : b, forced = false;
+    if (bad(a) !== bad(b)) { const ok = bad(a) ? b : a; forced = lead !== ok && lead !== null; lead = ok; }
+    return { lead, other: lead === a ? b : a, forced, bothBad: bad(a) && bad(b) };
+  }
   const scoreClass = v => v >= 65 ? 'good' : v >= 40 ? 'mid' : 'bad';
 
   /* ================= report cards ================= */
@@ -3676,7 +3740,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   };
 
   function parse(q) {
-    const x = norm(q), e = { x, scen: [], site: null, days: null, date: null, mass: null, watts: null, isp: null, body: null };
+    const x = norm(q), e = { x, scen: [], site: null, days: null, shift: null, date: null, mass: null, watts: null, isp: null, body: null };
     // scenarios A / B
     // In English "a" is also the article, so there the scenario needs a cue word or a capital A before a non-noun.
     const hasA = S.lang === 'en'
@@ -3694,8 +3758,14 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       if (hit > best) { best = hit; e.site = s; }
     }
     // duration
-    let m = x.match(/(\d+(?:[.,]\d+)?)\s*(gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)/);
+    const WORDS = Object.assign({ two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fourteen: 14, twenty: 20, thirty: 30,
+      iki: 2, uc: 3, dort: 4, bes: 5, alti: 6, yedi: 7, sekiz: 8, dokuz: 9, yirmi: 20, otuz: 30 }, S.lang === 'en' ? { one: 1, a: 1, an: 1 } : { bir: 1, on: 10 });
+    const xd = x.replace(new RegExp('(^|[^a-z0-9])(' + Object.keys(WORDS).join('|') + ')\\s+(?=gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)', 'g'), (s, p, w) => p + WORDS[w] + ' ');
+    let m = xd.match(/(\d+(?:[.,]\d+)?)\s*(gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)/);
     if (m) { const v = num(m[1]); e.days = /^(hafta|week)/.test(m[2]) ? v * 7 : /^(ay|month)/.test(m[2]) ? v * 29.5 : v; }
+    // "delay / postpone / ertele ... N days" moves the start and keeps the mission length
+    const later = /ertele|otele|gecik|kaydir|sonraya|\bdelay|postpone|\bslip|push(ed)? back|\blater\b/.test(x), sooner = /one al|one cek|erkene|\bearlier\b|bring forward|move up/.test(x);
+    if ((later || sooner) && e.days != null) { e.shift = (sooner ? -1 : 1) * e.days; e.days = null; }
     // date: 2027-03-15, 15.03.2027, "15 mart 2027", "march 15 2027", "mart 2027"
     if ((m = x.match(/(20\d\d)-(\d{1,2})-(\d{1,2})/))) e.date = Date.UTC(+m[1], +m[2] - 1, +m[3]);
     else if ((m = x.match(/(\d{1,2})[./](\d{1,2})[./](20\d\d)/))) e.date = Date.UTC(+m[3], +m[2] - 1, +m[1]);
@@ -3806,7 +3876,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       <span class="score-inline ${scoreClass(a.score)}">${t('a_scoreline', { s: a.score })}</span><br>
       ${t('a_fuelline', { f: nf(a.frac * 100), dv: nf(a.dv), kg: nf(a.frac * 1000) })}${groundLine(a)}
       <h4>${t('pros')}</h4>${list(a.pros, 'pro')}<h4>${t('cons')}</h4>${list(a.cons, 'con')}
-      ${note(t(a.lola ? 'a_note_lola' : 'a_note_flat'))} ${srcNote(a)}`;
+      ${note(t(a.hz === 'lola480' ? 'a_note_lola480' : a.lola ? 'a_note_lola' : 'a_note_flat'))} ${srcNote(a)}`;
   }
 
   function compareAnswer() {
@@ -3826,9 +3896,11 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     if (a.f.trap && b.f.trap) rows.push([t('m_ice'), nf(a.f.trap.km, 1), nf(b.f.trap.km, 1), win(a.f.trap.km, b.f.trap.km, true)]);
     rows = rows.map(r => [esc(r[0]), r[1], r[2], r[3] === '=' ? '=' : `<b>${r[3]}</b>`]);
     const wins = { A: 0, B: 0 }; rows.forEach(r => { const w = r[3].replace(/<[^>]+>/g, ''); if (wins[w] != null) wins[w]++; });
-    const lead = a.score === b.score ? null : a.score > b.score ? a : b, other = lead === a ? b : a;
+    const pick = recommend(a, b), lead = pick.lead, other = pick.other;
     let verdict;
-    if (!lead) verdict = L('İki senaryo aynı skoru alıyor; karar görev önceliğine bağlı.', 'Both scenarios score the same; the choice depends on mission priority.');
+    if (pick.forced) verdict = L(`Öneri: ${lead.k} · ${lead.name}. Skoru daha düşük (${lead.score}/100, diğeri ${other.score}/100), ama seçili batarya yalnızca burada dayanıyor: ${other.k} senaryosunda batarya ${nf(other.pw.emptyH, 1)} saat boş kalıyor. ${other.k} için en az ${nf(other.pw.need, 1)} kWh gerekir.`,
+      `Recommendation: ${lead.k} · ${lead.name}. It scores lower (${lead.score}/100 vs ${other.score}/100), but the chosen battery only survives here: in scenario ${other.k} it is empty for ${nf(other.pw.emptyH, 1)} h. ${other.k} would need at least ${nf(other.pw.need, 1)} kWh.`);
+    else if (!lead) verdict = L('İki senaryo aynı skoru alıyor; karar görev önceliğine bağlı.', 'Both scenarios score the same; the choice depends on mission priority.');
     else {
       const why = [];
       if (lead.parts.power - other.parts.power > 8) why.push(L('daha fazla güneş (güç)', 'more sunlight (power)'));
@@ -3842,6 +3914,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       const weak = PARTS.filter(p => other.parts[p] - lead.parts[p] > 8).map(p => t('sc_' + p));
       if (weak.length) verdict += ' ' + L(`Ancak ${other.k} şu konularda daha iyi: ${weak.join(', ')}.`, `However ${other.k} is better on: ${weak.join(', ')}.`);
     }
+    if (pick.bothBad) verdict += ' ' + L('Uyarı: seçili batarya iki senaryoda da tükeniyor; bu öneri yalnızca saha ve tarih uygunluğuna dayanır.', 'Warning: the chosen battery runs empty in both scenarios; this recommendation rests on site and date suitability only.');
     return `<b>${esc(a.name)}</b> (A) · <b>${esc(b.name)}</b> (B) — ${nf(S.dur, S.dur % 1 ? 1 : 0)} ${t('days')}` +
       table([t('metric'), 'A', 'B', L('Üstün', 'Better')], rows) + `<p>${esc(verdict)}</p>`;
   }
@@ -4063,9 +4136,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     if (!a.lola) add(1, L('Gerçek arazi ufku kullanılmıyor', 'No real terrain horizon in use'), L('Sonuçlar düz ufuk varsayar; QuickMap aydınlatma katmanlarıyla doğrulayın.', 'Results assume a flat horizon; verify against QuickMap illumination layers.'));
     risks.sort((x, y) => y[0] - x[0]);
     const sevLabel = v => ['', L('Düşük', 'Low'), L('Orta', 'Medium'), L('Yüksek', 'High')][v];
-    const verdict = a.score >= 65 ? L('Bu senaryo görev için uygun görünüyor.', 'This scenario looks suitable for the mission.')
+    const verdict = (pw && pw.state === 'bad' ? L('Seçili batarya bu senaryoda tükeniyor; güç sistemi büyütülmeden uygulanamaz. ', 'The chosen battery runs empty in this scenario; it is not workable without a larger power system. ') : '') + (a.score >= 65 ? L('Bu senaryo görev için uygun görünüyor.', 'This scenario looks suitable for the mission.')
       : a.score >= 40 ? L('Bu senaryo ancak aşağıdaki önlemlerle uygulanabilir.', 'This scenario is workable only with the mitigations below.')
-        : L('Bu senaryo riskli; tarih veya saha değiştirmeyi düşünün.', 'This scenario is risky; consider another date or site.');
+        : L('Bu senaryo riskli; tarih veya saha değiştirmeyi düşünün.', 'This scenario is risky; consider another date or site.'));
     const other = k === 'A' ? 'B' : 'A', o = analyze(other);
     return `${tag(k)}<b>${esc(a.name)}</b> — <span class="score-inline ${scoreClass(a.score)}">${a.score}/100</span><p>${esc(verdict)}</p>` +
       (risks.length ? table([L('Önem', 'Severity'), 'Risk', L('Önlem', 'Mitigation')], risks.map(r => [`<span class="sev s${r[0]}">${sevLabel(r[0])}</span>`, esc(r[1]), esc(r[2])])) : `<p>${L('Belirgin bir risk yok.', 'No significant risk found.')}</p>`) +
@@ -4075,13 +4148,15 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
   function whatIfAnswer(k, e) {
     const base = S.sc[k], sc = Object.assign({}, base, e.site ? scenarioFor(e.site, base.start) : {}, e.date ? { start: e.date } : {});
+    if (e.shift) sc.start += Math.round(e.shift * DAY);
     const dur = e.days ? Math.max(1, Math.min(180, e.days)) : S.dur;
     const a = evaluate(sc, sim(sc, dur, dur <= 30 ? 20 : 60)), cur = analyze(k), s = a.stats;
     const acts = [];
     if (e.site) acts.push(act(L(`${k} sahasını değiştir`, `Change site ${k}`), { type: 'site', k, id: e.site.id }));
-    if (e.date) acts.push(act(L(`Tarihi ${k}’ya uygula`, `Apply date to ${k}`), { type: 'start', k, ms: e.date }));
+    if (e.date || e.shift) acts.push(act(L(`Tarihi ${k}’ya uygula`, `Apply date to ${k}`), { type: 'start', k, ms: sc.start }));
     if (e.days && AA.DURS.includes(dur)) acts.push(act(L('Süreyi uygula', 'Apply duration'), { type: 'dur', d: dur }));
-    return `<b>${L('Varsayım', 'What-if')}:</b> ${esc(a.name)} · ${esc(date(sc.start, false))} · ${nf(dur, dur % 1 ? 1 : 0)} ${t('days')}` +
+    const sh = e.shift ? ' ' + esc(L(`(${k} başlangıcı ${nf(Math.abs(e.shift), e.shift % 1 ? 1 : 0)} gün ${e.shift > 0 ? 'ertelendi' : 'öne alındı'}; süre aynı)`, `(start of ${k} moved ${nf(Math.abs(e.shift), e.shift % 1 ? 1 : 0)} days ${e.shift > 0 ? 'later' : 'earlier'}; same length)`)) : '';
+    return `<b>${L('Varsayım', 'What-if')}:</b> ${esc(a.name)} · ${esc(date(sc.start, false))} · ${nf(dur, dur % 1 ? 1 : 0)} ${t('days')}${sh}` +
       table([t('metric'), L('Varsayım', 'What-if'), `${L('Şimdiki', 'Current')} ${k}`], [
         [t('score'), `<b>${a.score}</b>`, cur.score],
         [t('sun'), `${hrs(s.sun)} (${pct(s.sun / s.total * 100)})`, `${hrs(cur.stats.sun)} (${pct(cur.stats.sun / cur.stats.total * 100)})`],
@@ -4156,7 +4231,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const named = !e.scen.length && e.site ? KEYS.find(x => S.sc[x].site === e.site.id) : null;
     const k = e.scen[0] || named || mem.k || S.globe.target;
     // follow-up such as "and for B?": reuse the previous topic
-    if (!intents.length && mem.intent && (e.scen.length || e.site || e.date || e.days) && x.length < 40) intents = [mem.intent];
+    if (!intents.length && mem.intent && (e.scen.length || e.site || e.date || e.days || e.shift) && x.length < 40) intents = [mem.intent];
     const has = n => intents.includes(n);
     const out = [];
     const push = html => { if (html) out.push(html); };
@@ -4173,7 +4248,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       if (has('regions')) push(await regionsAnswer(k));
       if (has('bestdate')) push(bestDateAnswer(k));
       if (has('bestsite') && !has('scout') && !has('regions')) push(bestSiteAnswer(k, /kutup|polar|pole|guney|south|artemis/.test(x)));
-      const whatIf = !has('bestdate') && !has('bestsite') && !has('scout') && !has('regions') && !has('pdf') && (e.date || e.days || (e.site && e.site.id !== S.sc[k].site && !has('compare')));
+      const whatIf = !has('bestdate') && !has('bestsite') && !has('scout') && !has('regions') && !has('pdf') && (e.date || e.days || e.shift || (e.site && e.site.id !== S.sc[k].site && !has('compare')));
       if (whatIf) push(whatIfAnswer(k, e));
       else {
         if (has('compare') && !has('bestsite')) push(compareAnswer());
@@ -4220,7 +4295,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       const win = kind => d.runs[kind].slice(0, 8).map(r => ({ startUTC: new Date(sc.start + r[0] * d.dtH * H).toISOString(), hours: +((Math.min(r[1], d.n - 1) - r[0]) * d.dtH).toFixed(1) }));
       out.scenarios[k] = {
         site: a.name, latitude: sc.lat, longitude: sc.lon, startUTC: new Date(sc.start).toISOString(),
-        horizon: a.lola ? 'LOLA terrain profile' : sc.mask + ' deg fixed', ephemerisSource: d.src,
+        horizon: a.hz === 'lola80' ? 'LOLA 80 m precomputed profile' : a.hz === 'lola480' ? 'LOLA 480 m grid (coarser: can miss narrow nearby ridges)' : sc.mask + ' deg fixed', ephemerisSource: d.src,
         hours: { total: s.total, sun: s.sun, earth: s.earth, both: s.both, longestDarkness: s.dark, longestCommOutage: s.nocomm },
         sunElevationDeg: { min: s.sMin, max: s.maxEl }, earthElevationDeg: { min: s.eMin, max: s.eMax },
         atCursor: { sunElevationDeg: d.sunEl[i], sunAzimuthDeg: d.sunAz[i], sunVisible: !!d.sunUp[i], earthElevationDeg: d.earthEl[i], earthAzimuthDeg: d.earthAz[i], earthVisible: !!d.earthUp[i] },
@@ -4345,7 +4420,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   });
 
   window.AAssist = {
-    analyze, evaluate, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
+    analyze, evaluate, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
     onRefresh() { renderReports(); input.placeholder = t('a_place'); if (!panel.hidden) setModelLabel(); },
     onPick(k) { // a point was chosen on the 3D map
       open(false);
@@ -4512,7 +4587,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
 
   const modeBox = $('#scan-mode');
-  const syncMode = () => { [...modeBox.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.mode === S.scanMode)); $('#scan-lead').textContent = t(S.scanMode === 'moon' ? 'sct_lead_moon' : 'sct_lead'); };
+  const syncMode = () => { [...modeBox.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.mode === S.scanMode)); $('#scan-lead').textContent = t(S.scanMode === 'moon' ? 'sct_lead_moon' : 'sct_lead') + (S.scanMode === 'moon' ? '' : ' ' + t('sct_caveat')); };
   modeBox.addEventListener('click', e => { if (e.target.dataset.mode) { S.scanMode = e.target.dataset.mode; syncMode(); } });
   AA.onChange(syncMode);
   syncMode();
@@ -4696,7 +4771,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     c.font = sans(700, 24); text(c, fitText(c, a.name, w - 90), x + 62, y + 46, sans(700, 24));
     text(c, AA.fmtCoord(sc.lat, sc.lon), x + 22, y + 82, mono(14), MUTED);
     text(c, L('Başlangıç ', 'Start ') + AA.fmtDate(sc.start) + ' UTC', x + 22, y + 104, mono(14), MUTED);
-    text(c, L('Ufuk: ', 'Horizon: ') + (a.lola ? L('LOLA arazi profili', 'LOLA terrain profile') : L('sabit açı ', 'fixed angle ') + nf(+sc.mask || 0, 1) + '°'), x + 22, y + 126, mono(14), MUTED);
+    text(c, L('Ufuk: ', 'Horizon: ') + (a.hz === 'lola80' ? L('LOLA 80 m profili', 'LOLA 80 m profile') : a.hz === 'lola480' ? L('LOLA 480 m ızgara (kaba)', 'LOLA 480 m grid (coarse)') : L('sabit açı ', 'fixed angle ') + nf(+sc.mask || 0, 1) + '°'), x + 22, y + 126, mono(14), MUTED);
     // score ring
     const cx = x + 82, cy = y + 212, col = scoreColor(a.score);
     c.strokeStyle = SOFT; c.lineWidth = 10; c.beginPath(); c.arc(cx, cy, 52, 0, 7); c.stroke();
@@ -4751,8 +4826,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const { cv, c } = newPage();
     header(c, 1, total, 136);
     let y = section(c, L('Özet', 'Summary'), 190);
-    const lead = a.score === b.score ? null : a.score > b.score ? a : b, other = lead === a ? b : a;
-    const verdict = lead ? L(`Öneri: ${lead.k} · ${lead.name} — uygunluk skoru ${lead.score}/100 (diğer senaryo ${other.score}/100).`, `Recommendation: ${lead.k} · ${lead.name} — suitability score ${lead.score}/100 (the other scenario scores ${other.score}/100).`)
+    const pick = AS.recommend(a, b), lead = pick.lead, other = pick.other;
+    const verdict = pick.forced ? L(`Öneri: ${lead.k} · ${lead.name}. Skoru daha düşük (${lead.score}/100, diğeri ${other.score}/100), ama seçili batarya yalnızca burada dayanıyor; ${other.k} senaryosunda batarya ${nf(other.pw.emptyH, 1)} saat boş kalıyor.`,
+      `Recommendation: ${lead.k} · ${lead.name}. It scores lower (${lead.score}/100 vs ${other.score}/100), but the chosen battery only survives here; in scenario ${other.k} it is empty for ${nf(other.pw.emptyH, 1)} h.`)
+      : lead ? (pick.bothBad ? L('Uyarı: seçili batarya iki senaryoda da tükeniyor. ', 'Warning: the chosen battery runs empty in both scenarios. ') : '') + L(`Öneri: ${lead.k} · ${lead.name} — uygunluk skoru ${lead.score}/100 (diğer senaryo ${other.score}/100).`, `Recommendation: ${lead.k} · ${lead.name} — suitability score ${lead.score}/100 (the other scenario scores ${other.score}/100).`)
       : L(`İki senaryo aynı uygunluk skorunu alıyor (${a.score}/100); seçim görev önceliğine bağlı.`, `Both scenarios reach the same suitability score (${a.score}/100); the choice depends on mission priority.`);
     y = wrap(c, verdict, M, y + 4, W - 2 * M, 32, sans(700, 24), INK);
     y = wrap(c, $('#verdict-h').textContent + '. ' + L(`Görev süresi ${days(S.dur)} gün. Yük ${nf(S.pwr.load)} W, batarya ${nf(S.pwr.cap, 1)} kWh, güneş paneli ${nf(S.pwr.area, 1)} m².`,
@@ -4840,7 +4917,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     header(c, 2, total, 76);
     let y = section(c, L('Görev boyunca değişim', 'Change over the mission'), 126);
     const deg = v => (v > 0 ? '+' : '') + v + '°';
-    chart(c, M, y - 8, W - 2 * M, 250, L('Güneş, yerel ufkun kaç derece üstünde? (gri: görünmez, güç yok)', 'Sun above the local horizon (grey: hidden, no power)'), 'sunM', SUN, { get: k => S.data[k].sunM, zero: true, fmt: deg });
+    chart(c, M, y - 8, W - 2 * M, 250, L('Güneş merkezi, yerel ufkun kaç derece üstünde? (gri: merkez ufkun altında; güç azalır ya da kesilir)', 'Sun’s centre above the local horizon (grey: centre below it; power is reduced or none)'), 'sunM', SUN, { get: k => S.data[k].sunM, zero: true, fmt: deg });
     chart(c, M, y + 262, W - 2 * M, 250, L('Dünya, yerel ufkun kaç derece üstünde? (gri: iletişim yok)', 'Earth above the local horizon (grey: no direct link)'), 'earthM', EARTH, { get: k => S.data[k].earthM, zero: true, fmt: deg });
     chart(c, M, y + 532, W - 2 * M, 250, L(`Batarya doluluğu · ${nf(S.pwr.load)} W yük, ${nf(S.pwr.cap, 1)} kWh batarya, ${nf(S.pwr.area, 1)} m² panel (kırmızı: %20 yedek)`, `Battery state of charge · ${nf(S.pwr.load)} W load, ${nf(S.pwr.cap, 1)} kWh battery, ${nf(S.pwr.area, 1)} m² array (red: 20% reserve)`),
       'soc', BOTH, { get: k => S.data[k].pw.soc, scale: 100, lo: 0, hi: 100, step: 20, band: 20, fmt: v => v + '%' });
@@ -4850,9 +4927,13 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const y1 = prosCons(c, a, tx, y + 12, cw), y2 = prosCons(c, b, tx + cw + 26, y + 12, cw);
     let ny = Math.max(y1, y2, map ? y + mapSize + 44 : 0) + 14;
     ny = section(c, L('Yöntem ve sınırlar', 'Method and limits'), Math.min(ny, H - 250));
-    const eph = Ephem.meta ? `${Ephem.meta.source}, ${Ephem.meta.ephemeris}, ${Ephem.meta.frame}, ${Ephem.meta.abcorr}` : 'astronomy-engine';
-    ny = wrap(c, L(`Güneş ve Dünya konumları: ${eph}. Arazi ufku, eğim ve kalıcı gölge: NASA LOLA 240 m yükseklik modeli ve NASA Goddard kalıcı gölge haritası (80°G–90°G). Uygunluk skoru altı bileşenin ağırlıklı ortalamasıdır: güç %25, iletişim %20, karanlık %15, iniş ışığı %10, arazi %15, buz erişimi %15.`,
-      `Sun and Earth positions: ${eph}. Terrain horizon, slope and permanent shadow: NASA LOLA 240 m elevation model and the NASA Goddard permanently-shadowed-region map (80°S–90°S). The suitability score is a weighted mean of six parts: power 25%, comms 20%, darkness 15%, landing light 10%, terrain 15%, ice access 15%.`), M, ny, W - 2 * M, 22, sans(400, 15), INK);
+    // name the ephemeris that was really used: outside the SPICE table (2024-2040) the fallback does the work
+    const spice = Ephem.meta ? `${Ephem.meta.source}, ${Ephem.meta.ephemeris}, ${Ephem.meta.frame}, ${Ephem.meta.abcorr}` : '', srcs = [a.src, b.src];
+    const eph = spice && srcs.every(v => v === 'spice') ? spice
+      : !spice || srcs.every(v => v === 'ae') ? L('astronomy-engine (VSOP87 / ELP); bu tarihler NASA SPICE tablosunun (2024–2040) dışında', 'astronomy-engine (VSOP87 / ELP); these dates are outside the NASA SPICE table (2024–2040)')
+        : spice + L(' (tablo aralığında) ve astronomy-engine (aralık dışında)', ' (inside the table range) and astronomy-engine (outside it)');
+    ny = wrap(c, L(`Güneş ve Dünya konumları: ${eph}. Arazi ufku, eğim ve kalıcı gölge: NASA LOLA 240 m yükseklik modeli (480 m ızgara; üç bölge merkezinde 80 m profil) ve NASA Goddard kalıcı gölge haritası (80°G–90°G). Uygunluk skoru altı bileşenin ağırlıklı ortalamasıdır: güç %25, iletişim %20, karanlık %15, iniş ışığı %10, arazi %15, buz erişimi %15.`,
+      `Sun and Earth positions: ${eph}. Terrain horizon, slope and permanent shadow: NASA LOLA 240 m elevation model (480 m grid; an 80 m profile at three region centres) and the NASA Goddard permanently-shadowed-region map (80°S–90°S). The suitability score is a weighted mean of six parts: power 25%, comms 20%, darkness 15%, landing light 10%, terrain 15%, ice access 15%.`), M, ny, W - 2 * M, 22, sans(400, 15), INK);
     wrap(c, L('Skor, yakıt ve batarya değerleri ön tasarım göstergeleridir; sertifikalı güvenlik analizi değildir. Kesin görev tasarımı için sonuçları JPL Horizons ve LROC QuickMap ile doğrulayın.',
       'Score, propellant and battery figures are preliminary-design indicators, not a certified safety analysis. For definitive mission design, verify the results against JPL Horizons and LROC QuickMap.'), M, ny + 4, W - 2 * M, 22, sans(400, 15), MUTED);
     return cv;

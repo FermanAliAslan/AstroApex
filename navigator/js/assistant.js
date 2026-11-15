@@ -98,11 +98,19 @@
     else if (tc === 'mare') pros.push(t('pc_mare'));
     else if (tc === 'highland') cons.push(t('pc_highland'));
     else cons.push(t('pc_unknown'));
-    if (d.pw && d.pw.state === 'bad') cons.push(t('pc_batt_bad', { h: nf(d.pw.emptyH), c: nf(d.pw.need, 1) }));
+    if (d.pw && d.pw.state === 'bad') cons.unshift(t('pc_batt_bad', { h: nf(d.pw.emptyH, d.pw.emptyH < 100 ? 1 : 0), c: nf(d.pw.need, 1) }));
     if (site && site.her) pros.push(t('pc_heritage'));
-    return { k: null, name: site ? site.name : t('custom'), score, parts, dv, frac, tc, pros, cons, lola: AA.hasTerrain(sc), sc, stats: s, src: d.src, f, pw: d.pw || null };
+    return { k: null, name: site ? site.name : t('custom'), score, parts, dv, frac, tc, pros, cons, lola: AA.hasTerrain(sc), hz: d.hz || AA.horizonSrc(sc), sc, stats: s, src: d.src, f, pw: d.pw || null };
   }
   const analyze = k => Object.assign(evaluate(S.sc[k], S.data[k]), { k });
+  // Which scenario to recommend. The score describes the place and the date; the chosen battery is a hard
+  // constraint on top of it: a scenario whose battery runs empty is not recommended over one that survives.
+  function recommend(a, b) {
+    const bad = x => !!(x.pw && x.pw.state === 'bad');
+    let lead = a.score === b.score ? null : a.score > b.score ? a : b, forced = false;
+    if (bad(a) !== bad(b)) { const ok = bad(a) ? b : a; forced = lead !== ok && lead !== null; lead = ok; }
+    return { lead, other: lead === a ? b : a, forced, bothBad: bad(a) && bad(b) };
+  }
   const scoreClass = v => v >= 65 ? 'good' : v >= 40 ? 'mid' : 'bad';
 
   /* ================= report cards ================= */
@@ -144,7 +152,7 @@
   };
 
   function parse(q) {
-    const x = norm(q), e = { x, scen: [], site: null, days: null, date: null, mass: null, watts: null, isp: null, body: null };
+    const x = norm(q), e = { x, scen: [], site: null, days: null, shift: null, date: null, mass: null, watts: null, isp: null, body: null };
     // scenarios A / B
     // In English "a" is also the article, so there the scenario needs a cue word or a capital A before a non-noun.
     const hasA = S.lang === 'en'
@@ -162,8 +170,14 @@
       if (hit > best) { best = hit; e.site = s; }
     }
     // duration
-    let m = x.match(/(\d+(?:[.,]\d+)?)\s*(gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)/);
+    const WORDS = Object.assign({ two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fourteen: 14, twenty: 20, thirty: 30,
+      iki: 2, uc: 3, dort: 4, bes: 5, alti: 6, yedi: 7, sekiz: 8, dokuz: 9, yirmi: 20, otuz: 30 }, S.lang === 'en' ? { one: 1, a: 1, an: 1 } : { bir: 1, on: 10 });
+    const xd = x.replace(new RegExp('(^|[^a-z0-9])(' + Object.keys(WORDS).join('|') + ')\\s+(?=gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)', 'g'), (s, p, w) => p + WORDS[w] + ' ');
+    let m = xd.match(/(\d+(?:[.,]\d+)?)\s*(gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)/);
     if (m) { const v = num(m[1]); e.days = /^(hafta|week)/.test(m[2]) ? v * 7 : /^(ay|month)/.test(m[2]) ? v * 29.5 : v; }
+    // "delay / postpone / ertele ... N days" moves the start and keeps the mission length
+    const later = /ertele|otele|gecik|kaydir|sonraya|\bdelay|postpone|\bslip|push(ed)? back|\blater\b/.test(x), sooner = /one al|one cek|erkene|\bearlier\b|bring forward|move up/.test(x);
+    if ((later || sooner) && e.days != null) { e.shift = (sooner ? -1 : 1) * e.days; e.days = null; }
     // date: 2027-03-15, 15.03.2027, "15 mart 2027", "march 15 2027", "mart 2027"
     if ((m = x.match(/(20\d\d)-(\d{1,2})-(\d{1,2})/))) e.date = Date.UTC(+m[1], +m[2] - 1, +m[3]);
     else if ((m = x.match(/(\d{1,2})[./](\d{1,2})[./](20\d\d)/))) e.date = Date.UTC(+m[3], +m[2] - 1, +m[1]);
@@ -274,7 +288,7 @@
       <span class="score-inline ${scoreClass(a.score)}">${t('a_scoreline', { s: a.score })}</span><br>
       ${t('a_fuelline', { f: nf(a.frac * 100), dv: nf(a.dv), kg: nf(a.frac * 1000) })}${groundLine(a)}
       <h4>${t('pros')}</h4>${list(a.pros, 'pro')}<h4>${t('cons')}</h4>${list(a.cons, 'con')}
-      ${note(t(a.lola ? 'a_note_lola' : 'a_note_flat'))} ${srcNote(a)}`;
+      ${note(t(a.hz === 'lola480' ? 'a_note_lola480' : a.lola ? 'a_note_lola' : 'a_note_flat'))} ${srcNote(a)}`;
   }
 
   function compareAnswer() {
@@ -294,9 +308,11 @@
     if (a.f.trap && b.f.trap) rows.push([t('m_ice'), nf(a.f.trap.km, 1), nf(b.f.trap.km, 1), win(a.f.trap.km, b.f.trap.km, true)]);
     rows = rows.map(r => [esc(r[0]), r[1], r[2], r[3] === '=' ? '=' : `<b>${r[3]}</b>`]);
     const wins = { A: 0, B: 0 }; rows.forEach(r => { const w = r[3].replace(/<[^>]+>/g, ''); if (wins[w] != null) wins[w]++; });
-    const lead = a.score === b.score ? null : a.score > b.score ? a : b, other = lead === a ? b : a;
+    const pick = recommend(a, b), lead = pick.lead, other = pick.other;
     let verdict;
-    if (!lead) verdict = L('İki senaryo aynı skoru alıyor; karar görev önceliğine bağlı.', 'Both scenarios score the same; the choice depends on mission priority.');
+    if (pick.forced) verdict = L(`Öneri: ${lead.k} · ${lead.name}. Skoru daha düşük (${lead.score}/100, diğeri ${other.score}/100), ama seçili batarya yalnızca burada dayanıyor: ${other.k} senaryosunda batarya ${nf(other.pw.emptyH, 1)} saat boş kalıyor. ${other.k} için en az ${nf(other.pw.need, 1)} kWh gerekir.`,
+      `Recommendation: ${lead.k} · ${lead.name}. It scores lower (${lead.score}/100 vs ${other.score}/100), but the chosen battery only survives here: in scenario ${other.k} it is empty for ${nf(other.pw.emptyH, 1)} h. ${other.k} would need at least ${nf(other.pw.need, 1)} kWh.`);
+    else if (!lead) verdict = L('İki senaryo aynı skoru alıyor; karar görev önceliğine bağlı.', 'Both scenarios score the same; the choice depends on mission priority.');
     else {
       const why = [];
       if (lead.parts.power - other.parts.power > 8) why.push(L('daha fazla güneş (güç)', 'more sunlight (power)'));
@@ -310,6 +326,7 @@
       const weak = PARTS.filter(p => other.parts[p] - lead.parts[p] > 8).map(p => t('sc_' + p));
       if (weak.length) verdict += ' ' + L(`Ancak ${other.k} şu konularda daha iyi: ${weak.join(', ')}.`, `However ${other.k} is better on: ${weak.join(', ')}.`);
     }
+    if (pick.bothBad) verdict += ' ' + L('Uyarı: seçili batarya iki senaryoda da tükeniyor; bu öneri yalnızca saha ve tarih uygunluğuna dayanır.', 'Warning: the chosen battery runs empty in both scenarios; this recommendation rests on site and date suitability only.');
     return `<b>${esc(a.name)}</b> (A) · <b>${esc(b.name)}</b> (B) — ${nf(S.dur, S.dur % 1 ? 1 : 0)} ${t('days')}` +
       table([t('metric'), 'A', 'B', L('Üstün', 'Better')], rows) + `<p>${esc(verdict)}</p>`;
   }
@@ -531,9 +548,9 @@
     if (!a.lola) add(1, L('Gerçek arazi ufku kullanılmıyor', 'No real terrain horizon in use'), L('Sonuçlar düz ufuk varsayar; QuickMap aydınlatma katmanlarıyla doğrulayın.', 'Results assume a flat horizon; verify against QuickMap illumination layers.'));
     risks.sort((x, y) => y[0] - x[0]);
     const sevLabel = v => ['', L('Düşük', 'Low'), L('Orta', 'Medium'), L('Yüksek', 'High')][v];
-    const verdict = a.score >= 65 ? L('Bu senaryo görev için uygun görünüyor.', 'This scenario looks suitable for the mission.')
+    const verdict = (pw && pw.state === 'bad' ? L('Seçili batarya bu senaryoda tükeniyor; güç sistemi büyütülmeden uygulanamaz. ', 'The chosen battery runs empty in this scenario; it is not workable without a larger power system. ') : '') + (a.score >= 65 ? L('Bu senaryo görev için uygun görünüyor.', 'This scenario looks suitable for the mission.')
       : a.score >= 40 ? L('Bu senaryo ancak aşağıdaki önlemlerle uygulanabilir.', 'This scenario is workable only with the mitigations below.')
-        : L('Bu senaryo riskli; tarih veya saha değiştirmeyi düşünün.', 'This scenario is risky; consider another date or site.');
+        : L('Bu senaryo riskli; tarih veya saha değiştirmeyi düşünün.', 'This scenario is risky; consider another date or site.'));
     const other = k === 'A' ? 'B' : 'A', o = analyze(other);
     return `${tag(k)}<b>${esc(a.name)}</b> — <span class="score-inline ${scoreClass(a.score)}">${a.score}/100</span><p>${esc(verdict)}</p>` +
       (risks.length ? table([L('Önem', 'Severity'), 'Risk', L('Önlem', 'Mitigation')], risks.map(r => [`<span class="sev s${r[0]}">${sevLabel(r[0])}</span>`, esc(r[1]), esc(r[2])])) : `<p>${L('Belirgin bir risk yok.', 'No significant risk found.')}</p>`) +
@@ -543,13 +560,15 @@
 
   function whatIfAnswer(k, e) {
     const base = S.sc[k], sc = Object.assign({}, base, e.site ? scenarioFor(e.site, base.start) : {}, e.date ? { start: e.date } : {});
+    if (e.shift) sc.start += Math.round(e.shift * DAY);
     const dur = e.days ? Math.max(1, Math.min(180, e.days)) : S.dur;
     const a = evaluate(sc, sim(sc, dur, dur <= 30 ? 20 : 60)), cur = analyze(k), s = a.stats;
     const acts = [];
     if (e.site) acts.push(act(L(`${k} sahasını değiştir`, `Change site ${k}`), { type: 'site', k, id: e.site.id }));
-    if (e.date) acts.push(act(L(`Tarihi ${k}’ya uygula`, `Apply date to ${k}`), { type: 'start', k, ms: e.date }));
+    if (e.date || e.shift) acts.push(act(L(`Tarihi ${k}’ya uygula`, `Apply date to ${k}`), { type: 'start', k, ms: sc.start }));
     if (e.days && AA.DURS.includes(dur)) acts.push(act(L('Süreyi uygula', 'Apply duration'), { type: 'dur', d: dur }));
-    return `<b>${L('Varsayım', 'What-if')}:</b> ${esc(a.name)} · ${esc(date(sc.start, false))} · ${nf(dur, dur % 1 ? 1 : 0)} ${t('days')}` +
+    const sh = e.shift ? ' ' + esc(L(`(${k} başlangıcı ${nf(Math.abs(e.shift), e.shift % 1 ? 1 : 0)} gün ${e.shift > 0 ? 'ertelendi' : 'öne alındı'}; süre aynı)`, `(start of ${k} moved ${nf(Math.abs(e.shift), e.shift % 1 ? 1 : 0)} days ${e.shift > 0 ? 'later' : 'earlier'}; same length)`)) : '';
+    return `<b>${L('Varsayım', 'What-if')}:</b> ${esc(a.name)} · ${esc(date(sc.start, false))} · ${nf(dur, dur % 1 ? 1 : 0)} ${t('days')}${sh}` +
       table([t('metric'), L('Varsayım', 'What-if'), `${L('Şimdiki', 'Current')} ${k}`], [
         [t('score'), `<b>${a.score}</b>`, cur.score],
         [t('sun'), `${hrs(s.sun)} (${pct(s.sun / s.total * 100)})`, `${hrs(cur.stats.sun)} (${pct(cur.stats.sun / cur.stats.total * 100)})`],
@@ -624,7 +643,7 @@
     const named = !e.scen.length && e.site ? KEYS.find(x => S.sc[x].site === e.site.id) : null;
     const k = e.scen[0] || named || mem.k || S.globe.target;
     // follow-up such as "and for B?": reuse the previous topic
-    if (!intents.length && mem.intent && (e.scen.length || e.site || e.date || e.days) && x.length < 40) intents = [mem.intent];
+    if (!intents.length && mem.intent && (e.scen.length || e.site || e.date || e.days || e.shift) && x.length < 40) intents = [mem.intent];
     const has = n => intents.includes(n);
     const out = [];
     const push = html => { if (html) out.push(html); };
@@ -641,7 +660,7 @@
       if (has('regions')) push(await regionsAnswer(k));
       if (has('bestdate')) push(bestDateAnswer(k));
       if (has('bestsite') && !has('scout') && !has('regions')) push(bestSiteAnswer(k, /kutup|polar|pole|guney|south|artemis/.test(x)));
-      const whatIf = !has('bestdate') && !has('bestsite') && !has('scout') && !has('regions') && !has('pdf') && (e.date || e.days || (e.site && e.site.id !== S.sc[k].site && !has('compare')));
+      const whatIf = !has('bestdate') && !has('bestsite') && !has('scout') && !has('regions') && !has('pdf') && (e.date || e.days || e.shift || (e.site && e.site.id !== S.sc[k].site && !has('compare')));
       if (whatIf) push(whatIfAnswer(k, e));
       else {
         if (has('compare') && !has('bestsite')) push(compareAnswer());
@@ -688,7 +707,7 @@
       const win = kind => d.runs[kind].slice(0, 8).map(r => ({ startUTC: new Date(sc.start + r[0] * d.dtH * H).toISOString(), hours: +((Math.min(r[1], d.n - 1) - r[0]) * d.dtH).toFixed(1) }));
       out.scenarios[k] = {
         site: a.name, latitude: sc.lat, longitude: sc.lon, startUTC: new Date(sc.start).toISOString(),
-        horizon: a.lola ? 'LOLA terrain profile' : sc.mask + ' deg fixed', ephemerisSource: d.src,
+        horizon: a.hz === 'lola80' ? 'LOLA 80 m precomputed profile' : a.hz === 'lola480' ? 'LOLA 480 m grid (coarser: can miss narrow nearby ridges)' : sc.mask + ' deg fixed', ephemerisSource: d.src,
         hours: { total: s.total, sun: s.sun, earth: s.earth, both: s.both, longestDarkness: s.dark, longestCommOutage: s.nocomm },
         sunElevationDeg: { min: s.sMin, max: s.maxEl }, earthElevationDeg: { min: s.eMin, max: s.eMax },
         atCursor: { sunElevationDeg: d.sunEl[i], sunAzimuthDeg: d.sunAz[i], sunVisible: !!d.sunUp[i], earthElevationDeg: d.earthEl[i], earthAzimuthDeg: d.earthAz[i], earthVisible: !!d.earthUp[i] },
@@ -813,7 +832,7 @@
   });
 
   window.AAssist = {
-    analyze, evaluate, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
+    analyze, evaluate, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
     onRefresh() { renderReports(); input.placeholder = t('a_place'); if (!panel.hidden) setModelLabel(); },
     onPick(k) { // a point was chosen on the 3D map
       open(false);

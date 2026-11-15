@@ -50,7 +50,9 @@ No install, no build step, no login. Any one of these:
 
 Score, propellant, battery and temperature figures are preliminary-design indicators, not a certified
 analysis. Slope is measured over 480 m and cannot show boulders or small craters. Permanent shadow is where
-ice can survive, not proof of ice. Region centres are reference points, not landing spots. The temperature
+ice can survive, not proof of ice. Region centres are reference points, not landing spots. Outside three region centres
+the skyline comes from a 480 m grid that can miss narrow nearby ridges, so sunlight hours and scan scores there
+are upper bounds. The score rates the site and date; the chosen battery is a separate constraint. The temperature
 map is a radiative-equilibrium model, not a Diviner measurement.
 
 ## Use of AI

@@ -137,3 +137,7 @@ Skor, yakıt, batarya ve sıcaklık değerleri ön tasarım göstergeleridir; se
 değildir. LOLA arazi ufku olmayan sahalarda sonuçlar iyimser olabilir. Eğim 480 m ölçeğindedir; kaya ve
 küçük krater gibi tehlikeleri göstermez. Kalıcı gölge, buzun kanıtı değil, buzun kalabileceği soğuk bölgedir. Kesin görev tasarımı için
 sonuçları JPL Horizons ve QuickMap aydınlatma katmanlarıyla doğrulayın.
+
+## Bilinen sınır: 480 m’lik ufuk
+
+Üç bölge merkezi (Shackleton Rim, Connecting Ridge, Malapert Massif) dışında ufuk çizgisi 480 m’lik LOLA ızgarasından hesaplanır. Bu ızgara yakındaki dar sırtları kaçırabilir; bu noktalardaki güneş süreleri ve tarama puanları üst sınırdır. Uygunluk skoru sahayı ve tarihi ölçer; seçilen batarya ayrı bir kısıttır ve bataryası tükenen senaryo önerilmez.

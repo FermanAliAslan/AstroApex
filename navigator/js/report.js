@@ -88,7 +88,7 @@
     c.font = sans(700, 24); text(c, fitText(c, a.name, w - 90), x + 62, y + 46, sans(700, 24));
     text(c, AA.fmtCoord(sc.lat, sc.lon), x + 22, y + 82, mono(14), MUTED);
     text(c, L('Başlangıç ', 'Start ') + AA.fmtDate(sc.start) + ' UTC', x + 22, y + 104, mono(14), MUTED);
-    text(c, L('Ufuk: ', 'Horizon: ') + (a.lola ? L('LOLA arazi profili', 'LOLA terrain profile') : L('sabit açı ', 'fixed angle ') + nf(+sc.mask || 0, 1) + '°'), x + 22, y + 126, mono(14), MUTED);
+    text(c, L('Ufuk: ', 'Horizon: ') + (a.hz === 'lola80' ? L('LOLA 80 m profili', 'LOLA 80 m profile') : a.hz === 'lola480' ? L('LOLA 480 m ızgara (kaba)', 'LOLA 480 m grid (coarse)') : L('sabit açı ', 'fixed angle ') + nf(+sc.mask || 0, 1) + '°'), x + 22, y + 126, mono(14), MUTED);
     // score ring
     const cx = x + 82, cy = y + 212, col = scoreColor(a.score);
     c.strokeStyle = SOFT; c.lineWidth = 10; c.beginPath(); c.arc(cx, cy, 52, 0, 7); c.stroke();
@@ -143,8 +143,10 @@
     const { cv, c } = newPage();
     header(c, 1, total, 136);
     let y = section(c, L('Özet', 'Summary'), 190);
-    const lead = a.score === b.score ? null : a.score > b.score ? a : b, other = lead === a ? b : a;
-    const verdict = lead ? L(`Öneri: ${lead.k} · ${lead.name} — uygunluk skoru ${lead.score}/100 (diğer senaryo ${other.score}/100).`, `Recommendation: ${lead.k} · ${lead.name} — suitability score ${lead.score}/100 (the other scenario scores ${other.score}/100).`)
+    const pick = AS.recommend(a, b), lead = pick.lead, other = pick.other;
+    const verdict = pick.forced ? L(`Öneri: ${lead.k} · ${lead.name}. Skoru daha düşük (${lead.score}/100, diğeri ${other.score}/100), ama seçili batarya yalnızca burada dayanıyor; ${other.k} senaryosunda batarya ${nf(other.pw.emptyH, 1)} saat boş kalıyor.`,
+      `Recommendation: ${lead.k} · ${lead.name}. It scores lower (${lead.score}/100 vs ${other.score}/100), but the chosen battery only survives here; in scenario ${other.k} it is empty for ${nf(other.pw.emptyH, 1)} h.`)
+      : lead ? (pick.bothBad ? L('Uyarı: seçili batarya iki senaryoda da tükeniyor. ', 'Warning: the chosen battery runs empty in both scenarios. ') : '') + L(`Öneri: ${lead.k} · ${lead.name} — uygunluk skoru ${lead.score}/100 (diğer senaryo ${other.score}/100).`, `Recommendation: ${lead.k} · ${lead.name} — suitability score ${lead.score}/100 (the other scenario scores ${other.score}/100).`)
       : L(`İki senaryo aynı uygunluk skorunu alıyor (${a.score}/100); seçim görev önceliğine bağlı.`, `Both scenarios reach the same suitability score (${a.score}/100); the choice depends on mission priority.`);
     y = wrap(c, verdict, M, y + 4, W - 2 * M, 32, sans(700, 24), INK);
     y = wrap(c, $('#verdict-h').textContent + '. ' + L(`Görev süresi ${days(S.dur)} gün. Yük ${nf(S.pwr.load)} W, batarya ${nf(S.pwr.cap, 1)} kWh, güneş paneli ${nf(S.pwr.area, 1)} m².`,
@@ -232,7 +234,7 @@
     header(c, 2, total, 76);
     let y = section(c, L('Görev boyunca değişim', 'Change over the mission'), 126);
     const deg = v => (v > 0 ? '+' : '') + v + '°';
-    chart(c, M, y - 8, W - 2 * M, 250, L('Güneş, yerel ufkun kaç derece üstünde? (gri: görünmez, güç yok)', 'Sun above the local horizon (grey: hidden, no power)'), 'sunM', SUN, { get: k => S.data[k].sunM, zero: true, fmt: deg });
+    chart(c, M, y - 8, W - 2 * M, 250, L('Güneş merkezi, yerel ufkun kaç derece üstünde? (gri: merkez ufkun altında; güç azalır ya da kesilir)', 'Sun’s centre above the local horizon (grey: centre below it; power is reduced or none)'), 'sunM', SUN, { get: k => S.data[k].sunM, zero: true, fmt: deg });
     chart(c, M, y + 262, W - 2 * M, 250, L('Dünya, yerel ufkun kaç derece üstünde? (gri: iletişim yok)', 'Earth above the local horizon (grey: no direct link)'), 'earthM', EARTH, { get: k => S.data[k].earthM, zero: true, fmt: deg });
     chart(c, M, y + 532, W - 2 * M, 250, L(`Batarya doluluğu · ${nf(S.pwr.load)} W yük, ${nf(S.pwr.cap, 1)} kWh batarya, ${nf(S.pwr.area, 1)} m² panel (kırmızı: %20 yedek)`, `Battery state of charge · ${nf(S.pwr.load)} W load, ${nf(S.pwr.cap, 1)} kWh battery, ${nf(S.pwr.area, 1)} m² array (red: 20% reserve)`),
       'soc', BOTH, { get: k => S.data[k].pw.soc, scale: 100, lo: 0, hi: 100, step: 20, band: 20, fmt: v => v + '%' });
@@ -242,9 +244,13 @@
     const y1 = prosCons(c, a, tx, y + 12, cw), y2 = prosCons(c, b, tx + cw + 26, y + 12, cw);
     let ny = Math.max(y1, y2, map ? y + mapSize + 44 : 0) + 14;
     ny = section(c, L('Yöntem ve sınırlar', 'Method and limits'), Math.min(ny, H - 250));
-    const eph = Ephem.meta ? `${Ephem.meta.source}, ${Ephem.meta.ephemeris}, ${Ephem.meta.frame}, ${Ephem.meta.abcorr}` : 'astronomy-engine';
-    ny = wrap(c, L(`Güneş ve Dünya konumları: ${eph}. Arazi ufku, eğim ve kalıcı gölge: NASA LOLA 240 m yükseklik modeli ve NASA Goddard kalıcı gölge haritası (80°G–90°G). Uygunluk skoru altı bileşenin ağırlıklı ortalamasıdır: güç %25, iletişim %20, karanlık %15, iniş ışığı %10, arazi %15, buz erişimi %15.`,
-      `Sun and Earth positions: ${eph}. Terrain horizon, slope and permanent shadow: NASA LOLA 240 m elevation model and the NASA Goddard permanently-shadowed-region map (80°S–90°S). The suitability score is a weighted mean of six parts: power 25%, comms 20%, darkness 15%, landing light 10%, terrain 15%, ice access 15%.`), M, ny, W - 2 * M, 22, sans(400, 15), INK);
+    // name the ephemeris that was really used: outside the SPICE table (2024-2040) the fallback does the work
+    const spice = Ephem.meta ? `${Ephem.meta.source}, ${Ephem.meta.ephemeris}, ${Ephem.meta.frame}, ${Ephem.meta.abcorr}` : '', srcs = [a.src, b.src];
+    const eph = spice && srcs.every(v => v === 'spice') ? spice
+      : !spice || srcs.every(v => v === 'ae') ? L('astronomy-engine (VSOP87 / ELP); bu tarihler NASA SPICE tablosunun (2024–2040) dışında', 'astronomy-engine (VSOP87 / ELP); these dates are outside the NASA SPICE table (2024–2040)')
+        : spice + L(' (tablo aralığında) ve astronomy-engine (aralık dışında)', ' (inside the table range) and astronomy-engine (outside it)');
+    ny = wrap(c, L(`Güneş ve Dünya konumları: ${eph}. Arazi ufku, eğim ve kalıcı gölge: NASA LOLA 240 m yükseklik modeli (480 m ızgara; üç bölge merkezinde 80 m profil) ve NASA Goddard kalıcı gölge haritası (80°G–90°G). Uygunluk skoru altı bileşenin ağırlıklı ortalamasıdır: güç %25, iletişim %20, karanlık %15, iniş ışığı %10, arazi %15, buz erişimi %15.`,
+      `Sun and Earth positions: ${eph}. Terrain horizon, slope and permanent shadow: NASA LOLA 240 m elevation model (480 m grid; an 80 m profile at three region centres) and the NASA Goddard permanently-shadowed-region map (80°S–90°S). The suitability score is a weighted mean of six parts: power 25%, comms 20%, darkness 15%, landing light 10%, terrain 15%, ice access 15%.`), M, ny, W - 2 * M, 22, sans(400, 15), INK);
     wrap(c, L('Skor, yakıt ve batarya değerleri ön tasarım göstergeleridir; sertifikalı güvenlik analizi değildir. Kesin görev tasarımı için sonuçları JPL Horizons ve LROC QuickMap ile doğrulayın.',
       'Score, propellant and battery figures are preliminary-design indicators, not a certified safety analysis. For definitive mission design, verify the results against JPL Horizons and LROC QuickMap.'), M, ny + 4, W - 2 * M, 22, sans(400, 15), MUTED);
     return cv;

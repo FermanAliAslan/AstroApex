@@ -69,10 +69,15 @@
   // Skyline samples for a scenario, or null when only a fixed angle applies. Three NASA study-region centres
   // carry a precomputed 80 m skyline; any other point south of 82 S gets one computed here from the 480 m LOLA grid.
   const skyCache = new Map();
+  // The 80 m skyline belongs to a place, not to a menu entry: a custom point at the same coordinates gets it too.
+  const terrainEntry = sc => TERRAIN[sc.site] || Object.values(TERRAIN).find(T => Math.abs(T.lat - sc.lat) < 6e-4 && Math.abs(T.lon - sc.lon) < 6e-4) || null;
+  // Which horizon a scenario really uses: 'lola80' (precomputed 80 m profile), 'lola480' (480 m grid) or 'flat'.
+  const horizonSrc = sc => sc.mask !== 'lola' ? 'flat' : sc.sky ? 'lola480' : terrainEntry(sc) ? 'lola80' : profile(sc) ? 'lola480' : 'flat';
   function profile(sc) {
     if (sc.sky) return sc.sky;
     if (sc.mask !== 'lola') return null;
-    if (TERRAIN[sc.site]) return TERRAIN[sc.site].angles;
+    const T80 = terrainEntry(sc);
+    if (T80) return T80.angles;
     if (!Polar.covered(sc.lat, sc.lon)) return null;
     const key = sc.lat + '|' + sc.lon;
     let p = skyCache.get(key);
@@ -88,7 +93,7 @@
       return a[i % n] * (1 - f) + a[(i + 1) % n] * f;
     };
   }
-  const terrainOK = sc => !!TERRAIN[sc.site] || Polar.covered(sc.lat, sc.lon);
+  const terrainOK = sc => !!terrainEntry(sc) || Polar.covered(sc.lat, sc.lon);
   const hasTerrain = sc => sc.mask === 'lola' && !!profile(sc);
   // While the terrain pack is still unpacking, a 'lola' choice is kept as it is.
   function normalize(sc) { if (sc.mask === 'lola' && !terrainOK(sc) && !Polar.pending) sc.mask = 0; }
@@ -132,6 +137,19 @@
     if (s >= 0) out.push([s, n]);
     return out;
   }
+  // Share of the solar disc NOT covered by the Earth, seen from the site (below 1 during a lunar eclipse).
+  // Two-circle overlap with the apparent radii; sunlight bent through the Earth's atmosphere is ignored.
+  function sunUncovered(o) {
+    const D = Math.PI / 180, a1 = o.sun.el * D, a2 = o.earth.el * D;
+    const cs = Math.sin(a1) * Math.sin(a2) + Math.cos(a1) * Math.cos(a2) * Math.cos((o.sun.az - o.earth.az) * D);
+    const sep = Math.acos(Math.max(-1, Math.min(1, cs))) / D, r = o.sun.rad, R = o.earth.rad;
+    if (sep >= r + R) return 1;
+    if (sep <= R - r) return 0;
+    const cl = v => Math.max(-1, Math.min(1, v));
+    const area = r * r * Math.acos(cl((sep * sep + r * r - R * R) / (2 * sep * r))) + R * R * Math.acos(cl((sep * sep + R * R - r * r) / (2 * sep * R)))
+      - 0.5 * Math.sqrt(Math.max(0, (-sep + r + R) * (sep + r - R) * (sep - r + R) * (sep + r + R)));
+    return Math.max(0, 1 - area / (Math.PI * r * r));
+  }
   // Pure simulation of one scenario: sc = {site, lat, lon, start, mask}, dur in days, sm = step in minutes.
   function simulate(sc, dur, sm) {
     const n = Math.round(dur * 1440 / sm) + 1, dtH = sm / 60;
@@ -142,14 +160,15 @@
       sunM: new Float32Array(n), earthM: new Float32Array(n), // elevation above the LOCAL horizon (terrain included)
       sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), sunR: 0.27, earthR: 0.95
     };
-    let sunC = 0, earthC = 0, bothC = 0, elSum = 0, energy = 0;
+    let sunC = 0, earthC = 0, bothC = 0, elSum = 0, energy = 0, eclC = 0;
     let maxEl = -90, eMin = 90, eMax = -90, sMin = 90, nSpice = 0;
     for (let i = 0; i < n; i++) {
       const o = Ephem.observe(st, sc.start + i * sm * 60000);
       if (o.src === 'spice') nSpice++;
       d.sunEl[i] = o.sun.el; d.sunAz[i] = o.sun.az; d.earthEl[i] = o.earth.el; d.earthAz[i] = o.earth.az;
       d.sunM[i] = o.sun.el - hz(o.sun.az); d.earthM[i] = o.earth.el - hz(o.earth.az);
-      const f = Ephem.discFrac(d.sunM[i] / o.sun.rad);
+      const fT = Ephem.discFrac(d.sunM[i] / o.sun.rad), unc = fT > 0 ? sunUncovered(o) : 1, f = fT * unc; // terrain, then the Earth
+      if (unc < 1 && i < n - 1) eclC++;
       d.frac[i] = f;
       d.flux[i] = 1361 * Math.pow(Ephem.AU / o.sun.dist, 2) * f;
       d.sunUp[i] = f > 0 ? 1 : 0;
@@ -171,8 +190,9 @@
     d.stats = {
       total, sun: sunC * dtH, earth: earthC * dtH, both: bothC * dtH,
       dark: Math.min(total, longest(runs(inv(d.sunUp), n))), nocomm: Math.min(total, longest(runs(inv(d.earthUp), n))),
-      maxEl, sMin, meanEl: sunC ? elSum / sunC : null, energy, eMin, eMax
+      maxEl, sMin, meanEl: sunC ? elSum / sunC : null, energy, eMin, eMax, eclipse: eclC * dtH
     };
+    d.hz = horizonSrc(sc);
     d.src = nSpice === n ? 'spice' : nSpice ? 'mixed' : 'ae';
     return d;
   }
@@ -309,9 +329,11 @@
   /* ---------- verdict, windows, table ---------- */
   function renderVerdict() {
     const a = S.data.A.stats, b = S.data.B.stats, diff = b.both - a.both;
-    $('#verdict-h').textContent = a.both < 0.5 && b.both < 0.5 ? t('verdict_none')
-      : Math.abs(diff) < 0.5 ? t('verdict_eq')
-        : t('verdict_more', { w: diff > 0 ? 'B' : 'A', h: nf(Math.abs(diff)) });
+    const tol = S.data.A.dtH / 2; // less than half a time step is no difference
+    const hm = h => h < 10 ? fmtDur(h) : nf(h) + ' ' + t('h'); // minutes stay visible for short windows
+    $('#verdict-h').textContent = a.both <= 0 && b.both <= 0 ? t('verdict_none')
+      : Math.abs(diff) < tol ? t('verdict_eq2', { h: hm(a.both) })
+        : t('verdict_more2', { w: diff > 0 ? 'B' : 'A', h: hm(Math.abs(diff)) });
     $('#verdict-chips').innerHTML = KEYS.map(k => {
       const s = S.data[k].stats, ps = s.sun / s.total, pe = s.earth / s.total;
       const pc = ps > 0.8 ? 'good' : ps > 0.4 ? 'mid' : 'bad', pl = { good: 'p_good', mid: 'p_mid', bad: 'p_bad' }[pc];
@@ -324,11 +346,11 @@
   // One plain sentence per scenario, so the bars can be understood without reading them.
   function winSummary(k) {
     const s = S.data[k].stats, ps = s.sun / s.total, pe = s.earth / s.total;
-    const a = ps >= 0.98 ? t('ws_sun_all') : ps >= 0.85 ? t('ws_sun_most')
+    const a = s.dark <= 0 ? t('ws_sun_all') : ps >= 0.85 ? t('ws_sun_most2', { d: fmtDur(s.dark) })
       : ps >= 0.5 ? t('ws_sun_part', { p: nf(ps * 100), d: nf(s.dark) })
         : ps > 0 ? t('ws_sun_low', { d: nf(s.dark) }) : t('ws_sun_none');
-    const b = pe >= 0.995 ? t('ws_earth_all') : pe <= 0 ? t('ws_earth_none') : t('ws_earth_part', { p: nf(pe * 100), d: nf(s.nocomm) });
-    return a + ' ' + b;
+    const b = s.nocomm <= 0 ? t('ws_earth_all') : pe <= 0 ? t('ws_earth_none') : pe >= 0.995 ? t('ws_earth_most', { d: fmtDur(s.nocomm) }) : t('ws_earth_part', { p: pe < 0.01 ? '<1' : nf(pe * 100), d: nf(s.nocomm) });
+    return a + ' ' + b + (s.eclipse > 0 ? ' ' + t('ws_eclipse', { d: fmtDur(s.eclipse) }) : '');
   }
   const fmtDay = ms => new Date(ms).toLocaleString(S.lang, { timeZone: 'UTC', day: 'numeric', month: 'short' });
   function renderWindows() {
@@ -350,13 +372,14 @@
         return `<div class="wrow"><span class="wl"><i class="sw ${b}"></i>${t('w_' + b)}</span>
           <div class="track ${b}" title="${k} · ${t(b)}">${segs}${gaps}<b class="wcur"></b></div><span class="wv">${val}</span></div>`;
       };
-      const pv = (h) => `<b>${nf(h / s.total * 100)}%</b> · ${nf(h)} ${t('h')}`;
+      const hShort = h => h > 0 && h < 10 ? fmtDur(h) : nf(h) + ' ' + t('h'); // minutes stay visible
+      const pv = (h) => `<b>${nf(h / s.total * 100)}%</b> · ${hShort(h)}`;
       const ticks = [0, 1, 2, 3, 4].map(i => `<span>${fmtDay(sc.start + i / 4 * tot * H)}</span>`).join('');
       return `<div class="wcard">
         <div class="wcard-head"><div class="scn-title"><span class="badge ${k.toLowerCase()}">${k}</span><b>${siteName(k)}</b></div>
           <span class="mono coord">${fmtDay(sc.start)} – ${fmtDate(sc.start + tot * H, false)} · ${nf(S.dur, S.dur % 1 ? 1 : 0)} ${t('days')}</span></div>
-        <p class="wsum">${winSummary(k)}</p>
-        ${row('sun', pv(s.sun))}${row('earth', pv(s.earth))}${row('both', `<b>${nf(s.both)} ${t('h')}</b>`)}
+        <p class="wsum">${winSummary(k)}</p>${d.hz === 'lola480' ? `<p class="wsum hz-note">${t('hz_480')}</p>` : ''}
+        ${row('sun', pv(s.sun))}${row('earth', pv(s.earth))}${row('both', `<b>${hShort(s.both)}</b>`)}
         <div class="wrow waxis"><span></span><div>${ticks}</div><span></span></div>
       </div>`;
     }).join('');
@@ -395,8 +418,8 @@
     const d = S.data[k], sc = S.sc[k], st = d.stats, i = idxAt(k), hz = horizonFn(sc), terr = hasTerrain(sc);
     const { ctx, w, h } = fit($(`#sky-${k} [data-sky]`));
     const L = 40, R = 10, T = 12, B = 26;
-    let hMin = hz(0), hMax = hMin;
-    if (terr) for (let a = 0; a < 360; a += 2) { const v = hz(a); hMin = Math.min(hMin, v); hMax = Math.max(hMax, v); }
+    let hMin = hz(0), hMax = hMin, azMax = 0;
+    if (terr) for (let a = 0; a < 360; a += 1) { const v = hz(a); hMin = Math.min(hMin, v); if (v > hMax) { hMax = v; azMax = a; } }
     const lo = Math.max(-90, Math.min(-5, Math.floor(Math.min(st.sMin, st.eMin, hMin) - 2)));
     const hi = Math.min(90, Math.max(8, Math.ceil(Math.max(st.maxEl, st.eMax, Math.min(hMax, 14)) + 3)));
     const X = az => L + az / 360 * (w - L - R), Y = el => T + (hi - el) / (hi - lo) * (h - T - B);
@@ -427,9 +450,13 @@
     ctx.save(); ctx.beginPath(); ctx.rect(L, T, w - L - R, h - T - B); ctx.clip();
     // local horizon line
     ctx.strokeStyle = '#9aa0ad'; ctx.lineWidth = 1.5; skyline(); ctx.stroke();
+    if (terr && hMax > hi) { // the ridge continues above the plot: say how high it really is
+      ctx.fillStyle = '#d7dbe3'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('▲ ' + nf(hMax, 1) + '°', Math.min(w - R - 34, Math.max(L + 34, X(azMax))), T + 4); ctx.textBaseline = 'middle';
+    }
     if (terr || sc.mask !== 0) {
       ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      ctx.fillText(terr ? 'LOLA' : t('loc_h'), w - R - 4, Y(hz(359)) - 3); ctx.textBaseline = 'middle';
+      ctx.fillText(terr ? (d.hz === 'lola80' ? 'LOLA 80 m' : 'LOLA 480 m') : t('loc_h'), w - R - 4, Math.max(T + 14, Y(hz(359)) - 3)); ctx.textBaseline = 'middle';
     }
     // paths
     const path = (az, el, col) => {
@@ -1216,7 +1243,7 @@
 
     // shared API for the assistant module
     window.AA = {
-      S, KEYS, DURS, TERRAIN, Polar, C, t, nf, fmtDur, fmtDate, fmtCoord, fmtDay, siteName, winSummary, idxAt, hasTerrain, terrainOK, countdown, showTab, refresh,
+      S, KEYS, DURS, TERRAIN, Polar, C, t, nf, fmtDur, fmtDate, fmtCoord, fmtDay, siteName, winSummary, idxAt, hasTerrain, terrainOK, horizonSrc, countdown, showTab, refresh,
       simulate, setSite, setPoint, stepMin, facts, powerSim, setPower, applyPreset, queueGlobe, syncForms, heatColor, horizonFn, routeFor, surfaceTemp, REGIONS, ROVER_KMH,
       POWER: { PV_EFF, CHG_EFF, DOD, WH_KG },
       onChange(fn) { hooks.push(fn); } // other modules re-render after every recomputation
