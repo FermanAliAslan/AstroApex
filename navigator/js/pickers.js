@@ -58,7 +58,7 @@
     picker.detail.textContent = selected ? coordinates(picker, selected.value) : '';
     picker.detail.hidden = !picker.detail.textContent;
     picker.trigger.disabled = picker.source.disabled;
-    picker.trigger.setAttribute('aria-label', label(picker) + ' · ' + picker.value.textContent);
+    picker.trigger.setAttribute('aria-label', [label(picker), picker.value.textContent, picker.detail.textContent].filter(Boolean).join(' · '));
     if (picker.label) picker.label.parentElement.htmlFor = picker.trigger.id;
     if (active === picker) {
       if (picker.source.disabled) return close(true);
@@ -232,7 +232,7 @@
     const copy = element('span', 'ap-picker-copy');
     const value = element('span', 'ap-picker-value');
     const detail = element('span', 'ap-picker-detail');
-    copy.append(value, detail);
+    copy.append(value, ' ', detail);
     if (site) {
       const icon = element('span', 'ap-picker-icon', '◎');
       icon.setAttribute('aria-hidden', 'true');

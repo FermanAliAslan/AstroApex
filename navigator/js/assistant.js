@@ -166,7 +166,7 @@
         <div><h4>${t('pros')}</h4>${list(a.pros.slice(0, compact ? 2 : 4), 'pro')}</div>
         <div><h4>${t('cons')}</h4>${list(a.cons.slice(0, compact ? 2 : 4), 'con')}</div>
       </div>
-      <button class="ghost ask" data-ask="${a.k}">✦ ${t('ask_ai')}</button>`;
+      <button class="ghost ask" data-ask="${a.k}">${L('Analiste sor', 'Ask analyst')} <span aria-hidden="true">↗</span></button>`;
   }
   function renderReports() {
     for (const k of KEYS) $('#report-' + k).innerHTML = reportHTML(analyze(k), false);
@@ -697,13 +697,13 @@
 
   /* ================= router ================= */
   const mem = { k: null, intent: null, history: [] };
-  async function localAnswer(q) {
+  async function localAnswer(q, selectedScope) {
     const e = parse(q), x = e.x;
     if (e.invalidDate) return esc(L('Bu tarih takvimde yok. Lütfen geçerli bir tarih girin (YYYY-AA-GG).', 'That date does not exist. Please enter a valid date (YYYY-MM-DD).'));
     let intents = detect(x);
     // a site named without a letter refers to the scenario that already uses it (“Malapert’te eğim nasıl?”)
     const named = !e.scen.length && e.site ? KEYS.find(x => S.sc[x].site === e.site.id) : null;
-    const k = e.scen[0] || named || mem.k || S.globe.target;
+    const k = e.scen[0] || named || selectedScope || mem.k || S.globe.target;
     // follow-up such as "and for B?": reuse the previous topic
     if (!intents.length && mem.intent && (e.scen.length || e.site || e.date || e.days || e.shift) && x.length < 40) intents = [mem.intent];
     const has = n => intents.includes(n);
@@ -793,92 +793,293 @@
   // Minimal, safe formatting of model text: escape everything, then allow **bold**, lists and line breaks.
   const fmtModel = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^#{1,4}\s*(.+)$/gm, '<b>$1</b>').replace(/^\s*[-•]\s+/gm, '• ').replace(/\n/g, '<br>');
 
-  async function respond(q) {
-    const local = await localAnswer(q), ai = window.AstroApexAI;
-    if (ai && typeof ai.ask === 'function') {
-      try {
-        const ctx = buildContext();
-        ctx.localAnalysis = toText(local);
-        ctx.history = mem.history.slice(-6);
-        const text = await ai.ask(q, ctx);
-        if (text && String(text).trim()) {
-          mem.history.push({ role: 'user', content: q }, { role: 'assistant', content: String(text) });
-          return fmtModel(String(text)) + `<details class="calc"><summary>${L('Hesaplanan veriler', 'Computed data')}</summary>${local}</details>`;
-        }
-      } catch (err) { /* fall back to the local engine */ }
-    }
-    return local;
+  const modes = ['auto', 'local', 'openai', 'gemini', 'qwen'];
+  const preferenceKey = 'astroapex:analyst-provider';
+  let mode = 'auto', search = false, authorized = false, retrying = false, revision = 0;
+  let providers = {openai: null, anthropic: null, gemini: null, qwen: null}, localToken = null;
+  let offlineToken = null, offlineSessionRequest = null, lastSource = null;
+  try {
+    const saved = JSON.parse(localStorage.getItem(preferenceKey) || '{}');
+    if (saved && modes.includes(saved.mode)) mode = saved.mode;
+    search = saved?.search === true;
+  } catch (_) { /* Preferences are optional. */ }
+  try { localToken = sessionStorage.getItem('astroapex-local-token'); } catch (_) {}
+
+  function getProviderSettings() {
+    return {mode, search, providers: {...providers}, authorized, retrying, lastSource};
   }
-  // The local server's private launch URL provisions this token for the current browser tab.
-  // Public/static pages never fetch a provider status without that local capability.
-  let localToken = null;
-  try { localToken = sessionStorage.getItem('astroapex-local-token'); } catch (e) { /* storage may be unavailable */ }
-  if (!window.AstroApexAI && localToken && /^https?:$/.test(location.protocol)) {
-    const headers = { 'X-AstroApex-Token': localToken };
-    fetch('api/status', { headers, credentials: 'same-origin' }).then(r => r.ok ? r.json() : null).then(st => {
-      if (!st || !st.ai || window.AstroApexAI) return;
-      const bridge = {
-        name: L('Yapay zekâ bağlı · ', 'AI connected · ') + st.model,
-        async ask(question, context) {
-          try {
-            const r = await fetch('api/chat', {
-              method: 'POST', credentials: 'same-origin',
-              headers: { ...headers, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ question, context })
-            });
-            if (!r.ok) {
-              if ((r.status === 401 || r.status === 403) && window.AstroApexAI === bridge) window.AstroApexAI = null;
-              throw new Error('chat ' + r.status);
-            }
-            const answer = (await r.json()).answer;
-            bridge.temporarilyUnavailable = false;
-            setModelLabel();
-            return answer;
-          } catch (error) {
-            bridge.temporarilyUnavailable = true;
-            setModelLabel();
-            throw error;
-          }
+  function providerChanged() {
+    setModelLabel();
+    window.dispatchEvent(new Event('astroapex:providerchange'));
+  }
+  function setProviderSettings(next) {
+    if (!next || !modes.includes(next.mode) || typeof next.search !== 'boolean') return;
+    if (mode === next.mode && search === next.search) return;
+    mode = next.mode; search = next.search; retrying = false; lastSource = null; revision++;
+    mem.history.length = 0;
+    try { localStorage.setItem(preferenceKey, JSON.stringify({mode, search})); } catch (_) {}
+    providerChanged();
+  }
+  function cloudProvider() {
+    if (mode === 'openai' || mode === 'gemini') return providers[mode] ? mode : null;
+    if (mode !== 'auto') return null;
+    if (providers.openai) return 'openai';
+    if (window.AstroApexAI?.ask) return 'host';
+    return providers.anthropic ? 'anthropic' : null;
+  }
+  function providerName(provider) {
+    return provider === 'host' ? window.AstroApexAI?.name || t('a_model_on') : providers[provider];
+  }
+
+  const loopback = location.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(location.hostname);
+  function discoverOffline() {
+    if (!loopback) return;
+    if (offlineSessionRequest) return offlineSessionRequest;
+    offlineSessionRequest = fetch('/api/offline-session', {
+      method: 'POST', credentials: 'same-origin', headers: {'X-AstroApex-Offline': '1'}
+    }).then(async r => {
+      if (!r.ok) return;
+      const status = await r.json();
+      offlineToken = typeof status.token === 'string' ? status.token : null;
+      providers.qwen = offlineToken && status.model === 'Qwen3.5 4B' ? status.model : null;
+      providerChanged();
+    }).catch(() => {
+      offlineToken = null; providers.qwen = null; providerChanged();
+    }).finally(() => { offlineSessionRequest = null; });
+    return offlineSessionRequest;
+  }
+  discoverOffline();
+  let cloudSessionRequest;
+  if (localToken && /^https?:$/.test(location.protocol)) {
+    cloudSessionRequest = fetch('/api/status', {headers: {'X-AstroApex-Token': localToken}, credentials: 'same-origin'})
+      .then(r => r.ok ? r.json() : null).then(st => {
+        if (!st) return;
+        authorized = true;
+        providers = {...providers, openai: st.providers?.openai || null, anthropic: st.providers?.anthropic || (st.ai ? st.model : null), gemini: st.providers?.gemini || null};
+        providerChanged();
+      }).catch(() => { /* Local analysis is always available. */ });
+  }
+
+  function grounding(result) {
+    const sources = [];
+    for (const item of (Array.isArray(result.sources) ? result.sources : [])) {
+      try {
+        const url = new URL(item.url);
+        if (url.protocol === 'https:' && !url.username && !url.password) {
+          sources.push(`<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">${esc(item.title || url.hostname)}</a>`);
         }
-      };
-      window.AstroApexAI = bridge;
-      setModelLabel();
-    }).catch(() => { /* the local analysis remains available if the service is unreachable */ });
+      } catch (_) { /* Ignore malformed provider citations. */ }
+    }
+    let html = sources.length ? `<p>${L('Web kaynakları', 'Web sources')} · ${sources.join(' · ')}</p>` : '';
+    if (typeof result.searchSuggestions === 'string' && result.searchSuggestions) {
+      // Google's attribution widget has its own opaque origin. No script, forms, embeds or external asset loads.
+      const policy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'";
+      const doc = '<meta http-equiv="Content-Security-Policy" content="' + policy + '"><base target="_blank">' + result.searchSuggestions;
+      html += `<iframe sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" style="width:100%;height:100px;border:0" title="${L('Google arama önerileri', 'Google Search suggestions')}" srcdoc="${esc(doc)}"></iframe>`;
+    }
+    return html;
+  }
+
+  async function bridgeAnswer(q, context, provider) {
+    const r = await fetch('/api/chat', {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'X-AstroApex-Token': provider === 'qwen' ? offlineToken : localToken, 'Content-Type': 'application/json'},
+      body: JSON.stringify({question: q, context, provider, search: provider === 'gemini' && search})
+    });
+    if (!r.ok) {
+      if (provider === 'qwen' && [401, 403, 502, 503].includes(r.status)) {
+        offlineToken = null; providers.qwen = null;
+      } else if (provider !== 'qwen' && [401, 403].includes(r.status)) {
+        authorized = false;
+        providers = {...providers, openai: null, anthropic: null, gemini: null};
+      }
+      throw new Error('chat ' + r.status);
+    }
+    return r.json();
+  }
+
+  function calculatedAnswer(local) {
+    return '<small>' + L('Yerel görev hesabı', 'Local mission calculation') + '</small><br>' + local;
+  }
+  async function respond(q, scope, view) {
+    const version = revision;
+    const local = await localAnswer(q, scope);
+    if (version !== revision || mode === 'local') return calculatedAnswer(local);
+    const ctx = buildContext();
+    ctx.selectedScenario = scope; ctx.workspaceView = view;
+    ctx.localAnalysis = toText(local); ctx.history = mem.history.slice(-6);
+    if (mode !== 'qwen' && cloudSessionRequest) await cloudSessionRequest;
+    const cloud = cloudProvider();
+    for (const provider of (cloud ? [cloud, 'qwen'] : ['qwen'])) {
+      if (provider === 'qwen' && !providers.qwen) await discoverOffline();
+      if (version !== revision) return calculatedAnswer(local);
+      const name = providerName(provider);
+      if (!name) continue;
+      try {
+        const result = provider === 'host' ? {answer: await window.AstroApexAI.ask(q, ctx)} : await bridgeAnswer(q, ctx, provider);
+        if (version !== revision) return calculatedAnswer(local);
+        if (typeof result?.answer !== 'string' || !result.answer.trim()) throw new Error('empty answer');
+        lastSource = provider;
+        retrying = false; providerChanged();
+        mem.history.push({role: 'user', content: q}, {role: 'assistant', content: result.answer});
+        if (mem.history.length > 6) mem.history.splice(0, mem.history.length - 6);
+        return '<small>' + esc(name) + '</small><br>' + fmtModel(result.answer) + grounding(result) +
+          `<details class="calc"><summary>${L('Hesaplanan veriler', 'Computed data')}</summary>${local}</details>`;
+      } catch (_) {
+        if (version !== revision) return calculatedAnswer(local);
+      }
+    }
+    lastSource = 'local';
+    retrying = !!cloud || mode === 'qwen' || mode === 'gemini'; providerChanged();
+    return calculatedAnswer(local);
   }
 
   /* ================= chat panel ================= */
   const panel = $('#assist'), log = $('#assist-log'), input = $('#assist-input'), opener = $('#assist-open');
+  const sheet = window.matchMedia('(max-width: 1099px)');
+  const scrollArea = $('#analyst-scroll');
+  const prompts = $('#analyst-questions');
+  const shade = $('#analyst-shade');
+  const isolated = new Set();
+  let scope = S.globe.target, lastMapTarget = S.globe.target, returnTo = opener, busy = false;
+
   function setModelLabel() {
-    const ai = window.AstroApexAI;
-    $('#assist-model').textContent = ai && ai.temporarilyUnavailable
-      ? L('Yerel analiz · sonraki soruda bağlantı tekrar denenecek', 'Local analysis · connection will retry on the next question')
-      : ai ? (ai.name || t('a_model_on')) : t('a_model');
+    const provider = lastSource || cloudProvider() || (mode !== 'local' ? 'qwen' : null);
+    $('#assist-model').textContent = providerName(provider) || L('Yerel görev hesabı', 'Local mission calculation');
   }
+
+  function renderContext() {
+    document.querySelectorAll('[data-analyst-name]').forEach(el => {
+      el.textContent = el.id === 'assist-title' ? L('Görev analisti', 'Mission analyst') : L('Analist', 'Analyst');
+    });
+    $('#assist-close').setAttribute('aria-label', t('a_close'));
+    $('#assist-form .send').setAttribute('aria-label', t('a_send'));
+    input.placeholder = L('Görev hakkında soru sor…', 'Ask about the mission…');
+    input.setAttribute('aria-label', input.placeholder);
+    $('#analyst-scope-label').textContent = L('İncelenen senaryo', 'Scenario in focus');
+    for (const btn of $('#analyst-sites').children) {
+      const k = btn.dataset.scope, n = AA.siteName(k);
+      btn.querySelector('.analyst-site-name').textContent = n;
+      btn.setAttribute('aria-pressed', String(scope === k));
+      btn.title = n + ' · ' + AA.fmtCoord(S.sc[k].lat, S.sc[k].lon);
+    }
+    $('#analyst-site-date').textContent = date(S.sc[scope].start) + ' UTC · ' + nf(S.dur, S.dur % 1 ? 1 : 0) + L(' gün', ' days');
+    $('#analyst-questions-label').textContent = L('Önerilen sorular', 'Suggested questions');
+    const cmp = t('q_cmp');
+    const terrain = L('İniş alanının eğimi nasıl?', 'How steep is the landing site?');
+    const light = L('Güneş ne zaman görünür?', 'When are the sunlight windows?');
+    const comm = L('Dünya görüş pencereleri ne zaman?', 'When are the Earth contact windows?');
+    const power = L('Batarya yeterli mi?', 'Will the battery last?');
+    const questions = {
+      compare: [cmp, power, L('İnişi 7 gün ertelersek?', 'What if we delay landing by 7 days?')],
+      map: [terrain, L('En yakın buz tuzağı nerede?', 'Where is the nearest ice trap?'), L('Bu sahanın riskleri neler?', 'What are the risks at this site?')],
+      sky: [light, comm, L('Şu an Güneş ve Dünya nerede?', 'Where are the Sun and Earth right now?')],
+      time: [power, comm, light],
+      resources: [L('Hangi veri kaynakları kullanılıyor?', 'Which data sources are used?'), t('q_safe'), L('SPICE nedir?', 'What is SPICE?')]
+    };
+    const quick = $('#assist-quick'), list = questions[S.tab] || questions.compare;
+    if (quick.children.length !== list.length || list.some((q, ix) => quick.children[ix].textContent !== q)) {
+      quick.replaceChildren(...list.map(q => {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.textContent = q; btn.dataset.question = q;
+        return btn;
+      }));
+    }
+    setModelLabel();
+  }
+
+  function syncPresentation() {
+    const modal = !panel.hidden && sheet.matches;
+    shade.hidden = !modal;
+    document.body.classList.toggle('analyst-modal', modal);
+    panel.setAttribute('role', modal ? 'dialog' : 'complementary');
+    if (modal) {
+      panel.setAttribute('aria-modal', 'true');
+      for (const el of document.querySelectorAll('body > .top, body > main, body > .timebar, body > .workspace-bar')) {
+        if (!el.inert) { el.inert = true; isolated.add(el); }
+      }
+      if (!panel.contains(document.activeElement)) $('#assist-title').focus({ preventScroll: true });
+    } else {
+      panel.removeAttribute('aria-modal');
+      isolated.forEach(el => { el.inert = false; }); isolated.clear();
+    }
+  }
+  sheet.addEventListener('change', syncPresentation);
+  const top = document.querySelector('header.top');
+  const sizeDock = () => panel.style.setProperty('--analyst-top', top.offsetHeight + 'px');
+  if (top && 'ResizeObserver' in window) new ResizeObserver(sizeDock).observe(top);
+
   function addMsg(role, html) {
     const el = document.createElement('div');
     el.className = 'msg ' + role;
     el.innerHTML = html;
     log.appendChild(el);
-    log.scrollTop = log.scrollHeight;
+    scrollArea.scrollTop = scrollArea.scrollHeight;
     return el;
   }
-  function open(focus = true) {
-    panel.hidden = false; document.body.classList.add('assist-on'); opener.setAttribute('aria-expanded', 'true');
-    setModelLabel();
-    if (focus) input.focus();
+  function open(from, k, keyboard = false) {
+    if (KEYS.includes(k)) scope = k;
+    else if (S.tab === 'map') scope = S.globe.target;
+    if (panel.hidden) returnTo = from || document.activeElement;
+    panel.hidden = false;
+    document.body.classList.add('assist-on');
+    opener.setAttribute('aria-expanded', 'true');
+    renderContext(); syncPresentation();
+    // On touch, the panel opens on its suggestions without lifting the software keyboard.
+    (sheet.matches && !keyboard ? $('#assist-title') : input).focus({ preventScroll: true });
   }
-  function close() { panel.hidden = true; document.body.classList.remove('assist-on'); opener.setAttribute('aria-expanded', 'false'); opener.focus(); }
-  let busy = false;
-  async function ask(q) {
+  function close(restore = true) {
+    panel.hidden = true;
+    document.body.classList.remove('assist-on');
+    opener.setAttribute('aria-expanded', 'false');
+    syncPresentation();
+    if (restore) (returnTo?.isConnected && returnTo.getClientRects().length ? returnTo : opener).focus({ preventScroll: true });
+  }
+
+  async function ask(q, typed = false) {
     q = q.trim(); if (!q || busy) return;
+    if (typed && window.AASettings?.commandsEnabled()) {
+      const action = window.AAMissionCommands?.run(q, scope);
+      if (action) {
+        addMsg('user', esc(q)); addMsg('note', esc(action.message));
+        if (action.view) { close(false); AA.showTab(action.view, opener); }
+        return;
+      }
+    }
     busy = true;
-    addMsg('user', esc(q));
+    const question = parse(q);
+    const comparing = detect(question.x).includes('compare') || question.scen.length === 2;
+    const namedScope = question.site && KEYS.find(k => S.sc[k].site === question.site.id);
+    const askedScope = question.scen[0] || namedScope || scope, view = S.tab;
+    if (!comparing && askedScope !== scope) { scope = askedScope; renderContext(); }
+    if (prompts.contains(document.activeElement)) {
+      prompts.querySelector('summary').focus({preventScroll: true});
+    }
+    prompts.open = false;
+    $('#assist-form .send').disabled = true;
+    const user = addMsg('user', esc(q));
+    const context = document.createElement('small');
+    context.className = 'analyst-msg-scope';
+    context.textContent = (comparing ? KEYS : [askedScope]).map(k => k + ' · ' + AA.siteName(k) + ' · ' + date(S.sc[k].start, false)).join(' / ');
+    user.prepend(context);
     const wait = addMsg('bot typing', '<i></i><i></i><i></i>');
+    wait.setAttribute('aria-label', L('Hesaplanıyor', 'Calculating'));
     let html;
-    try { html = await respond(q); } catch (err) { html = esc(L('Bu soruyu işlerken bir hata oluştu. Lütfen farklı bir şekilde sorun.', 'Something went wrong while answering. Please rephrase the question.')); }
-    wait.className = 'msg bot'; wait.innerHTML = html;
-    wait.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    try { html = await respond(q, askedScope, view); } catch (err) { html = esc(L('Bu soruyu işlerken bir hata oluştu. Lütfen farklı bir şekilde sorun.', 'Something went wrong while answering. Please rephrase the question.')); }
+    wait.className = 'msg bot'; wait.innerHTML = html; wait.removeAttribute('aria-label');
+    if (!panel.hidden && matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+      wait.classList.add('answer-arrived');
+      const settle = () => {
+        wait.classList.remove('answer-arrived');
+        wait.removeEventListener('animationcancel', settle);
+        wait.removeEventListener('animationend', settle);
+      };
+      wait.addEventListener('animationend', settle);
+      wait.addEventListener('animationcancel', settle);
+    }
+    if (!panel.hidden) scrollArea.scrollTop += wait.getBoundingClientRect().top - scrollArea.getBoundingClientRect().top - 12;
     busy = false;
+    $('#assist-form .send').disabled = false;
   }
   // Buttons inside answers that change the scenario.
   log.addEventListener('click', e => {
@@ -887,7 +1088,7 @@
     if (a.type === 'start' && KEYS.includes(a.k)) { S.sc[a.k].start = a.ms; AA.refresh(); addMsg('note', esc(L(`${a.k} başlangıcı ${date(a.ms)} UTC olarak ayarlandı.`, `Start of ${a.k} set to ${date(a.ms)} UTC.`))); }
     else if (a.type === 'site' && KEYS.includes(a.k)) { AA.setSite(a.k, a.id); AA.refresh(); addMsg('note', esc(L(`${a.k} sahası ${AA.siteName(a.k)} olarak değiştirildi.`, `Site ${a.k} changed to ${AA.siteName(a.k)}.`))); }
     else if (a.type === 'dur' && AA.DURS.includes(a.d)) { S.dur = a.d; AA.refresh(true); addMsg('note', esc(L(`Görev süresi ${nf(a.d, a.d % 1 ? 1 : 0)} gün olarak ayarlandı.`, `Mission duration set to ${nf(a.d, a.d % 1 ? 1 : 0)} days.`))); }
-    else if (a.type === 'tab') AA.showTab(a.id);
+    else if (a.type === 'tab') { close(); AA.showTab(a.id); }
     else if (a.type === 'point' && KEYS.includes(a.k) && isFinite(a.lat) && isFinite(a.lon)) { AA.setPoint(a.k, +a.lat, +a.lon); if (a.mask === 'lola' || a.mask === 0) S.sc[a.k].mask = a.mask; AA.refresh(); addMsg('note', esc(L(`${a.k} noktası ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)} olarak ayarlandı.`, `Point ${a.k} set to ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)}.`))); }
     else if (a.type === 'layer' && ['ice', 'slope', 'heat', 'temp', 'regions', 'route'].includes(a.id)) {
       S.globe[a.id] = true;
@@ -897,38 +1098,61 @@
       const sc = KEYS.includes(a.k) ? S.sc[a.k] : null;
       if (sc) S.globe.target = a.k;                    // the map's route and temperature readout follow this scenario
       Object.assign(S.globe, sc && sc.lat < -60 ? { lat0: sc.lat, lon0: sc.lon, zoom: a.id === 'route' ? 24 : 6 } : { lat0: -90, lon0: 0, zoom: 4 }); // close in for a route
-      AA.showTab('map'); AA.syncForms(); AA.queueGlobe();
+      close(); AA.showTab('map'); AA.syncForms(); AA.queueGlobe();
     }
     else if (a.type === 'pwr' && isFinite(a.load)) { AA.setPower({ load: a.load }); addMsg('note', esc(L(`Yük ${nf(S.pwr.load)} W olarak ayarlandı.`, `Load set to ${nf(S.pwr.load)} W.`))); }
-    else if (a.type === 'report' && window.AAReport) window.AAReport.open();
+    else if (a.type === 'report' && window.AAReport) { close(); window.AAReport.open(); }
   });
 
-  opener.addEventListener('click', () => panel.hidden ? open() : close());
-  $('#assist-close').addEventListener('click', close);
-  $('#assist-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = input.value; input.value = ''; ask(q); });
-  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#assist-form').requestSubmit(); } });
-  $('#assist-quick').addEventListener('click', e => { const q = e.target.dataset.q; if (q) ask(t(q)); });
-  document.addEventListener('click', e => {
-    const b = e.target.closest('[data-ask]'); if (!b) return;
-    open(); ask(t(b.dataset.ask === 'B' ? 'q_b' : 'q_a'));
+  opener.addEventListener('click', () => panel.hidden ? open(opener) : close());
+  $('#assist-close').addEventListener('click', () => close());
+  shade.addEventListener('click', () => close());
+  $('#analyst-sites').addEventListener('click', e => {
+    const b = e.target.closest('[data-scope]'); if (!b) return;
+    scope = b.dataset.scope;
+    renderContext();
   });
-  // Shortcuts: "/" or Ctrl/Cmd+K opens the assistant, Esc closes it.
+  $('#assist-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = input.value; input.value = ''; ask(q, true); });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#assist-form').requestSubmit(); } });
+  $('#assist-quick').addEventListener('click', e => { const q = e.target.closest('[data-question]')?.dataset.question; if (q) ask(q); });
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-open-analyst], [data-ask]'); if (!b || b === opener) return;
+    open(b, b.dataset.ask || b.dataset.openAnalyst);
+    if (b.hasAttribute('data-explain-result')) ask(t('q_cmp'));
+    else if (b.dataset.ask) ask(t(b.dataset.ask === 'B' ? 'q_b' : 'q_a'));
+  });
   document.addEventListener('keydown', e => {
-    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-    if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { e.preventDefault(); open(); }
-    else if (e.key === 'Escape' && !panel.hidden) close();
+    if (e.defaultPrevented || document.querySelector('.rep-modal:not([hidden]), .tour-pop:not([hidden]), .ap-picker-menu:not([hidden])')) return;
+    if (e.key === 'Escape' && !panel.hidden) { e.preventDefault(); e.stopImmediatePropagation(); close(); return; }
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
+    if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { e.preventDefault(); open(null, null, true); }
+  }, true);
+  panel.addEventListener('keydown', e => {
+    // Keep app-wide transport and numeric view shortcuts outside of the work panel.
+    if (/^( |ArrowLeft|ArrowRight|[1-5])$/.test(e.key)) e.stopPropagation();
+    if (!sheet.matches || e.key !== 'Tab') return;
+    const focusable = Array.from(panel.querySelectorAll('button:not([disabled]), textarea, summary, [href]')).filter(el => el.getClientRects().length);
+    const first = focusable[0], last = focusable.at(-1);
+    if (e.shiftKey && [first, $('#assist-title')].includes(document.activeElement)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
 
   window.AAssist = {
-    analyze, evaluate, eligibility, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
-    onRefresh() { renderReports(); input.placeholder = t('a_place'); if (!panel.hidden) setModelLabel(); },
-    onPick(k) { // a point was chosen on the 3D map
-      open(false);
-      addMsg('note', esc(t('a_picked', { k })));
-      addMsg('bot', fullReport(analyze(k)));
+    getProviderSettings, setProviderSettings, analyze, evaluate, eligibility, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
+    onRefresh() {
+      if (S.tab === 'map' && S.globe.target !== lastMapTarget) scope = S.globe.target;
+      lastMapTarget = S.globe.target;
+      renderReports(); renderContext();
+    },
+    onViewChange() {
+      if (S.tab === 'map') scope = S.globe.target;
+      renderContext();
+    },
+    onPick(k) {
+      scope = k;
+      if (!panel.hidden) renderContext();
     }
   };
-  input.placeholder = t('a_place');
-  addMsg('bot', esc(t('a_hello')));
+  renderContext();
   renderReports();
 })();

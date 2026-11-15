@@ -7,7 +7,6 @@
 #include <float.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include "SpiceUsr.h"
 
@@ -23,11 +22,13 @@ typedef struct {
 } CandidateSite;
 
 static const CandidateSite CANDIDATE_SITES[] = {
-    {"Shackleton Rim",   -89.90,   0.00, 120.0},
-    {"Connecting Ridge", -89.45, 222.60, 180.0},
-    {"Malapert Massif",  -86.00,  -2.90, 450.0},
-    {"Nobile Rim 1",     -85.20,  55.40, 210.0},
-    {"Haworth",          -87.50, 355.00,  90.0}
+    /* NASA reference region centres, shared with the Navigator catalogue.
+       Heights default to the reference sphere unless supplied by the caller. */
+    {"Shackleton Rim",   -89.7668, -171.87,    0.0},
+    {"Connecting Ridge", -89.4632, -137.49,    0.0},
+    {"Malapert Massif",  -85.9948,   -0.23578, 0.0},
+    {"Nobile Rim 1",     -85.4381,   37.36667, 0.0},
+    {"Haworth",          -86.7639,  -22.777,   0.0}
 };
 static const int NUM_CANDIDATE_SITES = 5;
 static bool is_spice_initialized = false;
@@ -70,72 +71,38 @@ int init_spice_engine(const char *custom_kernel_dir) {
     return 0;
 }
 
-// Gerçek LOLA DEM okunduysa true, sentetik yedek üretildiyse false döndürür
-static bool load_or_generate_horizon_mask(double lat, double lon, bool use_dem, double mask[HORIZON_BINS]) {
-    if (!use_dem) {
-        for (int i = 0; i < HORIZON_BINS; i++) mask[i] = 0.0;
-        return false;
-    }
+/* Optional latitude-major square grid of 360-float horizon profiles, -90..-80 deg.
+   Without a valid local profile use the geometric horizon, keeping the result labeled. */
+static bool load_horizon_mask(double lat, double lon, bool use_dem, double mask[HORIZON_BINS]) {
+    memset(mask, 0, HORIZON_BINS * sizeof(*mask));
+    if (!use_dem || lat < -90.0 || lat > -80.0) return false;
 
-    const char *dem_path = NULL;
-    if (path_exists("data/lola_southpole.bin")) {
-        dem_path = "data/lola_southpole.bin";
-    } else if (path_exists("../data/lola_southpole.bin")) {
-        dem_path = "../data/lola_southpole.bin";
-    }
+    int fd = open("data/lola_southpole.bin", O_RDONLY);
+    if (fd < 0) fd = open("../data/lola_southpole.bin", O_RDONLY);
+    if (fd < 0) return false;
 
-    if (dem_path) {
-        int fd = open(dem_path, O_RDONLY);
-        if (fd >= 0) {
-            struct stat st;
-            if (fstat(fd, &st) == 0 && st.st_size >= (off_t)(HORIZON_BINS * sizeof(float))) {
-                size_t file_size = (size_t)st.st_size;
-                float *mapped = (float *)mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, fd, 0);
-                if (mapped != MAP_FAILED) {
-                    size_t total_records = file_size / (HORIZON_BINS * sizeof(float));
-                    size_t record_idx = 0;
-
-                    if (total_records > 1) {
-                        size_t grid_dim = (size_t)sqrt((double)total_records);
-                        if (grid_dim > 0) {
-                            double norm_lat = (lat + 90.0) / 10.0;
-                            if (norm_lat < 0.0) norm_lat = 0.0;
-                            if (norm_lat > 0.999) norm_lat = 0.999;
-
-                            double norm_lon = fmod(lon < 0.0 ? lon + 360.0 : lon, 360.0) / 360.0;
-                            size_t row = (size_t)(norm_lat * grid_dim);
-                            size_t col = (size_t)(norm_lon * grid_dim);
-                            record_idx = (row * grid_dim + col) % total_records;
-                        }
-                    }
-
-                    const float *cell_ptr = mapped + (record_idx * HORIZON_BINS);
-                    for (int i = 0; i < HORIZON_BINS; i++) {
-                        mask[i] = (double)cell_ptr[i];
-                    }
-
-                    munmap(mapped, file_size);
-                    close(fd);
-                    return true; // Gerçek DEM yüklendi
-                }
-            }
-            close(fd);
+    float profile[HORIZON_BINS];
+    struct stat st;
+    bool valid = false;
+    if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) &&
+        st.st_size > 0 && st.st_size % (off_t)sizeof(profile) == 0) {
+        size_t records = (size_t)(st.st_size / (off_t)sizeof(profile));
+        size_t side = (size_t)sqrt((double)records);
+        if (side * side == records) {
+            size_t row = (size_t)fmin((lat + 90.0) / 10.0 * side, (double)(side - 1));
+            double east = fmod(fmod(lon, 360.0) + 360.0, 360.0);
+            size_t col = (size_t)(east / 360.0 * side);
+            off_t offset = (off_t)((row * side + col) * sizeof(profile));
+            valid = pread(fd, profile, sizeof(profile), offset) == (ssize_t)sizeof(profile);
+            for (int i = 0; valid && i < HORIZON_BINS; ++i)
+                valid = isfinite(profile[i]) && fabs(profile[i]) <= 90.0;
         }
     }
-
-    // DEM dosyası yoksa sentetik krater profili üret
-    double site_phase = (fabs(lat) * 1.7 + fabs(lon) * 0.05);
-    double base_ridge = (fabs(lat) > 89.0) ? 1.8 : 2.6;
-
-    for (int az = 0; az < HORIZON_BINS; az++) {
-        double rad = az * (M_PI / 180.0);
-        double crater_wall = 1.6 * sin(rad + site_phase) + 0.9 * cos(2.0 * rad - site_phase);
-        double micro_relief = 0.4 * sin(5.0 * rad + lon);
-        double val = base_ridge + crater_wall + micro_relief;
-        mask[az] = (val < 0.2) ? 0.2 : val;
+    close(fd);
+    if (valid) {
+        for (int i = 0; i < HORIZON_BINS; ++i) mask[i] = profile[i];
     }
-
-    return false; // Sentetik fallback kullanıldı
+    return valid;
 }
 
 // Count elapsed SI seconds in TAI. UTC leap seconds are real elapsed time;
@@ -182,7 +149,7 @@ static int simulate_single_site(
     out_summary->altitude_m = altitude_m;
 
     double local_mask[HORIZON_BINS];
-    bool real_dem = load_or_generate_horizon_mask(lat, lon, use_dem_horizon, local_mask);
+    bool real_dem = load_horizon_mask(lat, lon, use_dem_horizon, local_mask);
     if (out_used_real_dem) *out_used_real_dem = real_dem;
     if (out_mask) {
         memcpy(out_mask, local_mask, sizeof(local_mask));
@@ -191,6 +158,13 @@ static int simulate_single_site(
     double radius_km = 1737.4 + (altitude_m / 1000.0);
     SpiceDouble site_pos[3];
     latrec_c(radius_km, lon * rpd_c(), lat * rpd_c(), site_pos);
+
+    /* The bundled PCK defines a spherical Moon. Longitude fixes the local
+       reference meridian even at a pole, where an ellipsoid tangent frame is singular. */
+    double lat_r = lat * rpd_c(), lon_r = lon * rpd_c();
+    double east[3] = {-sin(lon_r), cos(lon_r), 0.0};
+    double north[3] = {-sin(lat_r) * cos(lon_r), -sin(lat_r) * sin(lon_r), cos(lat_r)};
+    double up[3] = {cos(lat_r) * cos(lon_r), cos(lat_r) * sin(lon_r), sin(lat_r)};
 
     double sun_seconds = 0.0, earth_seconds = 0.0, overlap_seconds = 0.0;
     double cur_sun_streak = 0.0, max_sun_streak = 0.0;
@@ -209,6 +183,11 @@ static int simulate_single_site(
         size_t max_wins = (size_t)(grid->count / 2 + 2);
         sun_wins = (VisibilityWindow *)calloc(max_wins, sizeof(VisibilityWindow));
         earth_wins = (VisibilityWindow *)calloc(max_wins, sizeof(VisibilityWindow));
+        if (!sun_wins || !earth_wins) {
+            free(sun_wins);
+            free(earth_wins);
+            return -1;
+        }
     }
 
     double sun_win_begin = 0.0;
@@ -219,21 +198,11 @@ static int simulate_single_site(
         double offset = (double)s * grid->step_seconds;
         double seconds = fmin(grid->step_seconds, grid->duration_seconds - offset);
         SpiceDouble current_et = unitim_c(grid->start_tai + offset, "TAI", "ET");
-        SpiceDouble azlsta[6], lt;
-
-        azlcpo_c("ELLIPSOID", "SUN", current_et, "LT+S", SPICEFALSE, SPICETRUE,
-                 site_pos, "MOON", "IAU_MOON", azlsta, &lt);
-        double sun_az = azlsta[1] * dpr_c();
-        double sun_el = azlsta[2] * dpr_c();
-        if (sun_az < 0.0) sun_az += 360.0;
-
-        azlcpo_c("ELLIPSOID", "EARTH", current_et, "LT+S", SPICEFALSE, SPICETRUE,
-                 site_pos, "MOON", "IAU_MOON", azlsta, &lt);
-        double earth_range_km = azlsta[0];
-        double earth_az = azlsta[1] * dpr_c();
-        double earth_el = azlsta[2] * dpr_c();
-        if (earth_az < 0.0) earth_az += 360.0;
-
+        SpiceDouble sun[6], earth[6], lt;
+        spkcpo_c("SUN", current_et, "IAU_MOON", "OBSERVER", "LT+S",
+                 site_pos, "MOON", "IAU_MOON", sun, &lt);
+        spkcpo_c("EARTH", current_et, "IAU_MOON", "OBSERVER", "LT+S",
+                 site_pos, "MOON", "IAU_MOON", earth, &lt);
         if (failed_c()) {
             reset_c();
             free(sun_wins);
@@ -241,6 +210,13 @@ static int simulate_single_site(
             return -1;
         }
 
+        double sun_e = vdot_c(sun, east), sun_n = vdot_c(sun, north);
+        double earth_e = vdot_c(earth, east), earth_n = vdot_c(earth, north);
+        double sun_az = fmod(atan2(sun_e, sun_n) * dpr_c() + 360.0, 360.0);
+        double earth_az = fmod(atan2(earth_e, earth_n) * dpr_c() + 360.0, 360.0);
+        double sun_el = atan2(vdot_c(sun, up), hypot(sun_e, sun_n)) * dpr_c();
+        double earth_el = atan2(vdot_c(earth, up), hypot(earth_e, earth_n)) * dpr_c();
+        double earth_range_km = vnorm_c(earth);
         double earth_disk_bonus_deg = 0.0;
         if (include_earth_disk && earth_range_km > 6378.137) {
             earth_disk_bonus_deg = asin(6378.137 / earth_range_km) * dpr_c();
@@ -437,13 +413,20 @@ SimulationResult run_lunar_simulation(
 
     // Yalnızca özel koordinat verilmemişse aday saha tablosundan koordinat çek
     if (!use_custom_coords) {
+        bool found = false;
         for (int i = 0; i < NUM_CANDIDATE_SITES; i++) {
             if (strcasecmp(resolved_name, CANDIDATE_SITES[i].name) == 0) {
+                found = true;
                 target_lat = CANDIDATE_SITES[i].lat;
                 target_lon = CANDIDATE_SITES[i].lon;
                 if (target_alt == 0.0) target_alt = CANDIDATE_SITES[i].alt_m;
                 break;
             }
+        }
+        if (!found) {
+            res.status = -1;
+            snprintf(res.error_msg, sizeof(res.error_msg), "Unknown named landing site.");
+            return res;
         }
     }
 
@@ -477,17 +460,22 @@ SimulationResult run_lunar_simulation(
 
     if (use_dem_horizon && !res.using_real_dem && strlen(res.warning_msg) == 0) {
         snprintf(res.warning_msg, sizeof(res.warning_msg),
-                 "BİLGİ: data/lola_southpole.bin bulunamadı; analitik sentetik ufuk profili kullanıldı.");
+                 "BİLGİ: data/lola_southpole.bin eksik veya geçersiz; geometrik ufuk kullanıldı.");
     }
 
     res.comparison_count = NUM_CANDIDATE_SITES;
     for (int i = 0; i < NUM_CANDIDATE_SITES; i++) {
-        simulate_single_site(
+        if (simulate_single_site(
             CANDIDATE_SITES[i].name, CANDIDATE_SITES[i].lat, CANDIDATE_SITES[i].lon, CANDIDATE_SITES[i].alt_m,
             &grid,
             use_dem_horizon, min_sun_el_deg, min_earth_el_deg, include_earth_disk,
             &res.comparisons[i], NULL, NULL, NULL, NULL, NULL, NULL, NULL
-        );
+        ) != 0) {
+            free_simulation_result(&res);
+            res.status = -1;
+            snprintf(res.error_msg, sizeof(res.error_msg), "Candidate site calculation failed.");
+            return res;
+        }
     }
 
     res.status = 0;

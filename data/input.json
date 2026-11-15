@@ -1,9 +1,9 @@
 {
   "site": {
     "site_name": "Shackleton Rim",
-    "latitude_deg": -89.90,
-    "longitude_deg": 0.0,
-    "altitude_m": 120,
+    "latitude_deg": -89.7668,
+    "longitude_deg": -171.87,
+    "altitude_m": 0,
     "use_custom": false
   },
   "time_range": {

@@ -3,10 +3,10 @@
 (() => {
   "use strict";
   const sites = window.astroTerrainProfiles || {};
-  const has = site => Object.hasOwn(sites, site);
+  const has = site => Object.hasOwn(sites, horizonsCache.referenceSite(site));
   function angle(site, azimuth) {
     if (!has(site) || !Number.isFinite(azimuth)) return null;
-    const angles = sites[site].angles;
+    const angles = sites[horizonsCache.referenceSite(site)].angles;
     const position = ((azimuth % 360 + 360) % 360) * angles.length / 360;
     const index = Math.floor(position);
     const fraction = position - index;

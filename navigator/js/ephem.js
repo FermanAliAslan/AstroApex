@@ -29,13 +29,27 @@
       src.b64 = null; // free the text copy
     } catch (e) { T = null; }
   })();
-  const inTable = ms => !!T && ms >= T.t0 + T.step && ms <= T.t0 + (T.n - 3) * T.step;
+  const inTable = ms => !!T && ms >= T.t0 && ms <= T.t0 + (T.n - 1) * T.step;
 
   function frameSpice(ms) {
-    const x = (ms - T.t0) / T.step, i = Math.floor(x), u = x - i, u2 = u * u, u3 = u2 * u;
-    // Catmull-Rom weights for samples i-1, i, i+1, i+2
-    const w0 = (-u3 + 2 * u2 - u) / 2, w1 = (3 * u3 - 5 * u2 + 2) / 2, w2 = (-3 * u3 + 4 * u2 + u) / 2, w3 = (u3 - u2) / 2;
-    const v = T.v, o = (i - 1) * 6, r = new Array(6);
+    const x = (ms - T.t0) / T.step;
+    const i = Math.min(Math.floor(x), T.n - 2), u = x - i, u2 = u * u, u3 = u2 * u;
+    const v = T.v, r = new Array(6);
+    let o, w0, w1, w2, w3;
+    if (i === 0 || i === T.n - 2) {
+      // Use the four nearest samples for the two edge intervals (one-sided cubic).
+      const base = i === 0 ? 0 : T.n - 4, t = x - base;
+      o = base * 6;
+      w0 = -(t - 1) * (t - 2) * (t - 3) / 6;
+      w1 = t * (t - 2) * (t - 3) / 2;
+      w2 = -t * (t - 1) * (t - 3) / 2;
+      w3 = t * (t - 1) * (t - 2) / 6;
+    } else {
+      // Catmull-Rom weights for samples i-1, i, i+1, i+2.
+      o = (i - 1) * 6;
+      w0 = (-u3 + 2 * u2 - u) / 2; w1 = (3 * u3 - 5 * u2 + 2) / 2;
+      w2 = (-3 * u3 + 4 * u2 + u) / 2; w3 = (u3 - u2) / 2;
+    }
     for (let c = 0; c < 6; c++) r[c] = w0 * v[o + c] + w1 * v[o + 6 + c] + w2 * v[o + 12 + c] + w3 * v[o + 18 + c];
     return { sun: [r[0], r[1], r[2]], earth: [r[3], r[4], r[5]], src: 'spice' };
   }
@@ -85,9 +99,10 @@
   function look(st, B, R) {
     const d = [B[0] - RM * st.u[0], B[1] - RM * st.u[1], B[2] - RM * st.u[2]];
     const r = Math.hypot(d[0], d[1], d[2]);
-    let az = Math.atan2(dot(d, st.e), dot(d, st.n)) / D;
+    const east = dot(d, st.e), north = dot(d, st.n);
+    let az = Math.atan2(east, north) / D;
     if (az < 0) az += 360;
-    return { el: Math.asin(dot(d, st.u) / r) / D, az, dist: r, rad: Math.asin(R / r) / D };
+    return { el: Math.atan2(dot(d, st.u), Math.hypot(east, north)) / D, az, dist: r, rad: Math.asin(R / r) / D };
   }
   const observeFrame = (st, f) => ({ sun: look(st, f.sun, RS), earth: look(st, f.earth, RE), src: f.src });
   const observe = (st, ms) => observeFrame(st, frame(ms));
@@ -100,7 +115,7 @@
 
   function subPoint(v) {
     const r = Math.hypot(v[0], v[1], v[2]);
-    return { lat: Math.asin(v[2] / r) / D, lon: Math.atan2(v[1], v[0]) / D, dist: r };
+    return { lat: Math.atan2(v[2], Math.hypot(v[0], v[1])) / D, lon: Math.atan2(v[1], v[0]) / D, dist: r };
   }
 
   // Fraction of a disc above a horizon line; x = (centre elevation - horizon) / radius
@@ -114,7 +129,7 @@
     frame, site, observe, crossCheck, subPoint, discFrac, AU, RM,
     hasSpice: !!T, hasAE: !!A,
     meta: T ? T.meta : null,
-    range: T ? [T.t0 + T.step, T.t0 + (T.n - 3) * T.step] : null,
+    range: T ? [T.t0, T.t0 + (T.n - 1) * T.step] : null,
     sourceAt: ms => inTable(ms) ? 'spice' : 'ae'
   };
 })();

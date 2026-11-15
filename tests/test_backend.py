@@ -2,6 +2,7 @@
 import json
 import os
 import socket
+import struct
 import subprocess
 import tempfile
 import time
@@ -94,6 +95,61 @@ class BackendCLI(unittest.TestCase):
         self.assertEqual(custom["meta"]["longitude_deg"], 14.5)
         self.assertIs(custom["meta"]["use_dem_horizon"], True)
         self.assertNotEqual(custom["meta"]["earth_visibility_model"], center_model)
+
+    def test_poles_and_reference_topocentric_geometry(self):
+        self.request["time_range"]["end_utc"] = "2026-10-18T02:00:00Z"
+        site = self.request["site"]
+        site.update(use_custom=True, altitude_m=0)
+        angles = ["sun_azimuth_deg", "sun_elevation_deg", "earth_azimuth_deg", "earth_elevation_deg"]
+        # Independent azlcpo_c (ELLIPSOID, LT+S) reference values using the bundled kernels.
+        for lat, lon, expected in [(-89.7668, -171.87, [267.22, 1.29, 170.12, -4.83]),
+                                   (0, 0, [91.31, -5.35, 338.16, 85.29]),
+                                   (45, 120, [212.33, 38.78, 296.60, -18.73])]:
+            site.update(latitude_deg=lat, longitude_deg=lon)
+            sample = self.calculate()["samples"][0]
+            for key, reference in zip(angles, expected):
+                self.assertAlmostEqual(sample[key], reference, delta=0.01)
+        for pole in (-90, 90):
+            site.update(latitude_deg=pole, longitude_deg=0)
+            prime = self.calculate()["samples"][0]
+            site["longitude_deg"] = 90
+            east = self.calculate()["samples"][0]
+            for body in ("sun", "earth"):
+                self.assertAlmostEqual(prime[body + "_elevation_deg"], east[body + "_elevation_deg"], places=2)
+                turn = (east[body + "_azimuth_deg"] - prime[body + "_azimuth_deg"] + 180) % 360 - 180
+                self.assertAlmostEqual(turn, pole, delta=0.01)
+
+    def test_dem_coverage_grid_shape_and_missing_profiles(self):
+        self.request["time_range"]["end_utc"] = "2026-10-18T02:00:00Z"
+        self.request["site"].update(use_custom=True, latitude_deg=-81, longitude_deg=270)
+        dem = self.data / "lola_southpole.bin"
+        profile = lambda value: struct.pack("=360f", *([value] * 360))
+        grid = b"".join(profile(value) for value in (1, 2, 3, 4))
+        dem.write_bytes(grid)
+        valid = self.calculate()
+        self.assertTrue(valid["using_real_dem"])
+        self.assertEqual(valid["terrain_horizon_mask"], [4] * 360)
+        self.request["site"]["latitude_deg"] = 0
+        outside = self.calculate()
+        self.assertTrue(outside["dem_out_of_bounds"])
+        self.assertFalse(outside["using_real_dem"])
+        self.assertEqual(outside["terrain_horizon_mask"], [0] * 360)
+        self.request["site"]["latitude_deg"] = -81
+        for invalid in (grid + b"x", grid + profile(5), profile(float("nan")), profile(91)):
+            dem.write_bytes(invalid)
+            fallback = self.calculate()
+            self.assertFalse(fallback["using_real_dem"])
+            self.assertEqual(fallback["meta"]["dem_info"]["name"], "GEOMETRIC_HORIZON_FALLBACK")
+            self.assertEqual(fallback["terrain_horizon_mask"], [0] * 360)
+
+    def test_named_catalogue_and_unknown_site(self):
+        self.request["time_range"]["end_utc"] = "2026-10-18T02:00:00Z"
+        site = self.request["site"]
+        site.update(site_name="Connecting Ridge", use_custom=False)
+        meta = self.calculate()["meta"]
+        self.assertEqual((meta["latitude_deg"], meta["longitude_deg"]), (-89.4632, -137.49))
+        site["site_name"] = "Unlisted"
+        self.calculate(success=False)
 
     def test_bad_request_preserves_previous_output(self):
         self.calculate()

@@ -160,7 +160,7 @@
       text(c, label, M, by + 18, sans(500, 14), MUTED);
       box(c, x0, by, w, 24, SOFT, null, 5);
       c.fillStyle = col;
-      for (const r of d.runs[b]) { const a0 = r[0] / N, a1 = Math.min(r[1], N) / N; if (a1 > a0) c.fillRect(x0 + a0 * w, by, Math.max(1.5, (a1 - a0) * w), 24); }
+      for (const r of d.runs[b]) { const a0 = r[0] / N, a1 = Math.min(r[1], N) / N; if (a1 > a0) c.fillRect(x0 + a0 * w, by, (a1 - a0) * w, 24); }
     });
     for (let i = 0; i <= 4; i++) text(c, AA.fmtDay(sc.start + i / 4 * S.dur * 24 * H_MS), x0 + i / 4 * w, y + 126, mono(12.5), MUTED, i === 0 ? 'left' : i === 4 ? 'right' : 'center');
     return y + 160;
@@ -203,7 +203,7 @@
     if (lo == null) {
       lo = -2; hi = 2;
       for (const k of KEYS) { const arr = opts.get(k); for (let j = 0; j < arr.length; j++) { if (arr[j] < lo) lo = arr[j]; if (arr[j] > hi) hi = arr[j]; } }
-      lo = Math.max(-90, Math.floor(lo - 1)); hi = Math.min(90, Math.ceil(hi + 1));
+      lo = Math.floor(lo - 1); hi = Math.ceil(hi + 1);
     }
     const X = hr => x + padL + hr / tot * pw, Y = v => top + (hi - v) / (hi - lo) * ph;
     box(c, x + padL, top, pw, ph, '#fff', LINE);
@@ -215,7 +215,10 @@
       text(c, opts.fmt(v), x + padL - 8, Y(v) + 5, mono(12.5), MUTED, 'right');
     }
     const dStep = S.dur <= 14 ? 1 : S.dur <= 30 ? 5 : 10;
-    for (let dd = 0; dd <= S.dur; dd += dStep) text(c, dd + ' ' + t('d'), X(dd * 24), top + ph + 19, mono(12.5), MUTED, dd === 0 ? 'left' : 'center');
+    for (let dd = 0; dd < S.dur; dd += dStep) {
+      if (X(tot) - X(dd * 24) > 50) text(c, dd + ' ' + t('d'), X(dd * 24), top + ph + 19, mono(12.5), MUTED, dd === 0 ? 'left' : 'center');
+    }
+    text(c, days(S.dur) + ' ' + t('d'), X(tot), top + ph + 19, mono(12.5), MUTED, 'right');
     c.save(); c.beginPath(); c.rect(x + padL, top, pw, ph); c.clip();
     for (const k of KEYS) {
       const d = S.data[k], arr = opts.get(k), sc = opts.scale || 1;
@@ -418,7 +421,7 @@
       [L('Ortalama eğim', 'Mean slope'), x => slopeDescription(x.f)],
       [L('Batarya boş kalma süresi', 'Time with an empty battery'), x => x.pw ? AA.fmtDur(x.pw.emptyH) : '—'],
       [L('En düşük batarya doluluğu', 'Minimum battery charge'), x => x.pw ? nf(x.pw.min * 100, 1) + '%' : '—'],
-      [L('Gereken batarya', 'Required battery capacity'), x => x.pw ? nf(Math.ceil(x.pw.need * 10) / 10, 1) + ' kWh' : '—']
+      [L('Gereken batarya', 'Required battery capacity'), x => x.pw ? nf(Math.ceil(x.pw.need * 10 - 1e-9) / 10, 1) + ' kWh' : '—']
     ];
     const tbody = table.createTBody();
     rows.forEach(([label, value]) => {

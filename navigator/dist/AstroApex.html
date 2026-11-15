@@ -416,7 +416,13 @@ ul.acc-body { margin: 0; padding-left: 38px; color: var(--muted); font-size: 13.
 .wrow .gp { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; }
 .wcur { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text); pointer-events: none; left: 0; }
 .wrow.waxis { margin-top: 4px; font-size: 11px; color: var(--muted); }
-.wrow.waxis > div { display: flex; justify-content: space-between; }
+.wrow.waxis > div { position: relative; min-height: 1.5em; container-type: inline-size; }
+.waxis > div > span { position: absolute; white-space: nowrap; transform: translateX(-50%); }
+.waxis > div > span:first-child { transform: none; }
+.waxis > div > span:last-child { transform: translateX(-100%); }
+@container (max-width: 195px) {
+  .waxis > div > span:nth-child(even) { display: none; }
+}
 .chart { height: 230px; }
 .year { height: 50px; }
 .yscale { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 4px 0 10px 34px; }
@@ -728,16 +734,432 @@ html.rep-on { overflow: hidden; }
 }
 
 
+/* Keep the geographic view still behind the interactive globe. */
+.map-view .bg-orb { opacity: .12; }
+.map-view .bg-glow { animation-play-state: paused; }
+.map-layers { border-block: 1px solid var(--line2); padding: 10px 0; }
+.map-layers > summary { cursor: pointer; color: var(--text); font-weight: 600; padding: 4px 0; }
+.map-layer-options { display: grid; gap: 9px; padding: 12px 0 4px; }
+
+/* Mission planner shell */
+:root { --panel: #14181f; --panel2: #1b2029; --line: #303640; --muted: #b1b7c2; --r: 12px; }
+body:not(.map-view) { background: transparent; }
+body:not(.map-view) .bg { background: #0c0f14; }
+body:not(.map-view) .bg-orb { --moon: clamp(340px, 45vw, 660px); top: 7px; left: 78%; opacity: .77; }
+.bg-glow { display: none; }
+body:not(.map-view) .bg-scrim { background: linear-gradient(180deg, #0c0f1420 0, #0c0f1430 65px, #0c0f1499 184px, #0c0f14 355px), linear-gradient(90deg,#0c0f14 15%, #0c0f1488 53%, transparent 76%); }
+.top { background: #0e1116f5; min-height: 62px; gap: 20px; }
+.top .brand small { display: none; }
+.top .nav { position: relative; align-items: center; }
+.nav button { min-height: 38px; border-radius: 6px; padding-inline: 11px; }
+.top .nav button.on { background: transparent; }
+.nav .inspect-launch { margin-left: 6px; border: 1px solid #786448; border-radius: 7px; color: #ffe2af; display: inline-flex; align-items: center; gap: 8px; }
+.inspect-launch span:last-child { color: var(--sun); }
+.top .top-actions { margin-inline-start: auto; }
+main > section:not(#map) { padding-top: clamp(24px, 4vh, 48px); }
+#compare .sec-head { min-height: 102px; align-items: center; }
+#compare h1 { font-size: clamp(32px, 4.4vw, 55px); letter-spacing: -.052em; line-height: 1.03; }
+#compare .sec-head .lead { max-width: 59ch; margin-top: 12px; color: #d2d7dd; }
+.plan-tools { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.plan-tools .field { flex-direction: row; align-items: center; min-width: 0; gap: 10px; }
+.plan-tools .field > span { white-space: nowrap; }
+.plan-tools .field .ap-picker { min-width: 105px; }
+.preset-menu { position: relative; }
+.preset-menu summary { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; min-height: 42px; padding: 0 4px; color: var(--text); font-size: 14px; font-weight: 600; list-style: none; }
+.preset-menu summary::-webkit-details-marker { display: none; }
+.preset-menu summary::after { content: ''; width: 7px; height: 7px; border-right: 1px solid var(--sun); border-bottom: 1px solid var(--sun); transform: rotate(45deg); margin-top: -4px; }
+.preset-menu[open] summary::after { transform: rotate(225deg); margin-top: 4px; }
+.preset-menu #presets { position: absolute; z-index: 12; top: 100%; left: 0; display: grid; width: min(350px,82vw); padding: 6px; border: 1px solid var(--line2); background: #1b2029; border-radius: 9px; box-shadow: 0 12px 32px #0009; }
+.preset-menu #presets button { text-align: left; border-radius: 5px; padding: 10px; white-space: normal; }
+#compare .scn, #compare .acc, #compare .verdict-top { box-shadow: none; }
+#compare .verdict-top { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); column-gap: clamp(20px, 4vw, 60px); row-gap: 18px; padding: clamp(18px,2.2vw,28px); background: #191d23; }
+.verdict-copy .k { color: #f4c57b; }
+#compare #verdict-h { margin: 9px 0 7px; font-size: clamp(23px,2.6vw,34px); letter-spacing: -.045em; }
+.overlap-totals { display: grid; gap: 13px; }
+.overlap-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 5px 9px; }
+.overlap-name { font-size: 14px; }
+.overlap-row b { font: 13px/1.3 var(--mono); }
+.overlap-track { grid-column: 2/-1; height: 5px; border-radius: 2px; overflow: hidden; background: #373e49; }
+.overlap-track i { display: block; height: 100%; background: var(--text); }
+.overlap-row:last-child .overlap-track i { background: var(--b); }
+.result-actions { grid-column: 1/-1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 13px; border-top: 1px solid var(--line); }
+.result-actions .eph-badge { margin-left: auto; color: #bfc7ca; font-size: 11px; }
+button.result-ask, .result-actions .rep-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; border: 1px solid var(--line2); background: transparent; color: var(--text); border-radius: 7px; padding: 7px 12px; font: 550 14px/1.35 var(--sans); }
+button.result-ask { background: #292e35; }
+.result-actions button:hover { border-color: #a4a9b1; }
+body:not(.map-view) .site-reports .report { margin: 0; }
+#compare .timebar { position: static; transform: none; width: 100%; margin-top: 18px; box-shadow: none; }
+h1[tabindex="-1"]:focus { outline: none; }
+@media (min-width: 930px) { .top { flex-wrap: nowrap; } .top .nav { order: 0; width: auto; margin-left: clamp(8px,3vw,50px); } }
+@media (max-width: 929px) { .top { flex-wrap: wrap; gap: 4px 10px; padding-block: 8px; } .top .nav { order: 3; width: 100%; } }
+@media (min-width: 700px) { #compare > .grid2 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 700px) {
+  #compare .verdict-top { grid-template-columns: minmax(0,1fr); }
+  #compare .sec-head { min-height: auto; }
+  .result-actions .eph-badge { margin-left: 0; }
+  .top .nav { gap: 2px; } .top .nav button { padding-inline: 8px; font-size: 13px; }
+  .plan-tools { align-items: end; }
+  .plan-tools .field { flex-direction: column; align-items: stretch; gap: 2px; }
+}
+@media (max-width: 460px) {
+  .top { padding-inline: 12px; } .top .brand { gap: 5px; } .top .top-actions { gap: 5px; }
+  .top .nav { flex-wrap: wrap; } .top .nav button { min-height: 36px; padding-inline: 6px; }
+  .top .nav .inspect-launch { margin-left: 0; gap: 3px; } .top .tour-btn { width: 30px; height: 32px; }
+}
+/* Dedicated surface workspace */
+body.map-view .top, body.map-view .bg { display: none; }
+body.map-view { background: #0c0f13; padding-bottom: 0; }
+body.map-view main { max-width: none; padding: 0; }
+body.map-view #map { padding: 0 0 106px; }
+.inspect-head {
+  min-height: 66px; padding: 9px clamp(16px, 3vw, 48px); border-bottom: 1px solid var(--line);
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 18px; background: #111419;
+}
+#map .inspect-head h1 { margin: 0; font-size: clamp(18px, 2vw, 25px); letter-spacing: -.035em; }
+.inspect-head button, .inspect-center, .inspect-directions button {
+  color: var(--text); font: 500 13px/1.2 var(--sans); border: 1px solid var(--line2);
+  background: #191d23; border-radius: 7px; min-height: 42px; padding: 7px 12px;
+}
+.inspect-head button:hover, .inspect-directions button:hover, .inspect-center:hover { border-color: #858786; background: #22272f; }
+.inspect-head .inspect-back { justify-self: start; display: inline-flex; align-items: center; gap: 10px; padding: 4px 0; border-color: transparent; background: transparent; }
+.inspect-back > span:first-child { color: var(--sun); font-size: 21px; }
+.inspect-head .inspect-analysis { justify-self: end; }
+.inspect-analysis span:last-child { margin-left: 6px; color: var(--sun); }
+.inspect-workspace { display: grid; grid-template-columns: minmax(0, 1fr) clamp(278px, 25vw, 365px); }
+.inspect-stage {
+  background-color: #07090b;
+  background-image: linear-gradient(#c4d5ec08 1px, transparent 1px), linear-gradient(90deg, #c4d5ec08 1px, transparent 1px);
+  background-size: 64px 64px;
+  min-width: 0; height: max(410px, calc(100svh - 172px)); display: grid; grid-template-rows: auto minmax(0,1fr) auto;
+}
+.inspect-camera, .inspect-controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px clamp(14px, 2.2vw, 32px); }
+.inspect-camera { justify-content: flex-start; flex-wrap: wrap; gap: 5px 14px; font: 11.5px/1.4 var(--mono); color: #b9bec6; }
+.inspect-camera > span { font: 500 10px/1.3 var(--mono); text-transform: uppercase; letter-spacing: .11em; color: var(--muted); }
+.inspect-camera output, .inspect-site-coords, #inspect-zoom { font-variant-numeric: tabular-nums; }
+.inspect-viewport { display: grid; place-items: center; min-height: 0; min-width: 0; container-type: size; }
+#map .globe-wrap {
+  width: min(95%, max(255px, calc(100svh - 296px)), 746px);
+  width: min(95cqw, 98cqh, 746px); border-radius: 50%;
+}
+#map .globe-wrap:focus-visible { outline-offset: 2px; }
+.inspect-crosshair { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 18px; height: 18px; pointer-events: none; }
+.globe-wrap:focus-visible .inspect-crosshair { display: block; }
+.inspect-crosshair::before, .inspect-crosshair::after { content: ''; background: #fff; position: absolute; box-shadow: 0 0 2px #000; }
+.inspect-crosshair::before { width: 100%; height: 1px; top: 50%; }
+.inspect-crosshair::after { width: 1px; height: 100%; left: 50%; }
+.inspect-controls { border-top: 1px solid #ffffff10; background: #0c0f13; }
+.inspect-guidance { font-size: 13px; color: #bac0c9; }
+.inspect-keyboard { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.inspect-stage:has(.globe-wrap:focus-visible) .inspect-keyboard { position: static; width: auto; height: auto; clip-path: none; color: var(--text); }
+.inspect-zoom { position: static; display: flex; justify-content: center; align-items: center; gap: 0; border: 1px solid var(--line2); border-radius: 8px; background: #181c22; }
+.inspect-zoom button { height: 40px; width: 40px; border: 0; background: transparent; }
+.inspect-zoom button:hover { color: var(--sun); }
+#inspect-zoom { color: var(--text); font: 12px/1 var(--mono); min-width: 34px; text-align: center; }
+.inspect-rail { display: block; min-width: 0; background: #111419; border-left: 1px solid var(--line); padding: 20px clamp(16px, 2.1vw, 30px) 24px; overflow-y: auto; height: max(410px, calc(100svh - 172px)); }
+.inspect-group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.inspect-group-head .k { font-size: 10px; line-height: 1.4; }
+.inspect-group-head .seg { padding: 2px; border-radius: 7px; }
+.inspect-group-head .seg button { min-width: 35px; min-height: 34px; border-radius: 5px; }
+.inspect-group-head [data-t=B].on { background: var(--b); }
+#map #inspect-site-title { font-size: clamp(21px, 2.2vw, 30px); letter-spacing: -.04em; margin: 12px 0 3px; overflow-wrap: anywhere; }
+.inspect-site-coords { font: 12px/1.4 var(--mono); color: #b4bcc8; }
+.inspect-center { margin: 14px 0 16px; width: 100%; color: #f4d69d; background: #25221e; border-color: #594b35; }
+.inspect-cameras { border-top: 1px solid var(--line); padding: 15px 0; }
+.inspect-cameras h3 { margin: 0 0 9px; font-size: 14px; }
+.inspect-directions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.inspect-directions button { min-height: 40px; font-size: 12.5px; }
+#map .inspect-fold { border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 0; background: none; }
+#map .inspect-fold > summary { cursor: pointer; display: flex; align-items: center; justify-content: space-between; min-height: 46px; color: #dbe0e7; font-weight: 500; font-size: 14px; list-style: none; padding: 5px 0; }
+.inspect-fold > summary::-webkit-details-marker { display: none; }
+.inspect-fold > summary::after { content: '+'; color: var(--muted); font: 17px var(--mono); }
+.inspect-fold[open] > summary::after { content: '−'; }
+.inspect-fold .rowline { min-height: 34px; }
+.inspect-fold .route-info, .inspect-fold .map-legend, .inspect-fold .pick, .inspect-fold .facts { margin-bottom: 12px; }
+.inspect-fold .pick { padding: 0; border: 0; background: transparent; }
+.inspect-fold .pc-cols { gap: 8px; }
+.inspect-fold .scout { margin-bottom: 16px; }
+.inspect-credit { padding-top: 16px; border-top: 1px solid var(--line); font-size: 11px; color: #939ca9; }
+@media (max-width: 800px) {
+  .inspect-workspace { grid-template-columns: 1fr; }
+  .inspect-stage { height: max(330px, min(71svh, calc(100vw + 92px))); }
+  .inspect-rail { height: auto; overflow: visible; border: 0; border-top: 1px solid var(--line); }
+  .inspect-head { gap: 6px 14px; padding-block: 8px; min-height: 58px; }
+  .inspect-head .inspect-back, .inspect-head .inspect-analysis { font-size: 12px; }
+  .inspect-head .inspect-analysis { padding-inline: 9px; }
+}
+@media (max-width: 540px) {
+  .inspect-head { grid-template-columns: 1fr auto; }
+  #map .inspect-head h1 { grid-row: 2; grid-column: 1 / -1; font-size: 24px; padding: 0 0 4px; }
+  .inspect-head .inspect-analysis { grid-column: 2; grid-row: 1; }
+  .inspect-stage { height: max(305px, min(56svh, calc(100vw + 78px))); }
+  .inspect-controls { gap: 10px; padding: 8px 12px; }
+  .inspect-guidance { font-size: 12px; line-height: 1.35; }
+  .inspect-camera { padding: 8px 14px; }
+  .inspect-directions { grid-template-columns: repeat(2,1fr); }
+}
+/* The analyst shares the planner header and stays beside the active work area. */
+body { --analyst-width: clamp(328px, 26vw, 396px); }
+#assist-open { min-height: 40px; padding: 5px 11px; gap: 7px; color: var(--text); background: transparent; border: 1px solid var(--line2); border-radius: 8px; }
+#assist-open:is(:hover,[aria-expanded="true"]) { border-color: var(--muted); background: var(--panel2); }
+#assist-open kbd { border-color: var(--line2); color: var(--muted); }
+.analyst-mark { display: inline-block; position: relative; flex: none; width: 16px; height: 14px; color: var(--sun); background: linear-gradient(currentColor,currentColor) left 1px center / 2px 5px no-repeat, linear-gradient(currentColor,currentColor) left 5px center / 2px 12px no-repeat, linear-gradient(currentColor,currentColor) left 9px center / 2px 8px no-repeat, linear-gradient(currentColor,currentColor) left 13px center / 2px 4px no-repeat; }
+#assist { width: var(--analyst-width); top: var(--analyst-top, 65px); isolation: isolate; color: var(--text); background: #111418; box-shadow: none; border-left: 1px solid var(--line2); }
+#assist > header { flex: none; padding: 12px 16px 12px 20px; border-color: var(--line); }
+.analyst-heading { display: flex; gap: 10px; align-items: center; }
+#assist-title { font-size: 18px; font-weight: 600; letter-spacing: -.035em; }
+#assist-title:focus { outline: none; }
+#assist .analyst-close { width: 40px; height: 40px; display: grid; place-items: center; background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 6px; font: 24px/1 var(--sans); }
+#assist .analyst-close:hover { border-color: var(--line2); color: var(--text); }
+.analyst-scroll { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+#assist .analyst-context { padding: 22px 18px 16px 20px; }
+#analyst-scope-label, #analyst-questions-label { font: 500 11px/1.5 var(--mono); letter-spacing: .07em; color: var(--muted); text-transform: uppercase; }
+#analyst-sites { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 6px; margin: 9px 0; }
+#analyst-sites button { min-width: 0; display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); text-align: left; font: 500 13px/1.25 var(--sans); }
+#analyst-sites button[aria-pressed="true"] { border-color: var(--muted); background: #20242a; color: var(--text); }
+#analyst-sites button:hover { border-color: var(--muted); }
+#analyst-sites .badge { flex: none; width: 18px; height: 18px; border-radius: 4px; font-size: 10px; }
+.analyst-site-name { overflow-wrap: anywhere; }
+#analyst-site-date { color: var(--muted); font: 11px/1.5 var(--mono); }
+#assist .analyst-questions { margin: 0 18px 0 20px; border-block: 1px solid var(--line); }
+#analyst-questions-label { display: flex; align-items: center; justify-content: space-between; min-height: 42px; cursor: pointer; list-style: none; }
+#analyst-questions-label::-webkit-details-marker { display: none; }
+#analyst-questions-label::after { content: ""; width: 6px; height: 6px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; margin-right: 3px; transform: rotate(45deg); }
+#analyst-questions[open] #analyst-questions-label::after { transform: rotate(225deg); }
+#assist-quick { padding: 0 0 8px; }
+#assist-quick button { display: flex; width: 100%; min-height: 42px; padding: 7px 0; align-items: center; justify-content: space-between; gap: 12px; color: var(--text); background: transparent; border: 0; border-radius: 0; text-align: left; font: 500 14px/1.4 var(--sans); }
+#assist-quick button::after { content: "↗"; color: var(--muted); }
+#assist-quick button:hover, #assist-quick button:hover::after { color: var(--sun); }
+#assist-log { flex: none; overflow: visible; padding: 20px 18px 20px 20px; gap: 14px; }
+#assist-log:empty { display: none; }
+#assist .msg { max-width: 100%; min-width: 0; }
+#assist .msg.bot { width: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; }
+#assist .msg.user { align-self: flex-start; background: transparent; color: var(--text); border-radius: 0; border-left: 2px solid var(--sun); padding: 1px 0 1px 10px; font-weight: 600; }
+#assist .msg.user .analyst-msg-scope { margin: 0 0 3px; color: var(--muted); font: 10px/1.45 var(--mono); }
+#assist .msg .mini-wrap { max-width: 100%; }
+#assist .msg .typing { min-height: 22px; }
+#assist .analyst-composer { flex: none; border-top: 1px solid var(--line); padding: 12px 16px max(12px, env(safe-area-inset-bottom)); }
+#assist-form { margin: 0; padding: 3px; border: 1px solid var(--line2); border-radius: 8px; background: #1b1e23; align-items: flex-end; gap: 2px; }
+#assist-form:focus-within { border-color: var(--sun); }
+#assist-input { min-width: 0; border: none; padding: 10px 7px; line-height: 1.4; background: transparent; border-radius: 5px; font-size: 14px; }
+#assist-input:focus { outline: 0; }
+#assist-form .send { width: 40px; height: 40px; flex: none; padding: 0; border-radius: 5px; font-size: 22px; background: var(--text); }
+#assist-form .send:disabled { opacity: .45; }
+#assist-model { display: block; color: var(--muted); margin-top: 6px; font: 11px/1.5 var(--mono); }
+.analyst-shade { position: fixed; inset: 0; z-index: 39; background: #0009; }
+@media (min-width: 1100px) {
+  body.assist-on main { margin-inline-end: var(--analyst-width); }
+  body.assist-on .timebar { left: calc((100% - var(--analyst-width)) / 2); width: min(1100px, calc(100% - var(--analyst-width) - 32px)); }
+}
+@media (max-width: 1099px) {
+  body.analyst-modal { overflow: hidden; }
+  #assist { inset: auto 0 0 auto; width: min(460px,100%); height: min(84dvh, 740px); border: 1px solid var(--line2); border-bottom: 0; border-radius: 14px 14px 0 0; box-shadow: 0 -8px 40px #0005; }
+  #assist-input { font-size: 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #assist:not([hidden]) { animation: analyst-in .16s ease-out; }
+  @keyframes analyst-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+}
+
+@media (max-width: 700px) {
+  body.map-view .timebar { position: static; transform: none; width: calc(100% - 24px); margin: 0 auto 12px; }
+  body.map-view #map { padding-bottom: 12px; }
+}
+#assist table.mini { min-width: 0; }
+#assist .mini td:first-child { white-space: normal; }
+
+
+/* Use motion to connect an action with the place its result appears. */
+:root {
+  --motion-press: 100ms;
+  --motion-reveal: 190ms;
+  --motion-panel: 235ms;
+  --motion-data: 320ms;
+  --motion-settle: cubic-bezier(.22, 1, .36, 1);
+}
+.overlap-track i { transform-origin: left center; transform: scaleX(0); }
+@keyframes surface-rail-enter { from { opacity: .55; transform: translateX(12px); } }
+@keyframes content-reveal { from { opacity: .45; transform: translateY(5px); } }
+@keyframes sheet-enter { from { opacity: .7; transform: translateY(20px); } }
+@keyframes reveal-opacity { from { opacity: .65; } }
+@media (prefers-reduced-motion: no-preference) {
+  main > section:not([hidden]) { animation: reveal-opacity var(--motion-reveal) ease-out; }
+  main > #map:not([hidden]) { animation: none; }
+  #map:not([hidden]) .inspect-rail { animation: surface-rail-enter var(--motion-panel) var(--motion-settle); }
+  #map:not([hidden]) .inspect-head { animation: reveal-opacity var(--motion-reveal) ease-out; }
+  #assist:not([hidden]) { animation: surface-rail-enter var(--motion-panel) var(--motion-settle); }
+  .analyst-shade:not([hidden]) { animation: reveal-opacity var(--motion-reveal) ease-out; }
+  #assist .answer-arrived, .preset-menu[open] #presets, .acc[open] > .acc-body,
+  .inspect-fold[open] > :not(summary, [hidden]), #analyst-questions[open] #assist-quick {
+    animation: content-reveal var(--motion-reveal) var(--motion-settle);
+  }
+  .overlap-track i { transition: transform var(--motion-data) var(--motion-settle); }
+  .inspect-launch span:last-child, .result-actions button, .inspect-center { transition: transform var(--motion-press) ease-out; }
+  .result-actions button:active, .inspect-center:active { transform: scale(.98); }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .inspect-launch:hover span:last-child { transform: translate(2px, -2px); }
+}
+@media (max-width: 1099px) and (prefers-reduced-motion: no-preference) {
+  #assist:not([hidden]) { animation-name: sheet-enter; }
+}
+@media (max-width: 700px) and (prefers-reduced-motion: no-preference) {
+  #map:not([hidden]) .inspect-rail { animation-name: content-reveal; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acc > summary::after, #bg-moon { transition: none; }
+}
+
+/* Workspace preferences */
+.settings-view .timebar { display: none; }
+#settings .sec-head { margin-bottom: 22px; }
+.cfg-grid { display: grid; grid-template-columns: minmax(0,.85fr) minmax(0,1.25fr); align-items: start; gap: 16px; }
+.cfg-grid > article { padding: clamp(18px,2.3vw,32px); }
+.cfg-grid h2 { font-size: clamp(20px,2vw,26px); margin: 0 0 9px; }
+.cfg-grid p { color: var(--muted); max-width: 58ch; }
+.cfg-open { display: inline-flex; align-items: center; gap: 16px; padding: 11px 16px; margin: 18px 0; border: 1px solid #ba995e; border-radius: 7px; background: #ffca72; color: #171411; font-weight: 650; }
+.cfg-open:hover { background: #ffdc9c; }
+.cfg-check, #cfg-modes label { display: flex; align-items: center; gap: 10px; cursor: pointer; min-height: 42px; }
+.cfg-grid input { width: 18px; height: 18px; flex: none; accent-color: var(--sun); margin: 0; }
+.cfg-check:has(input:disabled) { color: var(--muted); cursor: default; }
+#cfg-modes { display: flex; flex-wrap: wrap; gap: 2px 15px; border: 0; padding: 0; margin: 20px 0 0; }
+#cfg-modes legend { color: var(--muted); font-size: 13px; padding: 0; }
+#cfg-status { display: block; color: var(--muted); font-size: 13px; padding: 2px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+#cfg-command-eg { padding-left: 28px; font-size: 13px; }
+.cfg-setup { margin: 16px 0; border-block: 1px solid var(--line); }
+.cfg-setup summary { cursor: pointer; padding: 12px 0; }
+.cfg-setup p { font-size: 13px; padding-bottom: 14px; }
+.cfg-analyst .ghost { display: inline-flex; align-items: center; gap: 9px; min-height: 40px; }
+@media(max-width: 760px) { .cfg-grid { grid-template-columns: 1fr; gap: 0; } }
+
+
+/* Single-scenario mission overview. */
+#console { --mc-radius: 8px; }
+#console .mc-heading { min-height: 88px; }
+.mc-toolbar, .mc-heading, .mc-toolbar .mc-sites, #console article > header, .mc-links { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mc-toolbar { padding-block: 4px 16px; }
+.mc-toolbar .mc-sites { justify-content: flex-start; gap: 6px; }
+.mc-sites button, #console .ghost { border-radius: var(--mc-radius); min-height: 40px; }
+.mc-sites button { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid var(--line2); background: var(--panel); font-weight: 600; }
+.mc-sites button[aria-pressed=true] { border-color: var(--sun); background: #302b24; }
+.mc-sites button .badge { width: 20px; height: 20px; }
+.mc-panels { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); gap: 16px; }
+#console .card { min-width: 0; box-shadow: none; }
+#console article > header { gap: 6px 12px; }
+#console article h2 { font-size: clamp(19px,2vw,25px); }
+.mc-horizon .mono { color: var(--muted); font-size: 11px; }
+#console .hint { margin-top: 5px; }
+#mc-sky { display: block; width: 100%; height: clamp(165px,17vw,230px); margin-top: 14px; background: #07090c; border-radius: var(--mc-radius); }
+.mc-readouts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
+.mc-label { display: block; font-size: 13px; line-height: 1.4; }
+.mc-label.sun { color: var(--sun); } .mc-label.earth { color: var(--earth); }
+.mc-readouts b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.mc-metrics { margin: 14px 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 16px; }
+.mc-metrics > div { border-top: 1px solid var(--line); padding-block: 10px; }
+.mc-metrics dt { font-size: 13px; color: var(--muted); }
+.mc-metrics dd { margin: 4px 0 0; font: 550 clamp(19px,2.35vw,31px)/1.25 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -.04em; }
+.mc-windows header { margin-bottom: 14px; }
+.mc-band-row { display: grid; grid-template-columns: minmax(100px,18%) minmax(0,1fr) 72px; gap: 14px; align-items: center; padding-top: 6px; font-size: 13px; }
+.mc-band-row b { text-align: right; font: 12px/1.4 var(--mono); }
+.mc-track { position: relative; height: 14px; overflow: hidden; border-radius: 3px; background: #303742; }
+.mc-track i { position: absolute; inset-block: 0; background: var(--sun); }
+[data-mc-band=earth] i { background: var(--earth); }
+[data-mc-band=both] i { background: var(--both); }
+.mc-links { justify-content: flex-start; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 17px; }
+@media (max-width: 760px) {
+  .mc-panels { grid-template-columns: minmax(0,1fr); gap: 0; }
+  .mc-band-row { grid-template-columns: minmax(0,1fr) auto; gap: 3px; padding: 6px 0; }
+  .mc-band-row .mc-track { grid-column: 1/-1; grid-row: 2; }
+  .mc-band-row b { grid-column: 2; grid-row: 1; }
+  .mc-sites button { padding-inline: 8px; }
+}
+
+
+/* A single moving selection carries both the surface and the amber edge. */
+.top .nav { isolation: isolate; }
+.top .nav button { position: relative; z-index: 1; }
+.nav-indicator {
+  position: absolute; top: 0; left: 0; width: 64px; height: 38px;
+  background: #242930; border-radius: 7px; box-shadow: inset 0 -3px var(--sun);
+  pointer-events: none; transform-origin: left top;
+}
+@keyframes view-heading-in {
+  from { opacity: .5; transform: translateX(var(--view-travel)); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes view-details-in {
+  from { opacity: .62; transform: translateY(9px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nav-indicator.sliding { transition: transform 345ms cubic-bezier(.35,.08,.16,1); }
+  main > section[data-enter-from]:not([hidden]) { animation: none; }
+  main > section[data-enter-from="right"] { --view-travel: 20px; }
+  main > section[data-enter-from="left"] { --view-travel: -20px; }
+  section[data-enter-from]:not([hidden]) > .sec-head {
+    animation: view-heading-in 285ms var(--motion-settle) both;
+  }
+  section[data-enter-from]:not([hidden]) > :is(.grid2,.card,.plan-tools,.cfg-grid,.mc-toolbar,.mc-panels,.verify-top) {
+    animation: view-details-in 290ms var(--motion-settle) 45ms backwards;
+  }
+  #map[data-enter-from]:not([hidden]) .inspect-head { animation: view-heading-in 285ms var(--motion-settle); }
+  @media (max-width: 600px) {
+    main > section[data-enter-from="right"] { --view-travel: 10px; }
+    main > section[data-enter-from="left"] { --view-travel: -10px; }
+  }
+}
+
+
+.overlap-value-slot {
+  display: grid;
+  align-items: center;
+  justify-items: end;
+  overflow: hidden;
+  white-space: nowrap;
+  font: 13px/1.3 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.overlap-value-slot > * { grid-area: 1 / 1; }
+.overlap-previous { color: var(--muted); pointer-events: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .rep-modal .rep-box { animation: report-sheet-arrive .28s var(--motion-settle); }
+  @keyframes report-sheet-arrive {
+    from { opacity: .65; transform: translateY(16px) scale(.988); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+/* Give each UTC timestamp a stable track, independent of the elapsed-time label. */
+.tb-mid { container-type: inline-size; }
+.tb-read {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  column-gap: 12px;
+  max-width: 760px;
+}
+.tb-read > span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.tb-read .mono { font-variant-numeric: tabular-nums; line-height: 1.4; }
+@container (max-width: 630px) {
+  .tb-read { grid-template-columns: repeat(2,minmax(0,1fr)); row-gap: 3px; }
+  .tb-read > span:first-child { grid-column: 1 / -1; }
+}
+@container (max-width: 370px) {
+  .tb-read { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .timebar { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 4px 10px; }
+  .settings-view .timebar { display: none; }
+  .timebar .tb-mid { display: contents; container-type: normal; }
+  .timebar .playbtn { grid-area: 1 / 1; }
+  .timebar #scrub { grid-area: 1 / 2; }
+  .timebar > :is(select,.ap-picker) { grid-area: 1 / 3; }
+  .timebar .tb-read { grid-area: 2 / 1 / 3 / -1; grid-template-columns: repeat(auto-fit,minmax(min(100%,182px),1fr)); gap: 3px 10px; }
+}
+
 </style>
 </head>
 <body>
-<script>
-/* opening sequence: hide the interface before first paint; js/fx.js plays it in. The timer is a safety net. */
-(function (r) {
-  r.classList.add('anim', 'pre-moon', 'pre-bar', 'pre-ui');
-  setTimeout(function () { if (!window.AATour) r.classList.remove('anim', 'pre-moon', 'pre-bar', 'pre-ui'); }, 9000);
-})(document.documentElement);
-</script>
+
 <div class="bg" aria-hidden="true">
   <div class="bg-stars"></div>
   <div class="bg-orb"><div class="bg-glow"></div><div class="bg-glow g2"></div><canvas id="bg-moon"></canvas></div>
@@ -745,7 +1167,7 @@ html.rep-on { overflow: hidden; }
 </div>
 
 <header class="top">
-  <button class="brand" data-tab="compare" aria-label="AstroApex">
+  <button class="brand" data-tab="compare">
     <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
       <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1.5"/>
       <path d="M16 3a13 13 0 0 0 0 26a9 13 0 0 1 0-26z" fill="currentColor"/>
@@ -753,21 +1175,22 @@ html.rep-on { overflow: hidden; }
     </svg>
     <span><b>Astro<em>Apex</em></b><small data-i18n="tagline"></small></span>
   </button>
-  <nav class="nav" aria-label="Sections">
+  <nav class="nav" aria-label="Sections" data-aria-label="nav_sections">
     <button data-tab="compare" data-i18n="nav_compare"></button>
     <button data-tab="sky" data-i18n="nav_sky"></button>
     <button data-tab="time" data-i18n="nav_time"></button>
-    <button data-tab="map" data-i18n="nav_map"></button>
     <button data-tab="resources" data-i18n="nav_res"></button>
+    <button data-tab="settings" data-i18n="cfg_title"></button>
+    <button class="inspect-launch" data-tab="map"><span data-i18n="launch_moon"></span><span aria-hidden="true">↗</span></button>
+    <span class="nav-indicator" aria-hidden="true" hidden></span>
   </nav>
   <div class="top-actions">
-    <button class="eph-badge" id="eph-badge" data-tab="resources"></button>
-    <div class="seg" id="lang" role="group" aria-label="Language">
-      <button data-lang="tr">TR</button><button data-lang="en">EN</button>
+    <div class="seg" id="lang" role="group" aria-label="Language" data-aria-label="language">
+      <button data-lang="tr" lang="tr" aria-label="TR · Türkçe">TR</button><button data-lang="en" lang="en" aria-label="EN · English">EN</button>
     </div>
     <button class="tour-btn" id="tour-open" type="button" aria-label="Guided tour" title="Guided tour">?</button>
     <button class="assist-btn" id="assist-open" aria-controls="assist" aria-expanded="false">
-      <span aria-hidden="true">✦</span> <span data-i18n="assistant"></span> <kbd>/</kbd>
+      <span class="analyst-mark" aria-hidden="true"></span><span data-analyst-name></span><kbd aria-hidden="true">/</kbd>
     </button>
   </div>
 </header>
@@ -780,15 +1203,17 @@ html.rep-on { overflow: hidden; }
       <h1 data-i18n="h_compare"></h1>
       <p class="lead" data-i18n="lead_compare"></p>
     </div>
+  </div>
+
+  <div class="plan-tools">
+    <details class="preset-menu">
+      <summary><span data-i18n="ps_t"></span></summary>
+      <div class="chips" id="presets"></div>
+    </details>
     <label class="field inline">
       <span data-i18n="duration"></span>
       <select id="dur"></select>
     </label>
-  </div>
-
-  <div class="presets">
-    <span class="k" data-i18n="ps_t"></span>
-    <div class="chips" id="presets"></div>
   </div>
 
   <div class="grid2">
@@ -797,17 +1222,26 @@ html.rep-on { overflow: hidden; }
   </div>
 
   <div class="card verdict-top">
-    <div>
+    <div class="verdict-copy">
       <span class="k" data-i18n="verdict_k"></span>
       <h2 id="verdict-h"></h2>
       <p data-i18n="verdict_sub"></p>
     </div>
-    <button class="ghost rep-btn" id="report-open" data-report type="button"><span aria-hidden="true">⤓</span> <span data-i18n="rep_open"></span></button>
-  </div>
-
-  <div class="grid2">
-    <article class="card report" id="report-A"></article>
-    <article class="card report" id="report-B"></article>
+    <div id="overlap-totals" class="overlap-totals">
+      <div class="overlap-row" data-overlap="A">
+        <span class="badge a">A</span><span class="overlap-name"></span><b></b>
+        <div class="overlap-track" aria-hidden="true"><i></i></div>
+      </div>
+      <div class="overlap-row" data-overlap="B">
+        <span class="badge b">B</span><span class="overlap-name"></span><b></b>
+        <div class="overlap-track" aria-hidden="true"><i></i></div>
+      </div>
+    </div>
+    <div class="result-actions">
+      <button class="result-ask" data-open-analyst data-explain-result type="button"><span class="analyst-mark" aria-hidden="true"></span><span data-i18n="ask_result"></span></button>
+      <button class="ghost rep-btn" id="report-open" data-report type="button"><span aria-hidden="true">↓</span> <span data-i18n="rep_open"></span></button>
+      <button class="eph-badge" id="eph-badge" data-tab="resources"></button>
+    </div>
   </div>
 
   <details class="acc" open>
@@ -815,6 +1249,14 @@ html.rep-on { overflow: hidden; }
     <div class="acc-body">
       <div id="win-rows" class="win-rows"></div>
       <div id="verdict-chips" class="vchips"></div>
+    </div>
+  </details>
+
+  <details class="acc site-reports">
+    <summary><span data-i18n="site_reports"></span></summary>
+    <div class="grid2 acc-body">
+      <article class="card report" id="report-A"></article>
+      <article class="card report" id="report-B"></article>
     </div>
   </details>
 
@@ -888,41 +1330,56 @@ html.rep-on { overflow: hidden; }
   </details>
 </section>
 
-<section id="map" hidden>
-  <div class="sec-head"><div>
-    <h1 data-i18n="h_map"></h1>
-    <p class="lead" data-i18n="lead_map"></p>
-  </div></div>
-  <div class="card mapcard">
-    <div class="globe-wrap" id="globe-wrap">
-      <canvas id="globe"></canvas>
-      <canvas id="globe-ov"></canvas>
-      <div class="zoom-btns">
-        <button id="zin" aria-label="Zoom in">+</button>
-        <button id="zout" aria-label="Zoom out">−</button>
+<section id="map" hidden aria-labelledby="inspector-title">
+  <header class="inspect-head">
+    <button class="inspect-back" type="button" data-exit-inspector><span aria-hidden="true">←</span><span data-inspector="back">Back to planner</span></button>
+    <h1 id="inspector-title" tabindex="-1" data-inspector="title">Lunar surface inspector</h1>
+    <button type="button" class="inspect-analysis" data-open-analyst aria-controls="assist"><span data-inspector="analyse">Mission analyst</span><span aria-hidden="true"> ↗</span></button>
+  </header>
+  <div id="views" class="inspect-workspace">
+    <div class="inspect-stage">
+      <div class="inspect-camera"><span data-inspector="camera">Camera centre</span><output id="inspect-coords"></output></div>
+      <div class="inspect-viewport">
+        <div class="globe-wrap" id="globe-wrap" tabindex="0" role="group" aria-describedby="inspect-gestures inspect-keyboard">
+          <canvas id="globe" aria-hidden="true"></canvas>
+          <canvas id="globe-ov" aria-hidden="true"></canvas>
+          <span class="inspect-crosshair" aria-hidden="true"></span>
+        </div>
+      </div>
+      <div class="inspect-controls">
+        <div class="inspect-guidance"><p id="inspect-gestures" data-inspector="gestures">Drag to rotate. Click a point to set the active landing site.</p>
+          <p class="inspect-keyboard" id="inspect-keyboard" data-inspector="keys">Arrow keys rotate. Enter selects the centre point.</p></div>
+        <div class="zoom-btns inspect-zoom">
+          <button type="button" id="zout" aria-label="Zoom out">−</button><span id="inspect-zoom"></span><button type="button" id="zin" aria-label="Zoom in">+</button>
+        </div>
       </div>
     </div>
-    <div class="map-side">
-      <div class="chips" id="views">
-        <button data-view="south" data-i18n="v_south"></button>
-        <button data-view="near" data-i18n="v_near"></button>
-        <button data-view="far" data-i18n="v_far"></button>
-        <button data-view="north" data-i18n="v_north"></button>
-        <button data-view="A">A</button>
-        <button data-view="B">B</button>
+    <aside class="map-side inspect-rail" aria-labelledby="inspect-site-title">
+      <div class="inspect-site">
+        <div class="inspect-group-head"><span class="k" id="inspect-site-label" data-inspector="active">Active landing site</span>
+          <div class="seg" id="target" role="group" aria-labelledby="inspect-site-label"><button type="button" data-t="A">A</button><button type="button" data-t="B">B</button></div></div>
+        <h2 id="inspect-site-title"></h2>
+        <p class="inspect-site-coords" id="inspect-site-coords"></p>
+        <button type="button" id="inspect-center" class="inspect-center" data-view="A" data-inspector="center">Centre on site</button>
       </div>
-      <div class="rowline">
-        <span data-i18n="click_sets"></span>
-        <div class="seg" id="target"><button data-t="A">A</button><button data-t="B">B</button></div>
+      <div class="inspect-cameras">
+        <h3 data-inspector="views">Camera views</h3>
+        <div class="inspect-directions">
+          <button type="button" data-view="south" data-i18n="v_south"></button><button type="button" data-view="north" data-i18n="v_north"></button>
+          <button type="button" data-view="near" data-i18n="v_near"></button><button type="button" data-view="far" data-i18n="v_far"></button>
+        </div>
       </div>
-      <label class="rowline check"><span data-i18n="labels"></span><input type="checkbox" id="labels" checked></label>
+      <details class="inspect-fold map-layers"><summary data-i18n="map_layers"></summary>
+        <div class="map-layer-options">
+      <label class="rowline check"><span data-i18n="labels"></span><input type="checkbox" id="labels"></label>
       <label class="rowline check"><span data-i18n="lighting"></span><input type="checkbox" id="light"></label>
       <label class="rowline check"><span data-i18n="lay_ice"></span><input type="checkbox" id="lay-ice" checked></label>
       <label class="rowline check"><span data-i18n="lay_slope"></span><input type="checkbox" id="lay-slope"></label>
       <label class="rowline check"><span data-i18n="lay_temp"></span><input type="checkbox" id="lay-temp"></label>
-      <label class="rowline check"><span data-i18n="lay_regions"></span><input type="checkbox" id="lay-regions" checked></label>
-      <label class="rowline check"><span data-i18n="lay_route"></span><input type="checkbox" id="lay-route" checked></label>
+      <label class="rowline check"><span data-i18n="lay_regions"></span><input type="checkbox" id="lay-regions"></label>
+      <label class="rowline check"><span data-i18n="lay_route"></span><input type="checkbox" id="lay-route"></label>
       <label class="rowline check"><span data-i18n="lay_heat"></span><input type="checkbox" id="lay-heat"></label>
+        </div>
       <div class="map-legend" id="map-legend" hidden>
         <span data-leg="ice"><i class="lg-ice"></i><span data-i18n="leg_ice"></span></span>
         <span data-leg="slope"><i class="lg-slope"></i><span data-i18n="leg_slope"></span></span>
@@ -931,6 +1388,11 @@ html.rep-on { overflow: hidden; }
         <span data-leg="heat"><i class="lg-heat"></i><span id="leg-heat-text"></span></span>
       </div>
       <p class="route-info" id="route-info" hidden></p>
+      </details>
+      <details class="inspect-fold"><summary data-inspector="report">Landing site report</summary>
+        <div class="pick" id="pick"></div>
+      </details>
+      <details class="inspect-fold"><summary data-inspector="search">Find candidate sites</summary>
       <div class="scout" id="scout">
         <div class="scout-head"><b data-i18n="sct_t"></b><button class="ghost" id="scout-run" type="button"></button></div>
         <div class="seg heat-by" id="scan-mode" role="group">
@@ -948,9 +1410,8 @@ html.rep-on { overflow: hidden; }
         <p class="hint" data-i18n="reg_lead"></p>
         <div id="regions-out"></div>
       </div>
-      <div class="pick" id="pick"></div>
-      <details class="acc flat">
-        <summary><span data-i18n="subsolar"></span> · <span data-i18n="earth"></span></summary>
+      </details>
+      <details class="inspect-fold"><summary data-inspector="position">Solar and Earth geometry</summary>
         <dl class="facts">
           <div><dt><i class="sw sun"></i><span data-i18n="subsolar"></span></dt><dd id="f-sun"></dd></div>
           <div><dt><i class="sw earth"></i><span data-i18n="subearth"></span></dt><dd id="f-earth"></dd></div>
@@ -958,8 +1419,8 @@ html.rep-on { overflow: hidden; }
           <div><dt data-i18n="f_temp"></dt><dd id="f-temp"></dd></div>
         </dl>
       </details>
-      <p class="hint" data-i18n="map_credit"></p>
-    </div>
+      <p class="hint inspect-credit" data-i18n="map_credit"></p>
+    </aside>
   </div>
 </section>
 
@@ -969,10 +1430,10 @@ html.rep-on { overflow: hidden; }
     <p class="lead" data-i18n="lead_res"></p>
   </div></div>
   <details class="acc verify-top" open>
-      <summary><span data-i18n="verify_t"></span></summary>
+      <summary><span id="verify-title" data-i18n="verify_t"></span></summary>
       <div class="acc-body">
         <p class="lead small" data-i18n="verify_lead"></p>
-        <div id="verify" class="table-card verify"></div>
+        <div id="verify" class="table-card verify" role="region" tabindex="0" aria-labelledby="verify-title"></div>
         <p class="hint mono" id="verify-meta"></p>
       </div>
     </details>
@@ -994,12 +1455,90 @@ html.rep-on { overflow: hidden; }
   <p class="foot" data-i18n="foot"></p>
 </section>
 
+<section id="settings" hidden>
+  <div class="sec-head"><h1 data-i18n="cfg_title"></h1></div>
+  <div class="cfg-grid">
+    <article class="card cfg-console">
+      <h2 data-i18n="cfg_console"></h2>
+      <p data-i18n="cfg_console_desc"></p>
+      <button class="cfg-open" data-tab="console" type="button"><span data-i18n="cfg_open"></span><span aria-hidden="true">↗</span></button>
+      <label class="cfg-check"><input id="cfg-home" type="checkbox"><span data-i18n="cfg_home"></span></label>
+    </article>
+    <article class="card cfg-analyst">
+      <h2 data-i18n="cfg_hydrogen"></h2>
+      <p data-i18n="cfg_analyst_desc"></p>
+      <fieldset id="cfg-modes">
+        <legend data-i18n="cfg_mode"></legend>
+        <label><input type="radio" name="cfg-provider" value="auto"><span data-i18n="cfg_auto"></span></label>
+        <label><input type="radio" name="cfg-provider" value="qwen"><span>Qwen3.5 4B</span></label>
+        <label><input type="radio" name="cfg-provider" value="local"><span data-i18n="cfg_local"></span></label>
+        <label><input type="radio" name="cfg-provider" value="openai"><span>GPT-6 Luna</span></label>
+        <label><input type="radio" name="cfg-provider" value="gemini"><span>Gemini</span></label>
+      </fieldset>
+      <output id="cfg-status" role="status"></output>
+      <label class="cfg-check"><input id="cfg-search" type="checkbox"><span data-i18n="cfg_search"></span></label>
+      <label class="cfg-check"><input id="cfg-commands" type="checkbox" aria-describedby="cfg-command-eg"><span data-i18n="cfg_commands"></span></label>
+      <p class="hint" id="cfg-command-eg" data-i18n="cfg_command_eg"></p>
+      <details class="cfg-setup">
+        <summary data-i18n="cfg_setup"></summary>
+        <p data-i18n="cfg_setup_text"></p>
+      </details>
+      <button data-open-analyst class="ghost" type="button"><span class="analyst-mark" aria-hidden="true"></span> <span data-i18n="cfg_ask"></span></button>
+    </article>
+  </div>
+</section>
+<section id="console" hidden>
+  <div class="sec-head mc-heading">
+    <div><h1 data-mc="title">Mission console</h1><p class="lead" data-mc="lead"></p></div>
+    <button type="button" class="ghost" data-tab="settings" data-mc="settings">Settings</button>
+  </div>
+  <div class="mc-toolbar">
+    <div class="mc-sites" role="group" aria-label="Scenario">
+      <button type="button" data-mc-site="A"><span class="badge a">A</span><span></span></button>
+      <button type="button" data-mc-site="B"><span class="badge b">B</span><span></span></button>
+    </div>
+    <button type="button" class="ghost" data-tab="compare" data-mc="edit">Edit landing scenarios</button>
+  </div>
+  <div class="mc-panels">
+    <article class="card mc-horizon">
+      <header><h2 data-mc="sky">Local sky</h2><span id="mc-utc" class="mono"></span></header>
+      <p class="hint" id="mc-place"></p>
+      <canvas id="mc-sky" role="img" aria-describedby="mc-sun-now mc-earth-now"></canvas>
+      <div class="mc-readouts">
+        <div><span class="mc-label sun" data-i18n="sun"></span><b id="mc-sun-now"></b></div>
+        <div><span class="mc-label earth" data-i18n="earth"></span><b id="mc-earth-now"></b></div>
+      </div>
+    </article>
+    <article class="card mc-summary">
+      <header><h2 data-mc="conditions">Mission conditions</h2></header>
+      <p class="hint" id="mc-range"></p>
+      <dl class="mc-metrics">
+        <div><dt data-mc="lit">Time in sunlight</dt><dd id="mc-lit"></dd></div>
+        <div><dt data-mc="contact">Earth contact windows</dt><dd id="mc-contact"></dd></div>
+        <div><dt data-mc="joint">Sun and Earth together</dt><dd id="mc-joint"></dd></div>
+        <div><dt data-mc="dark">Longest darkness</dt><dd id="mc-dark"></dd></div>
+      </dl>
+      <button type="button" class="ghost" data-open-analyst="A" id="mc-ask" data-mc="ask">Ask about this site</button>
+    </article>
+  </div>
+  <article class="card mc-windows">
+    <header><h2 data-mc="windows">Visibility windows</h2><span class="hint" id="mc-sampling"></span></header>
+    <div class="mc-band-row" data-mc-band="sun"><span data-mc="sunBand">Sunlight</span><div class="mc-track" aria-hidden="true"></div><b></b></div>
+    <div class="mc-band-row" data-mc-band="earth"><span data-mc="earthBand">Earth contact</span><div class="mc-track" aria-hidden="true"></div><b></b></div>
+    <div class="mc-band-row" data-mc-band="both"><span data-mc="joint">Sun and Earth together</span><div class="mc-track" aria-hidden="true"></div><b></b></div>
+    <div class="mc-links">
+      <button type="button" class="ghost" data-tab="time" data-mc="power">Timeline and power</button>
+      <button type="button" class="ghost" data-tab="resources" data-mc="method">Data and assumptions</button>
+    </div>
+  </article>
+</section>
+
 </main>
 
-<div class="timebar" role="group" aria-label="Time">
+<div class="timebar" role="group" aria-label="Mission time" data-aria-label="met">
   <button id="play" class="playbtn" aria-label="Play">▶</button>
   <div class="tb-mid">
-    <input type="range" id="scrub" min="0" max="1000" value="0" step="1" aria-label="Mission time">
+    <input type="range" id="scrub" min="0" max="1000" value="0" step="1" aria-label="Mission time" data-aria-label="met">
     <div class="tb-read">
       <span><b data-i18n="met"></b> <span id="tb-met" class="mono"></span></span>
       <span><span class="badge a">A</span> <span id="tb-a" class="mono"></span></span>
@@ -1009,32 +1548,37 @@ html.rep-on { overflow: hidden; }
   <select id="speed" aria-label="Speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="3">3×</option></select>
 </div>
 
+<div class="analyst-shade" id="analyst-shade" aria-hidden="true" hidden></div>
 <aside class="assist" id="assist" aria-labelledby="assist-title" hidden>
   <header>
-    <div>
-      <b id="assist-title" data-i18n="a_title"></b>
-      <small id="assist-model" data-i18n="a_model"></small>
+    <div class="analyst-heading">
+      <span class="analyst-mark" aria-hidden="true"></span>
+      <h2 id="assist-title" data-analyst-name tabindex="-1"></h2>
     </div>
-    <button class="ghost" id="assist-close" data-i18n="a_close"></button>
+    <button type="button" class="analyst-close" id="assist-close"><span aria-hidden="true">×</span></button>
   </header>
-  <div class="assist-log" id="assist-log" aria-live="polite"></div>
-  <div class="assist-quick chips" id="assist-quick">
-    <button data-q="q_a" data-i18n="q_a"></button>
-    <button data-q="q_b" data-i18n="q_b"></button>
-    <button data-q="q_cmp" data-i18n="q_cmp"></button>
-    <button data-q="q_best" data-i18n="q_best"></button>
-    <button data-q="q_site" data-i18n="q_site"></button>
-    <button data-q="q_rec" data-i18n="q_rec"></button>
-    <button data-q="q_scout" data-i18n="q_scout"></button>
-    <button data-q="q_regions" data-i18n="q_regions"></button>
-    <button data-q="q_ice" data-i18n="q_ice"></button>
-    <button data-q="q_fuel" data-i18n="q_fuel"></button>
+  <div class="analyst-scroll" id="analyst-scroll">
+    <section class="analyst-context" aria-labelledby="analyst-scope-label">
+      <h3 id="analyst-scope-label"></h3>
+      <div id="analyst-sites" role="group" aria-labelledby="analyst-scope-label">
+        <button type="button" data-scope="A"><span class="badge a">A</span><span class="analyst-site-name"></span></button>
+        <button type="button" data-scope="B"><span class="badge b">B</span><span class="analyst-site-name"></span></button>
+      </div>
+      <p id="analyst-site-date"></p>
+    </section>
+    <details class="analyst-questions" id="analyst-questions" open>
+      <summary id="analyst-questions-label"></summary>
+      <div class="assist-quick" id="assist-quick"></div>
+    </details>
+    <div class="assist-log" id="assist-log" role="log" aria-live="polite" aria-relevant="additions text"></div>
   </div>
-  <form class="assist-form" id="assist-form">
-    <textarea id="assist-input" rows="1" aria-label="Message"></textarea>
-    <button type="submit" class="send" data-i18n="a_send"></button>
-  </form>
-  <p class="hint assist-keys" data-i18n="a_keys"></p>
+  <footer class="analyst-composer">
+    <form class="assist-form" id="assist-form">
+      <textarea id="assist-input" rows="1"></textarea>
+      <button type="submit" class="send"><span aria-hidden="true">↑</span></button>
+    </form>
+    <small id="assist-model"></small>
+  </footer>
 </aside>
 
 <script>
@@ -1344,8 +1888,8 @@ window.I18N = {
     h_sky: 'Gökyüzü ve ufuk',
     lead_sky: 'Seçili anda sahadan 360° ufuk panoraması. Çizgiler görev boyunca izlenen yolu gösterir; Ay’da atmosfer olmadığı için kırılma yoktur, ufuk yalnızca arazi ve kürenin kenarıdır.',
     elev: 'Yükselim', azim: 'Azimut', disc: 'Görünen disk', flux: 'Takip eden panel', flat: 'Yatay panel',
-    range: 'Görev boyunca aralık', up: 'görünür', down: 'ufuk altında',
-    sets_in: 'Batışa {t}', rises_in: 'Doğuşa {t}', until_end: 'Görev sonuna dek görünür', never: 'Görev boyunca görünmez',
+    range: 'Görev boyunca aralık', up: 'görünür', down: 'ufuk altında', sun_eclipsed: 'tutulmada',
+    sets_in: 'Işığın kesilmesine {t}', rises_in: 'Işığın geri gelmesine {t}', until_end: 'Görev sonuna dek görünür', never: 'Görev boyunca görünmez',
     earthset_in: 'Dünya batışına {t}', earthrise_in: 'Dünya doğuşuna {t}',
     geo_h: 'geometrik ufuk', loc_h: 'yerel ufuk',
     h_time: 'Zaman içinde değişim',
@@ -1359,7 +1903,7 @@ window.I18N = {
     h_map: 'Ay haritası',
     lead_map: 'Küreyi sürükleyip döndürün, tekerlekle yakınlaştırın. Tıkladığınız nokta seçili senaryonun özel koordinatı olur. Aydınlatma, seçili anda gerçek gündüz–gece sınırını gösterir.',
     v_near: 'Yakın yüz', v_south: 'Güney kutbu', v_far: 'Uzak yüz', v_north: 'Kuzey kutbu',
-    click_sets: 'Tıklama şunu ayarlar', lighting: 'Gerçek aydınlatma',
+    click_sets: 'Tıklama şunu ayarlar', lighting: 'Güneş yönüne göre gölgeleme',
     subsolar: 'Güneş altı noktası', subearth: 'Dünya altı noktası (librasyon)', em_dist: 'Dünya–Ay uzaklığı',
     map_credit: 'Görüntü: NASA Moon Trek · LRO WAC küresel mozaik',
     h_res: 'Kaynaklar ve yöntem',
@@ -1406,8 +1950,8 @@ window.I18N = {
     h_sky: 'Sky and horizon',
     lead_sky: 'A 360° horizon panorama from the site at the selected moment. Lines trace the path over the mission; with no atmosphere there is no refraction — the horizon is only terrain and the limb of the sphere.',
     elev: 'Elevation', azim: 'Azimuth', disc: 'Visible disc', flux: 'Tracking array', flat: 'Horizontal array',
-    range: 'Range over mission', up: 'visible', down: 'below horizon',
-    sets_in: 'Sunset in {t}', rises_in: 'Sunrise in {t}', until_end: 'Visible through end of mission', never: 'Not visible during mission',
+    range: 'Range over mission', up: 'visible', down: 'below horizon', sun_eclipsed: 'eclipsed',
+    sets_in: 'Sunlight ends in {t}', rises_in: 'Sunlight returns in {t}', until_end: 'Visible through end of mission', never: 'Not visible during mission',
     earthset_in: 'Earthset in {t}', earthrise_in: 'Earthrise in {t}',
     geo_h: 'geometric horizon', loc_h: 'local horizon',
     h_time: 'Change over time',
@@ -1421,7 +1965,7 @@ window.I18N = {
     h_map: 'Moon map',
     lead_map: 'Drag to rotate, scroll to zoom. A click sets the custom coordinates of the selected scenario. Lighting shows the real day–night terminator at the selected moment.',
     v_near: 'Near side', v_south: 'South pole', v_far: 'Far side', v_north: 'North pole',
-    click_sets: 'Click sets', lighting: 'Real lighting',
+    click_sets: 'Click sets', lighting: 'Shade by Sun direction',
     subsolar: 'Sub-solar point', subearth: 'Sub-Earth point (libration)', em_dist: 'Earth–Moon distance',
     map_credit: 'Imagery: NASA Moon Trek · LRO WAC global mosaic',
     h_res: 'Resources and method',
@@ -1679,10 +2223,10 @@ Object.assign(I18N.tr, {
  "ch_earth_t": "Dünya ufkun ne kadar üstünde?",
  "ch_earth_h": "Çizgi gri bölgedeyken Dünya ile doğrudan iletişim kurulamaz. Düz çizgi A, kesikli çizgi B.",
  "horizon": "ufuk",
- "below_h": "ufkun altı · görünmez",
+ "below_h": "merkez yerel ufkun altında",
  "sel_time": "seçili an",
  "year_t": "Yıl içinde en iyi günler · 365 gün",
- "year_lead": "Koyu yeşil günlerde güç ve iletişim gün boyu birlikte var. Bir güne tıklayınca görev o tarihe taşınır.",
+ "year_lead": "Daha parlak yeşil, o gün Güneş ve Dünya’nın daha uzun süre birlikte göründüğünü gösterir. Bir güne tıklayınca görev o tarihe taşınır.",
  "y_0": "Günde 0 saat",
  "y_24": "24 saat",
  "y_sel": "seçili görev"
@@ -1707,10 +2251,10 @@ Object.assign(I18N.en, {
  "ch_earth_t": "How far is Earth above the horizon?",
  "ch_earth_h": "While the line is in the grey zone there is no direct link to Earth. Solid line is A, dashed line is B.",
  "horizon": "horizon",
- "below_h": "below horizon · not visible",
+ "below_h": "centre below local horizon",
  "sel_time": "selected time",
  "year_t": "Best days of the year · 365 days",
- "year_lead": "On dark green days, power and comms are available together all day. Click a day to move the mission there.",
+ "year_lead": "Brighter green indicates more hours with simultaneous sunlight and Earth visibility that day. Click a day to move the mission there.",
  "y_0": "0 hours a day",
  "y_24": "24 hours",
  "y_sel": "selected mission"
@@ -1935,7 +2479,7 @@ Object.assign(I18N.tr, {
  "scan_moon": "Tüm Ay",
  "sct_lead_moon": "Tüm Ay yüzeyine eşit aralıklı 2.600 nokta (yaklaşık 120 km arayla) tarar. 82°G’nin güneyinde gerçek LOLA ufku, diğer yerlerde düz ufuk ve kaba eğim haritası kullanılır.",
  "leg_slope": "Eğim: ≤5° · ≤8° · ≤15° · >15° (kutuplar dışında kaba, ~7,6 km hücre)",
- "leg_ice": "Kalıcı gölge (yalnızca kutuplarda bulunur)",
+ "leg_ice": "Kalıcı gölge · kutup verileri",
  "limits_5": "Tüm Ay: eğim katmanı ve “Tüm Ay” taraması, NASA LOLA küresel yükseklik modelinden (16 piksel/derece) türetilen kaba bir eğim haritası kullanır (ekvatorda yaklaşık 7,6 km hücre); krater duvarlarını ve dağ yamaçlarını gösterir, iniş ölçeğindeki pürüzleri göstermez. Kuzey kutbundaki (80°K–90°K) kabartma, eğim ve kalıcı gölge yalnızca harita katmanıdır; gerçek ufuk, buz erişim puanı ve rota yalnızca güney kutbunda hesaplanır. Kalıcı gölge yalnızca kutuplara yakın bulunur."
 });
 Object.assign(I18N.en, {
@@ -1943,7 +2487,7 @@ Object.assign(I18N.en, {
  "scan_moon": "Whole Moon",
  "sct_lead_moon": "Scans 2,600 points spread evenly over the whole Moon (about 120 km apart). South of 82°S a point gets its real LOLA horizon; elsewhere the horizon is flat and the coarse slope map is used.",
  "leg_slope": "Slope: ≤5° · ≤8° · ≤15° · >15° (coarse outside the poles, ~7.6 km cells)",
- "leg_ice": "Permanent shadow (exists only near the poles)",
+ "leg_ice": "Permanent shadow · polar data coverage",
  "limits_5": "Whole Moon: the slope layer and the “Whole Moon” scan use a coarse slope map derived from the NASA LOLA global elevation model (16 pixels per degree; cells of about 7.6 km at the equator). It shows crater walls and mountain fronts, not landing-scale roughness. Relief, slope and permanent shadow at the north pole (80°N–90°N) are map layers only; real horizons, the ice-access score and the rover route are computed for the south pole only. Permanent shadow exists only near the poles."
 });
 
@@ -1973,6 +2517,55 @@ Object.assign(I18N.en, {
  "ch_sun_h": "When the line drops into the grey zone the Sun’s centre is below the horizon; power continues in proportion to the visible part of the disc and stops once the disc is fully hidden. Values are relative to the local horizon (terrain included).",
  "limits_1": "Terrain horizons come from two sources: a profile precomputed from the LOLA 80 m model for three NASA study-region centres (Shackleton Rim, Connecting Ridge, Malapert Massif), and a profile computed in the browser from the 480 m LOLA grid for every other point south of 82°S. At those three centres the two methods differ by 0.2°–1.3° on average and by up to 2.8° in single directions; the grid misses narrow ridges and usually gives the lower horizon. Because the Sun never rises more than about 1.5° at the pole, that difference can change the result by hours, and on a ridge crest by days (157 hours in 14 days at Connecting Ridge). Sunlight hours and scan scores from the 480 m grid are therefore upper bounds. Outside that area the horizon is a spherical Moon plus the fixed angle you choose.",
  "limits_6": "The power model includes lunar eclipses. Recommendations check for battery depletion, no Earth visibility during the mission and known mean slopes above 15°. Mission-specific contact and landing requirements need further evaluation."
+});
+
+Object.assign(I18N.tr, {map_layers: 'Harita katmanları', lead_map: 'Ay’ı sürükleyerek döndürün. Bir noktaya dokunarak seçili senaryonun iniş sahasını belirleyin.'});
+Object.assign(I18N.en, {map_layers: 'Map layers', lead_map: 'Drag to rotate the Moon. Select a point to set the landing site for the active scenario.'});
+
+Object.assign(I18N.en, {
+  launch_moon: '3D Moon', h_compare: 'Compare landing sites', nav_time: 'Timeline',
+  lead_compare: 'Choose two sites and landing dates to see when each has sunlight and a direct link to Earth.',
+  site_reports: 'Site scores and terrain', ask_result: 'Explain this result',
+  verdict_sub: 'Time with sunlight for power and a direct line of sight to Earth.'
+});
+Object.assign(I18N.tr, {
+  launch_moon: '3B Ay', h_compare: 'İniş sahalarını karşılaştır', nav_time: 'Zaman çizelgesi',
+  lead_compare: 'İki saha ve iniş tarihi seçerek hangi saatlerde hem güneş ışığı hem Dünya ile doğrudan görüş olduğunu inceleyin.',
+  site_reports: 'Saha puanları ve arazi', ask_result: 'Sonucu yorumla',
+  verdict_sub: 'Güneş ışığının ve Dünya ile doğrudan görüşün aynı anda bulunduğu süre.'
+});
+
+Object.assign(I18N.en, {
+  nav_sections: 'Sections', language: 'Language', cfg_title: 'Settings', cfg_console: 'Mission console',
+  cfg_console_desc: 'Inspect one landing scenario at a time. Follow its sky, sunlight and Earth contact on the mission clock.',
+  cfg_open: 'Open mission console', cfg_home: 'Start in the mission console on this browser',
+  cfg_hydrogen: 'Hydrogen assistant', cfg_analyst_desc: 'Choose how the mission analyst answers questions about the active plan.',
+  cfg_mode: 'Answer source', cfg_auto: 'Automatic', cfg_local: 'Calculations only', cfg_qwen_on: 'Qwen3.5 4B is available on this Mac. Questions stay on the device when it answers.', cfg_qwen_off: 'Qwen3.5 4B is unavailable. Open this planner through the local server and start the Qwen runtime.',
+  cfg_search: 'Allow Google Search for Gemini answers', cfg_commands: 'Allow typed planner commands',
+  cfg_command_eg: 'For example, “Set duration to 7 days” or “Open timeline”.',
+  cfg_luna_on: 'GPT-6 Luna is configured for this private session.', cfg_luna_off: 'GPT-6 Luna is unavailable. Answers use mission calculations.', cfg_luna_fallback: 'GPT-6 Luna is unavailable in this session. Qwen3.5 4B can answer on this Mac.',
+  cfg_setup: 'Connect an online model', cfg_setup_text: 'Set OPENAI_API_KEY for GPT-6 Luna or GEMINI_API_KEY for Gemini in the server environment, start server.py with --open, then use the private session it opens. Online questions send your prompt and mission context to the provider.',
+  cfg_ask: 'Open analyst', cfg_offline: 'Answers use the local mission engine.',
+  cfg_gemini_fallback: 'Gemini is unavailable in this session. Qwen3.5 4B can answer on this Mac.',
+  cfg_missing: 'Gemini is unavailable in this session. The analyst will use the offline engine.',
+  cfg_gemini_ok: 'Gemini is configured for this session.', cfg_auto_ok: 'The server provider is configured for this session.',
+  cfg_retry: 'The provider did not answer. The local engine supplied the last response.'
+});
+Object.assign(I18N.tr, {
+  nav_sections: 'Bölümler', language: 'Dil', cfg_title: 'Ayarlar', cfg_console: 'Görev konsolu',
+  cfg_console_desc: 'Bir iniş senaryosuna odaklanın. Görev saati boyunca gökyüzünü, güneş ışığını ve Dünya ile görüşü izleyin.',
+  cfg_open: 'Görev konsolunu aç', cfg_home: 'Bu tarayıcıda görev konsoluyla başla',
+  cfg_hydrogen: 'Hydrogen asistanı', cfg_analyst_desc: 'Görev analistinin seçili plan hakkındaki soruları nasıl yanıtlayacağını belirleyin.',
+  cfg_mode: 'Yanıt kaynağı', cfg_auto: 'Otomatik', cfg_local: 'Yalnızca hesaplamalar', cfg_qwen_on: 'Qwen3.5 4B bu Mac’te hazır. Bu model yanıtlarken sorular cihazda kalır.', cfg_qwen_off: 'Qwen3.5 4B kullanılamıyor. Planlayıcıyı yerel sunucudan açın ve Qwen sunucusunu başlatın.',
+  cfg_search: 'Gemini yanıtları için Google aramasına izin ver', cfg_commands: 'Yazılı planlayıcı komutlarına izin ver',
+  cfg_command_eg: 'Örneğin “Süreyi 7 gün yap” veya “Zaman çizelgesini aç”.',
+  cfg_luna_on: 'Bu özel oturumda GPT-6 Luna yapılandırılmış.', cfg_luna_off: 'GPT-6 Luna kullanılamıyor. Yanıtlar görev hesaplamalarından geliyor.', cfg_luna_fallback: 'Bu oturumda GPT-6 Luna kullanılamıyor. Qwen3.5 4B bu Mac’te yanıt verebilir.',
+  cfg_setup: 'Çevrimiçi bir model bağla', cfg_setup_text: 'Sunucu ortamında GPT-6 Luna için OPENAI_API_KEY veya Gemini için GEMINI_API_KEY değişkenini ayarlayın, server.py dosyasını --open ile başlatın ve açılan özel oturumu kullanın. Çevrimiçi sorularda mesajınız ve görev bağlamı sağlayıcıya gönderilir.',
+  cfg_ask: 'Analisti aç', cfg_offline: 'Yanıtlar yerel görev motorundan geliyor.',
+  cfg_gemini_fallback: 'Bu oturumda Gemini kullanılamıyor. Qwen3.5 4B bu Mac’te yanıt verebilir.',
+  cfg_missing: 'Bu oturumda Gemini bağlantısı yok. Analist çevrimdışı motoru kullanacak.',
+  cfg_gemini_ok: 'Bu oturumda Gemini yapılandırılmış.', cfg_auto_ok: 'Bu oturumda sunucu sağlayıcısı yapılandırılmış.',
+  cfg_retry: 'Sağlayıcı yanıt vermedi. Son yanıt yerel görev motorundan geldi.'
 });
 
 </script>
@@ -2372,13 +2965,27 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       src.b64 = null; // free the text copy
     } catch (e) { T = null; }
   })();
-  const inTable = ms => !!T && ms >= T.t0 + T.step && ms <= T.t0 + (T.n - 3) * T.step;
+  const inTable = ms => !!T && ms >= T.t0 && ms <= T.t0 + (T.n - 1) * T.step;
 
   function frameSpice(ms) {
-    const x = (ms - T.t0) / T.step, i = Math.floor(x), u = x - i, u2 = u * u, u3 = u2 * u;
-    // Catmull-Rom weights for samples i-1, i, i+1, i+2
-    const w0 = (-u3 + 2 * u2 - u) / 2, w1 = (3 * u3 - 5 * u2 + 2) / 2, w2 = (-3 * u3 + 4 * u2 + u) / 2, w3 = (u3 - u2) / 2;
-    const v = T.v, o = (i - 1) * 6, r = new Array(6);
+    const x = (ms - T.t0) / T.step;
+    const i = Math.min(Math.floor(x), T.n - 2), u = x - i, u2 = u * u, u3 = u2 * u;
+    const v = T.v, r = new Array(6);
+    let o, w0, w1, w2, w3;
+    if (i === 0 || i === T.n - 2) {
+      // Use the four nearest samples for the two edge intervals (one-sided cubic).
+      const base = i === 0 ? 0 : T.n - 4, t = x - base;
+      o = base * 6;
+      w0 = -(t - 1) * (t - 2) * (t - 3) / 6;
+      w1 = t * (t - 2) * (t - 3) / 2;
+      w2 = -t * (t - 1) * (t - 3) / 2;
+      w3 = t * (t - 1) * (t - 2) / 6;
+    } else {
+      // Catmull-Rom weights for samples i-1, i, i+1, i+2.
+      o = (i - 1) * 6;
+      w0 = (-u3 + 2 * u2 - u) / 2; w1 = (3 * u3 - 5 * u2 + 2) / 2;
+      w2 = (-3 * u3 + 4 * u2 + u) / 2; w3 = (u3 - u2) / 2;
+    }
     for (let c = 0; c < 6; c++) r[c] = w0 * v[o + c] + w1 * v[o + 6 + c] + w2 * v[o + 12 + c] + w3 * v[o + 18 + c];
     return { sun: [r[0], r[1], r[2]], earth: [r[3], r[4], r[5]], src: 'spice' };
   }
@@ -2428,9 +3035,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   function look(st, B, R) {
     const d = [B[0] - RM * st.u[0], B[1] - RM * st.u[1], B[2] - RM * st.u[2]];
     const r = Math.hypot(d[0], d[1], d[2]);
-    let az = Math.atan2(dot(d, st.e), dot(d, st.n)) / D;
+    const east = dot(d, st.e), north = dot(d, st.n);
+    let az = Math.atan2(east, north) / D;
     if (az < 0) az += 360;
-    return { el: Math.asin(dot(d, st.u) / r) / D, az, dist: r, rad: Math.asin(R / r) / D };
+    return { el: Math.atan2(dot(d, st.u), Math.hypot(east, north)) / D, az, dist: r, rad: Math.asin(R / r) / D };
   }
   const observeFrame = (st, f) => ({ sun: look(st, f.sun, RS), earth: look(st, f.earth, RE), src: f.src });
   const observe = (st, ms) => observeFrame(st, frame(ms));
@@ -2443,7 +3051,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
   function subPoint(v) {
     const r = Math.hypot(v[0], v[1], v[2]);
-    return { lat: Math.asin(v[2] / r) / D, lon: Math.atan2(v[1], v[0]) / D, dist: r };
+    return { lat: Math.atan2(v[2], Math.hypot(v[0], v[1])) / D, lon: Math.atan2(v[1], v[0]) / D, dist: r };
   }
 
   // Fraction of a disc above a horizon line; x = (centre elevation - horizon) / radius
@@ -2457,7 +3065,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     frame, site, observe, crossCheck, subPoint, discFrac, AU, RM,
     hasSpice: !!T, hasAE: !!A,
     meta: T ? T.meta : null,
-    range: T ? [T.t0 + T.step, T.t0 + (T.n - 3) * T.step] : null,
+    range: T ? [T.t0, T.t0 + (T.n - 1) * T.step] : null,
     sourceAt: ms => inTable(ms) ? 'spice' : 'ae'
   };
 })();
@@ -2492,7 +3100,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     scout: null,                             // result of the last region scan (js/scout.js)
     scanMode: 'pole',                        // 'pole' = south pole with real terrain, 'moon' = whole Moon, coarse
     regions: null,                           // best point inside each NASA study region (js/scout.js)
-    globe: { lat0: -90, lon0: 0, zoom: 4, light: false, labels: true, ice: true, slope: false, temp: false, regions: true, route: true, heat: true, heatBy: 'score', target: 'A', tex: null }
+    globe: { lat0: -58, lon0: -18, zoom: 1, light: false, labels: false, ice: true, slope: false, temp: false, regions: false, route: false, heat: true, heatBy: 'score', target: 'A', tex: null }
   };
 
   /* ---------- helpers ---------- */
@@ -2514,7 +3122,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     return `${mm} ${t('m')}`;
   };
   const toLocal = ms => new Date(ms).toISOString().slice(0, 16);
-  const fromLocal = v => Date.parse(v + (v.length === 16 ? ':00Z' : 'Z'));
+  function fromLocal(value) {
+    const ms = Date.parse(value + 'Z');
+    return Number.isFinite(ms) && toLocal(ms) === value ? ms : NaN;
+  }
   const stepMin = (duration = S.dur) => duration <= 14 ? 10 : duration <= 30 ? 20 : duration <= 60 ? 30 : 60;
   const siteName = k => {
     const s = SITES.find(x => x.id === S.sc[k].site);
@@ -2537,7 +3148,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   // carry a precomputed 80 m skyline; any other point south of 82 S gets one computed here from the 480 m LOLA grid.
   const skyCache = new Map();
   // The 80 m skyline belongs to a place, not to a menu entry: a custom point at the same coordinates gets it too.
-  const terrainEntry = sc => TERRAIN[sc.site] || Object.values(TERRAIN).find(T => Math.abs(T.lat - sc.lat) < 6e-4 && Math.abs(T.lon - sc.lon) < 6e-4) || null;
+  const terrainEntry = sc => Object.values(TERRAIN).find(T => Math.abs(T.lat - sc.lat) < 6e-4 && Math.abs(T.lon - sc.lon) < 6e-4) || null;
   // Which horizon a scenario really uses: 'lola80' (precomputed 80 m profile), 'lola480' (480 m grid) or 'flat'.
   const horizonSrc = sc => sc.mask !== 'lola' ? 'flat' : sc.sky ? 'lola480' : terrainEntry(sc) ? 'lola80' : profile(sc) ? 'lola480' : 'flat';
   function profile(sc) {
@@ -2617,11 +3228,47 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       - 0.5 * Math.sqrt(Math.max(0, (-sep + r + R) * (sep + r - R) * (sep - r + R) * (sep + r + R)));
     return Math.max(0, 1 - area / (Math.PI * r * r));
   }
+  // At sunrise during a partial eclipse, Earth and the ground may hide the same part
+  // of the Sun. Integrate the visible cap with the Earth disc removed in the local
+  // tangent plane. Units here are solar radii; the horizon is a horizontal line.
+  function sunCapOutsideEarth(o, margin) {
+    const s = o.sun, e = o.earth, az = (e.az - s.az) * D, se = s.el * D, ee = e.el * D;
+    const east = Math.cos(ee) * Math.sin(az);
+    const up = Math.sin(ee) * Math.cos(se) - Math.cos(ee) * Math.sin(se) * Math.cos(az);
+    const sinSep = Math.hypot(east, up);
+    const dist = Math.asin(Math.min(1, sinSep)) / (D * s.rad);
+    const cx = dist * east / sinSep, cy = dist * up / sinSep, rad = e.rad / s.rad;
+    const lower = -margin / s.rad;
+    // Slice boundaries where the circles exchange left/right order or start/end.
+    const along = (1 - rad * rad + dist * dist) / (2 * dist);
+    const mid = along * cy / dist, half = Math.sqrt(Math.max(0, 1 - along * along)) * cx / dist;
+    const cuts = [lower, ...[cy - rad, cy + rad, mid - half, mid + half]
+      .filter(y => y > lower && y < 1).sort((a, b) => a - b), 1];
+    // Integral of a semicircle's half-width from its centreline to y.
+    function area(y, r) {
+      const v = Math.max(-r, Math.min(r, y));
+      return (v * Math.sqrt(Math.max(0, r * r - v * v)) + r * r * Math.asin(v / r)) / 2;
+    }
+    let visible = 0;
+    for (let i = 1; i < cuts.length; i++) {
+      const a = cuts[i - 1], b = cuts[i], h = b - a, y = (a + b) / 2;
+      const sw = Math.sqrt(Math.max(0, 1 - y * y));
+      const sunArea = area(b, 1) - area(a, 1);
+      const ew2 = rad * rad - (y - cy) ** 2;
+      if (ew2 <= 0 || Math.abs(cx) >= sw + Math.sqrt(ew2)) { visible += 2 * sunArea; continue; }
+      const ew = Math.sqrt(ew2), earthArea = area(b - cy, rad) - area(a - cy, rad);
+      if (cx - ew > -sw) visible += sunArea + cx * h - earthArea;  // left uncovered strip
+      if (cx + ew < sw) visible += sunArea - cx * h - earthArea;   // right uncovered strip
+    }
+    return Math.max(0, Math.min(1, visible / Math.PI));
+  }
   // The mission and the yearly overview use the same terrain and eclipse criteria.
   function visibleFraction(o, sunMargin) {
     const terrainFraction = Ephem.discFrac(sunMargin / o.sun.rad);
     const uncovered = terrainFraction > 0 ? sunUncovered(o) : 1;
-    return { fraction: terrainFraction * uncovered, eclipse: uncovered < 1 };
+    const fraction = terrainFraction < 1 && uncovered > 0 && uncovered < 1
+      ? sunCapOutsideEarth(o, sunMargin) : terrainFraction * uncovered;
+    return { fraction, eclipse: uncovered < 1 };
   }
   // Pure simulation of one scenario: sc = {site, lat, lon, start, mask}, dur in days, sm = step in minutes.
   function simulate(sc, dur, sm) {
@@ -2631,7 +3278,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       n, dtH, sunEl: new Float32Array(n), sunAz: new Float32Array(n), earthEl: new Float32Array(n),
       earthAz: new Float32Array(n), frac: new Float32Array(n), flux: new Float32Array(n),
       sunM: new Float32Array(n), earthM: new Float32Array(n), // elevation above the LOCAL horizon (terrain included)
-      sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), fromSpice: new Uint8Array(n), sunR: 0.27, earthR: 0.95
+      sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), fromSpice: new Uint8Array(n), sunR: new Float32Array(n), earthR: new Float32Array(n)
     };
     let sunC = 0, earthC = 0, bothC = 0, elSum = 0, energy = 0, eclC = 0;
     let maxEl = -90, eMin = 90, eMax = -90, sMin = 90, nSpice = 0;
@@ -2648,7 +3295,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       d.sunUp[i] = f > 0 ? 1 : 0;
       d.earthUp[i] = o.earth.el > hz(o.earth.az) ? 1 : 0;
       d.both[i] = d.sunUp[i] & d.earthUp[i];
-      d.sunR = o.sun.rad; d.earthR = o.earth.rad;
+      d.sunR[i] = o.sun.rad; d.earthR[i] = o.earth.rad;
       maxEl = Math.max(maxEl, o.sun.el); sMin = Math.min(sMin, o.sun.el);
       eMin = Math.min(eMin, o.earth.el); eMax = Math.max(eMax, o.earth.el);
       if (i < n - 1) {
@@ -2748,6 +3395,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     $('#slips').innerHTML = [1, 7, 14, 29.5].map(d => `<button data-slip="${d}">${t('same_site')} · +${nf(d, d % 1 ? 1 : 0)} ${t('days')}</button>`).join('') +
       `<button data-slip="swap">${t('swap')}</button>`;
   }
+  function scanMatchesMap(result) {
+    return !!result && result.start === S.sc[S.globe.target].start && result.dur === S.dur &&
+      (!result.mode || result.mode === S.scanMode);
+  }
   function syncForms() {
     for (const k of KEYS) {
       const sc = S.sc[k], el = $('#scn-' + k);
@@ -2762,15 +3413,20 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     }
     $('#dur').value = S.dur;
     $$('#target button').forEach(b => b.classList.toggle('on', b.dataset.t === S.globe.target));
-    $$('#lang button').forEach(b => b.classList.toggle('on', b.dataset.lang === S.lang));
+    $$('#lang button').forEach(b => {
+      const selected = b.dataset.lang === S.lang;
+      b.classList.toggle('on', selected);
+      b.setAttribute('aria-pressed', String(selected));
+    });
     $('#light').checked = S.globe.light; $('#labels').checked = S.globe.labels;
-    for (const id of LAYERS) { const el = $('#lay-' + id); el.checked = S.globe[id]; el.disabled = id === 'heat' ? !S.scout : id === 'temp' || id === 'regions' ? false : !Polar.ready; }
-    const legOn = id => id === 'heat' ? !!(S.scout && S.globe.heat) : id === 'temp' || id === 'regions' ? S.globe[id] : id === 'route' ? false : Polar.ready && S.globe[id];
+    const currentHeat = scanMatchesMap(S.scout);
+    for (const id of LAYERS) { const el = $('#lay-' + id); el.checked = S.globe[id] && (id !== 'heat' || currentHeat); el.disabled = id === 'heat' ? !currentHeat : id === 'temp' || id === 'regions' ? false : !Polar.ready; }
+    const legOn = id => id === 'heat' ? currentHeat && S.globe.heat : id === 'temp' || id === 'regions' ? S.globe[id] : id === 'route' ? false : Polar.ready && S.globe[id];
     $('#map-legend').hidden = !LAYERS.some(legOn);
     $$('#map-legend [data-leg]').forEach(el => { el.hidden = !legOn(el.dataset.leg); });
     $('#leg-heat-text').textContent = t('leg_heat_' + S.globe.heatBy);
     $$('#heat-by button').forEach(b => b.classList.toggle('on', b.dataset.by === S.globe.heatBy));
-    $('#heat-by').hidden = !S.scout;
+    $('#heat-by').hidden = !currentHeat;
     renderRoute();
     for (const f of ['load', 'cap', 'area']) $('#pw-' + f).value = S.pwr[f];
     $$('#presets button').forEach(b => { const p = PRESETS.find(x => x.id === b.dataset.preset); b.classList.toggle('on', !!p && presetActive(p)); });
@@ -2802,6 +3458,13 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
 
   /* ---------- verdict, windows, table ---------- */
+  // Preserve short outages and short windows at the limits of a rounded percentage.
+  function visibilityPercent(h, total) {
+    const rounded = Math.round(h / total * 100);
+    if (h > 0 && rounded === 0) return '&lt;1%';
+    if (h < total - 1e-9 && rounded === 100) return '&gt;99%';
+    return nf(rounded) + '%';
+  }
   function renderVerdict() {
     const a = S.data.A.stats, b = S.data.B.stats, diff = b.both - a.both;
     const tol = S.data.A.dtH / 2; // less than half a time step is no difference
@@ -2809,13 +3472,21 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     $('#verdict-h').textContent = a.both <= 0 && b.both <= 0 ? t('verdict_none')
       : Math.abs(diff) < tol ? t('verdict_eq2', { h: hm(a.both) })
         : t('verdict_more2', { w: diff > 0 ? 'B' : 'A', h: hm(Math.abs(diff)) });
+    for (const row of $$('[data-overlap]')) {
+      const k = row.dataset.overlap;
+      const hours = S.data[k].stats.both;
+      const fraction = Math.max(0, Math.min(1, hours / (S.dur * 24)));
+      row.querySelector('.overlap-name').textContent = siteName(k);
+      row.querySelector('b').textContent = hm(hours);
+      row.querySelector('i').style.transform = `scaleX(${fraction})`;
+    }
     $('#verdict-chips').innerHTML = KEYS.map(k => {
       const s = S.data[k].stats, ps = s.sun / s.total, pe = s.earth / s.total;
       const pc = ps > 0.8 ? 'good' : ps > 0.4 ? 'mid' : 'bad', pl = { good: 'p_good', mid: 'p_mid', bad: 'p_bad' }[pc];
       const cc = s.nocomm <= 0 ? 'good' : pe > 0 ? 'mid' : 'bad', cl = { good: 'c_full', mid: 'c_part', bad: 'c_none' }[cc];
       return `<div class="vchip"><span class="badge ${k.toLowerCase()}">${k}</span>
-        <span class="pill ${pc}">${t('power')} <b>${t(pl)}</b> · ${nf(ps * 100)}%</span>
-        <span class="pill ${cc}">${t('comm')} <b>${t(cl)}</b> · ${pe < 1 && Math.round(pe * 100) === 100 ? '&lt;100' : nf(pe * 100)}%</span></div>`;
+        <span class="pill ${pc}">${t('power')} <b>${t(pl)}</b> · ${visibilityPercent(s.sun, s.total)}</span>
+        <span class="pill ${cc}">${t('comm')} <b>${t(cl)}</b> · ${visibilityPercent(s.earth, s.total)}</span></div>`;
     }).join('');
   }
   // One plain sentence per scenario, so the bars can be understood without reading them.
@@ -2848,8 +3519,8 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
           <div class="track ${b}" title="${k} · ${t(b)}">${segs}${gaps}<b class="wcur"></b></div><span class="wv">${val}</span></div>`;
       };
       const hShort = h => h > 0 && h < 10 ? fmtDur(h) : nf(h) + ' ' + t('h'); // minutes stay visible
-      const pv = (h) => `<b>${nf(h / s.total * 100)}%</b> · ${hShort(h)}`;
-      const ticks = [0, 1, 2, 3, 4].map(i => `<span>${fmtDay(sc.start + i / 4 * tot * H)}</span>`).join('');
+      const pv = (h) => `<b>${visibilityPercent(h, s.total)}</b> · ${hShort(h)}`;
+      const ticks = [0, 1, 2, 3, 4].map(i => `<span style="left:${i * 25}%">${fmtDay(sc.start + i / 4 * tot * H)}</span>`).join('');
       return `<div class="wcard">
         <div class="wcard-head"><div class="scn-title"><span class="badge ${k.toLowerCase()}">${k}</span><b>${siteName(k)}</b></div>
           <span class="mono coord">${fmtDay(sc.start)} – ${fmtDate(sc.start + tot * H, false)} · ${nf(S.dur, S.dur % 1 ? 1 : 0)} ${t('days')}</span></div>
@@ -2889,9 +3560,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       <canvas data-sky></canvas>
       <div class="readouts"><div class="ro sun" data-ro="sun"></div><div class="ro earth" data-ro="earth"></div></div>`;
   }
-  function drawSky(k) {
+  function drawSky(k, canvas) {
     const d = S.data[k], sc = S.sc[k], st = d.stats, i = idxAt(k), hz = horizonFn(sc), terr = hasTerrain(sc);
-    const { ctx, w, h } = fit($(`#sky-${k} [data-sky]`));
+    const { ctx, w, h } = fit(canvas || $(`#sky-${k} [data-sky]`));
     const L = 40, R = 10, T = 12, B = 26;
     let hMin = hz(0), hMax = hMin, azMax = 0;
     if (terr) for (let a = 0; a < 360; a += 1) { const v = hz(a); hMin = Math.min(hMin, v); if (v > hMax) { hMax = v; azMax = a; } }
@@ -2955,8 +3626,8 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       ctx.fillStyle = C.text; ctx.textAlign = x > w - 90 ? 'right' : 'left';
       ctx.fillText(label, x + (x > w - 90 ? -r - 7 : r + 7), Math.max(T + 8, y - r - 6));
     };
-    disc(d.earthAz[i], d.earthEl[i], d.earthR, C.earth, 6, t('earth'), d.earthUp[i]);
-    disc(d.sunAz[i], d.sunEl[i], d.sunR, C.sun, 5, t('sun'), d.sunUp[i]);
+    disc(d.earthAz[i], d.earthEl[i], d.earthR[i], C.earth, 6, t('earth'), d.earthUp[i]);
+    disc(d.sunAz[i], d.sunEl[i], d.sunR[i], C.sun, 5, t('sun'), d.sunUp[i]);
     ctx.restore();
   }
   function countdown(k, body) {
@@ -2978,8 +3649,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const d = S.data[k], sc = S.sc[k], i = idxAt(k), el = $('#sky-' + k), hz = horizonFn(sc);
     el.querySelector('[data-name]').textContent = siteName(k);
     el.querySelector('[data-when]').textContent = fmtDate(sc.start + i * d.dtH * H) + ' UTC';
+    const eclipsed = !d.sunUp[i] && d.sunM[i] > -d.sunR[i];
     const ro = (body, elv, az, up, extra) => `
-      <div class="ro-top"><b>${t(body)}</b><span class="${up ? 'up' : ''}">${up ? t('up') : t('down')}</span></div>
+      <div class="ro-top"><b>${t(body)}</b><span class="${up ? 'up' : ''}">${up ? t('up') : t(body === 'sun' && eclipsed ? 'sun_eclipsed' : 'down')}</span></div>
       <div class="ro-big">${elv >= 0 ? '+' : '−'}${nf(Math.abs(elv), 2)}°</div>
       <div class="ro-count">${countdown(k, body)}</div>
       <dl><div><dt>${t('azim')}</dt><dd>${nf(az, 1)}°</dd></div>
@@ -2995,13 +3667,34 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
   /* ---------- elevation charts (one per body, relative to the local horizon) ---------- */
   const chartGeom = { L: 46, R: 14, T: 24, B: 26 };
+  function drawMissionDays(ctx, w, h) {
+    const { L, R, T, B } = chartGeom, span = w - L - R;
+    const label = day => nf(day, Number.isInteger(day) ? 0 : 1) + ' ' + t('d');
+    const gap = ctx.measureText(label(S.dur)).width + 12;
+    const step = [1, 2, 5, 10, 15, 30, 45, 90].find(day => day / S.dur * span >= gap) || 90;
+    const ticks = [0];
+    for (let day = step; day < S.dur && (S.dur - day) / S.dur * span >= gap; day += step) ticks.push(day);
+    ticks.push(S.dur);
+    ctx.textAlign = 'center'; ctx.lineWidth = 1;
+    for (const day of ticks) {
+      const x = L + day / S.dur * span, text = label(day), half = ctx.measureText(text).width / 2;
+      ctx.strokeStyle = '#ffffff10'; ctx.beginPath(); ctx.moveTo(x + .5, T); ctx.lineTo(x + .5, h - B); ctx.stroke();
+      ctx.fillStyle = C.muted; ctx.fillText(text, Math.max(half, Math.min(w - half, x)), h - B + 14);
+    }
+  }
+  // The chart connects successive samples with straight segments; put its marker on that line.
+  function chartValue(series, dtH) {
+    const position = Math.max(0, Math.min(series.length - 1, S.cur / dtH));
+    const i = Math.floor(position), j = Math.min(i + 1, series.length - 1);
+    return series[i] + (series[j] - series[i]) * (position - i);
+  }
   function drawElev(id, key, col) {
     const { ctx, w, h } = fit($(id)), { L, R, T, B } = chartGeom, tot = S.dur * 24;
     let lo = -2, hi = 2;
     for (const k of KEYS) { const a = S.data[k][key]; for (let j = 0; j < a.length; j++) { if (a[j] < lo) lo = a[j]; if (a[j] > hi) hi = a[j]; } }
-    lo = Math.max(-90, Math.floor(lo - 1)); hi = Math.min(90, Math.ceil(hi + 1));
+    lo = Math.floor(lo - 1); hi = Math.ceil(hi + 1);
     const X = hr => L + hr / tot * (w - L - R), Y = el => T + (hi - el) / (hi - lo) * (h - T - B);
-    // everything below the horizon line is "not visible"
+    // Zero is the centre of the body on the local horizon; a solar limb can remain visible.
     ctx.fillStyle = '#ffffff0f'; ctx.fillRect(L, Y(0), w - L - R, h - B - Y(0));
     ctx.font = '11px "JetBrains Mono", monospace'; ctx.textBaseline = 'middle';
     const stp = niceStep(hi - lo);
@@ -3009,15 +3702,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       ctx.strokeStyle = e === 0 ? '#8a92a3' : '#ffffff10'; ctx.lineWidth = e === 0 ? 1.5 : 1;
       ctx.beginPath(); ctx.moveTo(L, Y(e) + .5); ctx.lineTo(w - R, Y(e) + .5); ctx.stroke();
       ctx.fillStyle = e === 0 ? C.text : C.muted; ctx.textAlign = 'right';
-      ctx.fillText(e === 0 ? t('horizon') : (e > 0 ? '+' : '') + e + '°', L - 6, Y(e));
+      ctx.fillText((e > 0 ? '+' : '') + e + '°', L - 6, Y(e));
     }
     if (h - B - Y(0) > 18) { ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(t('below_h'), w - R - 6, h - B - 4); ctx.textBaseline = 'middle'; }
-    const dStep = S.dur <= 14 ? 1 : S.dur <= 30 ? 5 : 10;
-    ctx.textAlign = 'center'; ctx.lineWidth = 1;
-    for (let dd = 0; dd <= S.dur; dd += dStep) {
-      ctx.strokeStyle = '#ffffff10'; ctx.beginPath(); ctx.moveTo(X(dd * 24) + .5, T); ctx.lineTo(X(dd * 24) + .5, h - B); ctx.stroke();
-      ctx.fillStyle = C.muted; ctx.fillText(dd + ' ' + t('d'), X(dd * 24), h - B + 14);
-    }
+    drawMissionDays(ctx, w, h);
     ctx.save(); ctx.beginPath(); ctx.rect(L, T, w - L - R, h - T - B); ctx.clip();
     for (const k of KEYS) {
       const d = S.data[k], arr = d[key];
@@ -3039,9 +3727,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const cx = X(S.cur);
     ctx.strokeStyle = C.text; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(cx, T); ctx.lineTo(cx, h - B); ctx.stroke(); ctx.setLineDash([]);
     for (const k of KEYS) {
-      const d = S.data[k], i = idxAt(k);
+      const d = S.data[k];
       ctx.fillStyle = col; ctx.strokeStyle = '#12151a'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, Y(d[key][i]), 4.5, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, Y(chartValue(d[key], d.dtH)), 4.5, 0, 7); ctx.fill(); ctx.stroke();
     }
     ctx.restore();
     ctx.font = '11px "JetBrains Mono", monospace'; ctx.fillStyle = C.muted; ctx.textBaseline = 'middle';
@@ -3060,12 +3748,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.fillText(v + '%', L - 6, Y(v / 100));
     }
     ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(t('b_reserve'), w - R - 6, Y(0) - 4); ctx.textBaseline = 'middle';
-    const dStep = S.dur <= 14 ? 1 : S.dur <= 30 ? 5 : 10;
-    ctx.textAlign = 'center'; ctx.lineWidth = 1;
-    for (let dd = 0; dd <= S.dur; dd += dStep) {
-      ctx.strokeStyle = '#ffffff10'; ctx.beginPath(); ctx.moveTo(X(dd * 24) + .5, T); ctx.lineTo(X(dd * 24) + .5, h - B); ctx.stroke();
-      ctx.fillStyle = C.muted; ctx.fillText(dd + ' ' + t('d'), X(dd * 24), h - B + 14);
-    }
+    drawMissionDays(ctx, w, h);
     ctx.save(); ctx.beginPath(); ctx.rect(L, T - 2, w - L - R, h - T - B + 4); ctx.clip();
     for (const k of KEYS) {
       const d = S.data[k], soc = d.pw.soc;
@@ -3086,9 +3769,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const cx = X(S.cur);
     ctx.strokeStyle = C.text; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(cx, T); ctx.lineTo(cx, h - B); ctx.stroke(); ctx.setLineDash([]);
     for (const k of KEYS) {
-      const d = S.data[k], i = idxAt(k);
+      const d = S.data[k];
       ctx.fillStyle = C.both; ctx.strokeStyle = '#12151a'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, Y(d.pw.soc[i]), 4.5, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, Y(chartValue(d.pw.soc, d.dtH)), 4.5, 0, 7); ctx.fill(); ctx.stroke();
     }
     ctx.restore();
   }
@@ -3134,13 +3817,14 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
   function drawYear(k) {
     const y = S.year[k]; if (!y) return;
-    const { ctx, w } = fit($('#year-' + k));
+    const cv = $('#year-' + k), { ctx, w } = fit(cv);
     const rowH = 30, cw = w / 365;
+    const pixel = i => Math.round(i * cv.width / 365) * w / cv.width;
     ctx.fillStyle = '#191d24'; ctx.fillRect(0, 0, w, rowH);
     ctx.fillStyle = C.both;
     for (let i = 0; i < 365; i++) { // one row: hours per day with power AND comms together
       const v = y.both[i] / 24; if (!v) continue;
-      ctx.globalAlpha = 0.12 + 0.88 * v; ctx.fillRect(i * cw, 0, Math.ceil(cw), rowH);
+      ctx.globalAlpha = 0.12 + 0.88 * v; ctx.fillRect(pixel(i), 0, pixel(i + 1) - pixel(i), rowH);
     }
     ctx.globalAlpha = 1;
     const off = (S.sc[k].start - y.day0) / DAY;
@@ -3148,11 +3832,17 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     ctx.strokeRect(off * cw + .75, .75, Math.max(3, S.dur * cw), rowH - 1.5);
     ctx.font = '11px "JetBrains Mono", monospace'; ctx.fillStyle = C.muted; ctx.textBaseline = 'top';
     const d0 = new Date(y.day0);
+    ctx.textAlign = 'left';
+    let nextLabelX = 0;
     for (let m = 0; m < 13; m++) {
       const ms = Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + m, 1), x = (ms - y.day0) / DAY * cw;
       if (x < 0 || x > w - 26) continue;
       ctx.fillRect(x, rowH, 1, 4);
-      ctx.fillText(new Date(ms).toLocaleString(S.lang, { month: 'short', timeZone: 'UTC' }), x + 3, rowH + 4);
+      const month = new Date(ms).toLocaleString(S.lang, { month: 'short', timeZone: 'UTC' });
+      if (x >= nextLabelX) {
+        ctx.fillText(month, x + 3, rowH + 4);
+        nextLabelX = x + ctx.measureText(month).width + 7;
+      }
     }
   }
   function yearEvents(k) {
@@ -3171,7 +3861,8 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
 
   /* ---------- globe ---------- */
-  const G = { size: 760, full: 760, img: null, raf: 0, hits: [], idle: 0 };
+  const GLOBE_SIZE = 760, GLOBE_FRAME_MS = 1000 / 30;
+  const G = { img: null, raf: 0, hits: [], dragging: false, nextFrame: 0, terrainDirty: true };
   const RIM = 1 - 6 / 380; // disc radius as a fraction of the half-canvas, same at every render size
   const TILES = 'https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/';
   function loadTexture(z) {
@@ -3223,21 +3914,30 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     };
   }
   const globeTime = () => S.sc[S.globe.target].start + S.cur * H;
-  // fast = true renders at half resolution (dragging, zooming, playback) and sharpens once things settle.
-  function queueGlobe(fast) {
-    clearTimeout(G.idle);
-    G.size = fast === true ? G.full / 2 : G.full;
-    if (fast === true) G.idle = setTimeout(() => queueGlobe(false), 160);
-    if (!G.raf) G.raf = requestAnimationFrame(() => { G.raf = 0; if (S.tab === 'map') drawGlobe(); });
+  // Keep only one pending frame; draw the latest camera state at full resolution.
+  function queueGlobe(redrawTerrain = true) {
+    if (redrawTerrain) G.terrainDirty = true;
+    if (!G.raf && S.tab === 'map') G.raf = requestAnimationFrame(renderGlobeFrame);
   }
-  function drawGlobe() {
-    const cv = $('#globe'), N = G.size;
+  function renderGlobeFrame(ts) {
+    G.raf = 0;
+    if (S.tab !== 'map') return;
+    // rAF timestamps are rounded, including on 60 Hz displays.
+    if (ts + 0.2 < G.nextFrame) { queueGlobe(false); return; }
+    G.nextFrame = ts + GLOBE_FRAME_MS;
+    const fr = Ephem.frame(globeTime()), sp = Ephem.subPoint(fr.sun), ep = Ephem.subPoint(fr.earth);
+    const sd = Ephem.site(sp.lat, sp.lon).u;
+    if (G.terrainDirty) { drawGlobe(sd); G.terrainDirty = false; }
+    drawOverlay(sp, ep);
+    updateGlobeReadouts(sp, ep, sd);
+  }
+  function drawGlobe(sd) {
+    const cv = $('#globe'), N = GLOBE_SIZE;
     if (cv.width !== N) { cv.width = N; cv.height = N; }
     const ctx = cv.getContext('2d');
     if (!G.img || G.img.width !== N) G.img = ctx.createImageData(N, N);
     const px = G.img.data, { fw, rt, up } = globeBasis(), zoom = S.globe.zoom, tex = S.globe.tex;
-    const fr = Ephem.frame(globeTime()), sp = Ephem.subPoint(fr.sun), ep = Ephem.subPoint(fr.earth);
-    const sd = Ephem.site(sp.lat, sp.lon).u, light = S.globe.light;
+    const light = S.globe.light;
     const half = N / 2, rad = half * RIM, PI = Math.PI;
     const tg = tex && tex.g, tw = tex && tex.w, th = tex && tex.h;
     // map layers from the LOLA grid: permanent shadow (ice traps) in blue, slope classes in green / amber / red
@@ -3246,7 +3946,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const lay = Polar.ready ? Polar.grid() : null, ice = S.globe.ice, slp = S.globe.slope && !tmp;
     const PN = lay ? lay.n : 0, PH = PN / 2, PQ = lay ? 2 * lay.R / lay.cell : 0, PP = lay && lay.psr, PS = lay && lay.slope, PE = lay && lay.elev, PC = lay ? lay.cell : 1;
     // the same north of 80 N (a coarser pack), and a coarse slope map for everything in between
-    const nor = NORTH = Polar.north ? Polar.north() : null, wld = Polar.world ? Polar.world() : null;
+    const nor = Polar.north?.(), wld = Polar.world ? Polar.world() : null;
     const NN = nor ? nor.n : 0, NH = NN / 2, NQ = nor ? 2 * nor.R / nor.cell : 0, NP = nor && nor.psr, NS = nor && nor.slope, NE = nor && nor.elev, NC = nor ? nor.cell : 1;
     const WS = wld && wld.slope, WW = wld ? wld.w : 0, WH = wld ? wld.h : 0, WP = wld ? wld.ppd : 0;
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
@@ -3257,19 +3957,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       const vx = x * rt[0] + y * up[0] + z * fw[0], vy = x * rt[1] + y * up[1] + z * fw[1];
       let vz = x * rt[2] + y * up[2] + z * fw[2];
       vz = vz > 1 ? 1 : vz < -1 ? -1 : vz;
-      let g;
-      if (tg) { // bilinear sample of the equirectangular mosaic
-        const fu = (Math.atan2(vy, vx) / PI + 1) / 2 * tw - 0.5, fv = Math.acos(vz) / PI * th - 0.5;
-        let u0 = Math.floor(fu), v0 = Math.floor(fv);
-        const du = fu - u0, dv = fv - v0;
-        const u1 = (u0 + 1 + tw) % tw; u0 = (u0 + tw) % tw;
-        const v1 = v0 + 1 > th - 1 ? th - 1 : v0 + 1; v0 = v0 < 0 ? 0 : v0;
-        g = (tg[v0 * tw + u0] * (1 - du) + tg[v0 * tw + u1] * du) * (1 - dv) + (tg[v1 * tw + u0] * (1 - du) + tg[v1 * tw + u1] * du) * dv;
-        g = (g - 105) * 1.22 + 118;
-      } else {
-        const lat = Math.asin(vz) / D, lon = Math.atan2(vy, vx) / D;
-        g = (Math.abs(lat % 15) < 0.4 || Math.abs(lon % 15) < 0.4 / Math.max(0.05, Math.cos(lat * D))) ? 120 : 78;
-      }
+      let relief = 0;
       // cell of the polar grid under this pixel, and how far inside the 80 S circle it is (0 at 80 S, 1 from 81 S)
       let pc = -1, pw = 0;
       if (lay && vz < POLE_EDGE) {
@@ -3285,7 +3973,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
               (((PE[c2 - 1] - PE[c2 + 1]) - (PE[c2 - PN] - PE[c2 + PN])) * (1 - u) + ((PE[c3 - 1] - PE[c3 + 1]) - (PE[c3 - PN] - PE[c3 + PN])) * u) * v;
           } else sh = (PE[pc - 1] - PE[pc + 1]) - (PE[pc - PN] - PE[pc + PN]);
           const hill = 128 + sh / (2 * PC) * 300;
-          g = g * (1 - pw) + (hill < 25 ? 25 : hill > 240 ? 240 : hill) * pw;
+          relief = Math.max(25, Math.min(240, hill));
         }
       }
       let nc = -1, nw = 0;
@@ -3294,8 +3982,26 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
         if (ci > 0 && cj > 0 && ci < NN - 1 && cj < NN - 1) {
           nc = cj * NN + ci; nw = (vz + POLE_EDGE) / POLE_FADE; if (nw > 1) nw = 1;
           const hill = 128 + ((NE[nc - 1] - NE[nc + 1]) - (NE[nc - NN] - NE[nc + NN])) / (2 * NC) * 300;
-          g = g * (1 - nw) + (hill < 25 ? 25 : hill > 240 ? 240 : hill) * nw;
+          relief = Math.max(25, Math.min(240, hill));
         }
+      }
+      // The polar relief fully replaces the mosaic beyond the one-degree blend band.
+      const reliefWeight = pw || nw;
+      let g = relief;
+      if (reliefWeight < 1) {
+        if (tg) { // bilinear sample of the equirectangular mosaic
+          const fu = (Math.atan2(vy, vx) / PI + 1) / 2 * tw - 0.5, fv = Math.acos(vz) / PI * th - 0.5;
+          let u0 = Math.floor(fu), v0 = Math.floor(fv);
+          const du = fu - u0, dv = fv - v0;
+          const u1 = u0 + 1 === tw ? 0 : u0 + 1; if (u0 < 0) u0 += tw;
+          const v1 = v0 + 1 > th - 1 ? th - 1 : v0 + 1; v0 = v0 < 0 ? 0 : v0;
+          g = (tg[v0 * tw + u0] * (1 - du) + tg[v0 * tw + u1] * du) * (1 - dv) + (tg[v1 * tw + u0] * (1 - du) + tg[v1 * tw + u1] * du) * dv;
+          g = (g - 105) * 1.22 + 118;
+        } else {
+          const lat = Math.asin(vz) / D, lon = Math.atan2(vy, vx) / D;
+          g = (Math.abs(lat % 15) < 0.4 || Math.abs(lon % 15) < 0.4 / Math.max(0.05, Math.cos(lat * D))) ? 120 : 78;
+        }
+        if (reliefWeight) g = g * (1 - reliefWeight) + relief * reliefWeight;
       }
       let k = 1;
       if (light) { const c = vx * sd[0] + vy * sd[1] + vz * sd[2]; k = 0.3 + 0.8 * Math.max(0, Math.min(1, c * 6 + 0.1)) * (0.55 + 0.45 * Math.max(0, c)); }
@@ -3303,7 +4009,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       g *= k; g = g < 0 ? 0 : g;
       let cr = g * 1.04, cg = g, cb = g * 0.95;
       if (tmp) { // estimated surface temperature at the selected moment (see surfaceTemp)
-        const T = Math.max(0, Math.min(400, Math.round(surfaceTemp(vx, vy, vz, sd, lay)))) * 3;
+        const T = Math.max(0, Math.min(400, Math.round(surfaceTemp(vx, vy, vz, sd, lay, nor)))) * 3;
         cr = cr * 0.22 + TEMP_LUT[T] * 0.78; cg = cg * 0.22 + TEMP_LUT[T + 1] * 0.78; cb = cb * 0.22 + TEMP_LUT[T + 2] * 0.78;
       }
       // slope and shadow under this pixel: the polar packs where they exist (weight lw), the coarse world map elsewhere
@@ -3321,13 +4027,15 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       px[o] = cr > 255 ? 255 : cr; px[o + 1] = cg > 255 ? 255 : cg; px[o + 2] = cb > 255 ? 255 : cb; px[o + 3] = 255;
     }
     ctx.putImageData(G.img, 0, 0);
-    drawOverlay(sp, ep);
+  }
+  function updateGlobeReadouts(sp, ep, sd) {
+    if (!G.dragging) window.AAInspector?.syncCamera();
     $('#f-sun').textContent = fmtCoord(sp.lat, sp.lon);
     $('#f-earth').textContent = fmtCoord(ep.lat, ep.lon);
     $('#f-dist').textContent = nf(ep.dist) + ' km';
     // the readout respects the terrain horizon of the simulation: no Sun at this moment means night temperature
     const tk0 = S.globe.target, tu = Ephem.site(S.sc[tk0].lat, S.sc[tk0].lon).u, td = S.data[tk0], lit = !td || td.frac[idxAt(tk0)] > 0;
-    const tK = lit ? surfaceTemp(tu[0], tu[1], tu[2], sd, Polar.ready ? Polar.grid() : null) : (facts(S.sc[tk0]).shadow >= 0.5 ? T_PSR : T_NIGHT);
+    const tK = surfaceTemp(tu[0], tu[1], tu[2], lit ? sd : [0, 0, 0], Polar.ready ? Polar.grid() : null, Polar.north?.());
     $('#f-temp').textContent = `${S.globe.target} · ${nf(tK)} K (${nf(tK - 273.15)} °C)`;
   }
   /* Surface temperature model for the map layer (K). Radiative equilibrium with the Sun at the selected moment:
@@ -3340,8 +4048,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   // slope classes by quarter degree: under 5 deg green, to 8 light green, to 15 amber, above red
   const SLOPE_LUT = new Uint8Array(256 * 3);
   for (let s = 0; s < 256; s++) SLOPE_LUT.set(s <= 20 ? [60, 200, 120] : s <= 32 ? [150, 210, 90] : s <= 60 ? [240, 180, 60] : [235, 90, 70], s * 3);
-  let NORTH = null; // the north pack of the current frame, for the permanent shadow in surfaceTemp
-  function surfaceTemp(vx, vy, vz, sd, lay) {
+  function surfaceTemp(vx, vy, vz, sd, lay, north = Polar.north?.()) {
     let c = vx * sd[0] + vy * sd[1] + vz * sd[2], shadow = 0;
     if (lay && vz < POLE_EDGE) {
       const w = Math.min(1, (POLE_EDGE - vz) / POLE_FADE), c0 = c;
@@ -3355,9 +4062,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
         shadow = w * (lay.psr[o] & 31) / 16;
       }
     }
-    else if (NORTH && vz > -POLE_EDGE) {
-      const n = NORTH.n, q = 2 * NORTH.R / NORTH.cell / (1 + vz), ci = Math.floor(vy * q + n / 2), cj = Math.floor(n / 2 + vx * q);
-      if (ci >= 0 && cj >= 0 && ci < n && cj < n) shadow = Math.min(1, (vz + POLE_EDGE) / POLE_FADE) * (NORTH.psr[cj * n + ci] & 31) / 16;
+    else if (north && vz > -POLE_EDGE) {
+      const n = north.n, q = 2 * north.R / north.cell / (1 + vz), ci = Math.floor(vy * q + n / 2), cj = Math.floor(n / 2 + vx * q);
+      if (ci >= 0 && cj >= 0 && ci < n && cj < n) shadow = Math.min(1, (vz + POLE_EDGE) / POLE_FADE) * (north.psr[cj * n + ci] & 31) / 16;
     }
     const lit = c > 0 ? Math.max(T_NIGHT, T_SUBSOLAR * Math.sqrt(Math.sqrt(c))) : T_NIGHT;
     return lit * (1 - shadow) + T_PSR * shadow;
@@ -3371,16 +4078,17 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     for (let c = 0; c < 3; c++) TEMP_LUT[T * 3 + c] = Math.round(a[c + 1] + (b[c + 1] - a[c + 1]) * f);
   }
   function drawOverlay(sp, ep) {
-    const N = G.size, half = N / 2, rad = half * RIM, zoom = S.globe.zoom, { fw, rt, up } = globeBasis();
+    const N = GLOBE_SIZE, half = N / 2, rad = half * RIM, zoom = S.globe.zoom, { fw, rt, up } = globeBasis();
     const { ctx: oc, w } = fit($('#globe-ov')), sc = w / N;
     const dv = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     const proj = (lat, lon) => {
       const u = Ephem.site(lat, lon).u, x = dv(u, rt) * zoom, y = dv(u, up) * zoom;
-      if (dv(u, fw) <= 0.02 || x * x + y * y > 0.97) return null;
+      if (dv(u, fw) < 0 || x * x + y * y > 1) return null;
       return [(half + x * rad) * sc, (half - y * rad) * sc];
     };
     oc.strokeStyle = '#ffffff30'; oc.lineWidth = 1; oc.beginPath(); oc.arc(half * sc, half * sc, rad * sc, 0, 7); oc.stroke();
     const placed = [];
+    const showNames = S.globe.labels && !G.dragging;
     const label = (p, text, font, col, off) => {
       oc.font = font;
       const tw = oc.measureText(text).width, right = p[0] + off + tw < w - 4;
@@ -3416,10 +4124,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     ring(sp, C.sun); ring(ep, C.earth);
     for (const [p, s] of dots) {
       oc.fillStyle = s.g === 'pole' ? C.both : '#ffffff'; oc.strokeStyle = '#000000aa'; oc.lineWidth = 1.5;
-      oc.beginPath(); oc.arc(p[0], p[1], 3.6, 0, 7); oc.fill(); oc.stroke();
+      oc.beginPath(); oc.arc(p[0], p[1], showNames ? 3.6 : 2.4, 0, 7); oc.fill(); oc.stroke();
     }
     // region scan: one dot per scored point, numbered rings on the best ones
-    const sct = S.scout && S.globe.heat ? S.scout : null;
+    const sct = S.globe.heat && scanMatchesMap(S.scout) ? S.scout : null;
     if (sct) {
       const kmPx = rad * zoom * sc / 1737.4;
       oc.globalAlpha = 0.78;
@@ -3446,9 +4154,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
         oc.strokeStyle = r.a24 ? '#ffd166' : '#ffffff99'; oc.lineWidth = r.a24 ? 2 : 1.2; oc.setLineDash(r.a24 ? [] : [4, 4]);
         oc.beginPath(); oc.arc(p[0], p[1], Math.max(3, rPx), 0, 7); oc.stroke(); oc.setLineDash([]);
         oc.font = FI; // a region that is also a listed site is already named by its site dot
-        if (S.globe.labels && zoom >= 3 && !SITES.some(s => s.name === r.name)) label([p[0], p[1] - Math.max(3, rPx) - 8], r.name, FI, r.a24 ? '#ffd166' : '#ffffffcc', -oc.measureText(r.name).width / 2);
+        if (showNames && zoom >= 3 && !SITES.some(s => s.name === r.name)) label([p[0], p[1] - Math.max(3, rPx) - 8], r.name, FI, r.a24 ? '#ffd166' : '#ffffffcc', -oc.measureText(r.name).width / 2);
       }
-      if (S.regions) for (const row of S.regions.rows) if (row.best) {
+      if (scanMatchesMap(S.regions)) for (const row of S.regions.rows) if (row.best) {
         const p = proj(row.best.lat, row.best.lon); if (!p) continue;
         oc.fillStyle = '#ffd166'; oc.strokeStyle = '#0a0c0f'; oc.lineWidth = 1.5; oc.beginPath(); oc.arc(p[0], p[1], 4.2, 0, 7); oc.fill(); oc.stroke();
       }
@@ -3466,9 +4174,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       if (pe) { oc.fillStyle = '#7fe3ff'; oc.strokeStyle = '#0a0c0f'; oc.lineWidth = 1.5; oc.beginPath(); oc.moveTo(pe[0], pe[1] - 6); oc.lineTo(pe[0] + 6, pe[1]); oc.lineTo(pe[0], pe[1] + 6); oc.lineTo(pe[0] - 6, pe[1]); oc.closePath(); oc.fill(); oc.stroke(); }
     }
     pin(S.sc.B, C.b, 'B'); pin(S.sc.A, C.text, 'A');
-    if (S.globe.labels && S.globe.ice && Polar.ready && zoom >= 2)
+    if (showNames && S.globe.ice && Polar.ready && zoom >= 2)
       for (const [name, la, lo] of Polar.CRATERS) { const p = proj(la, lo); if (p) label([p[0], p[1]], name, FI, '#a9d4ff', 2); }
-    if (S.globe.labels) {
+    if (showNames) {
       for (const k of KEYS) { const p = proj(S.sc[k].lat, S.sc[k].lon); if (p) label(p, siteName(k), F, '#ffffff', 16); }
       for (const [p, s] of dots) label(p, s.name, F, s.g === 'pole' ? '#c9f5e2' : '#ffffff', 8);
       for (const m of LANDMARKS) { const p = proj(m.lat, m.lon); if (p) label(p, m.name, FI, '#d7dbe4c0', 2); }
@@ -3479,23 +4187,27 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   const heatValue = pt => S.globe.heatBy === 'sun' ? 35 + pt.sun * 45 : S.globe.heatBy === 'earth' ? 35 + pt.earth * 45 : pt.score;
   const REGIONS = window.REGIONS || [];
   // up to 40x: at the pole the LOLA relief stays sharp enough to follow a rover route (about 90 km across)
-  function setZoom(z) { S.globe.zoom = Math.max(1, Math.min(40, z)); queueGlobe(true); }
+  function setZoom(z) { S.globe.zoom = Math.max(1, Math.min(40, z)); queueGlobe(); }
   function globeEvents() {
     const wrap = $('#globe-wrap'); let drag = null;
     wrap.addEventListener('pointerdown', e => {
-      if (e.target.closest('.zoom-btns')) return;
-      drag = { x: e.clientX, y: e.clientY, lat: S.globe.lat0, lon: S.globe.lon0, moved: false }; wrap.setPointerCapture(e.pointerId);
+      if (drag || e.button !== 0 || !e.isPrimary || e.target.closest('.zoom-btns')) return;
+      drag = { pointer: e.pointerId, x: e.clientX, y: e.clientY, lat: S.globe.lat0, lon: S.globe.lon0, moved: false }; wrap.setPointerCapture(e.pointerId);
     });
     wrap.addEventListener('pointermove', e => {
-      if (!drag) return;
+      if (!drag || drag.pointer !== e.pointerId) return;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y, r = wrap.getBoundingClientRect().width / 2 * S.globe.zoom;
       if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
       if (!drag.moved) return;
+      G.dragging = true;
       S.globe.lon0 = drag.lon - dx / r * 57.3; S.globe.lat0 = Math.max(-90, Math.min(90, drag.lat + dy / r * 57.3));
-      queueGlobe(true);
+      queueGlobe();
     });
     wrap.addEventListener('pointerup', e => {
-      const d = drag; drag = null; if (!d || d.moved) return;
+      if (!drag || drag.pointer !== e.pointerId) return;
+      const d = drag;
+      drag = null; G.dragging = false;
+      if (d.moved) { queueGlobe(); return; }
       const r = wrap.getBoundingClientRect(), half = r.width / 2, rad = half * RIM;
       const px = e.clientX - r.left, py = e.clientY - r.top, k = S.globe.target;
       const hit = G.hits.map(h => [Math.hypot(h.x - px, h.y - py), h]).filter(h => h[0] < 13).sort((a, b) => a[0] - b[0])[0];
@@ -3509,6 +4221,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       }
       refresh();
       if (window.AAssist) window.AAssist.onPick(k);
+    });
+    wrap.addEventListener('lostpointercapture', e => {
+      if (!drag || drag.pointer !== e.pointerId) return;
+      drag = null; G.dragging = false; queueGlobe();
     });
     wrap.addEventListener('wheel', e => { e.preventDefault(); setZoom(S.globe.zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2)); }, { passive: false });
     $('#zin').addEventListener('click', () => setZoom(S.globe.zoom * 1.4));
@@ -3536,42 +4252,115 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
 
   /* ---------- time bar ---------- */
-  function renderCursor() {
+  // The scrubber tracks every frame. The text gets a readable snapshot twice a second.
+  const clockLabels = ['#tb-met', '#tb-a', '#tb-b'].map($);
+  let lastLabelUpdate = -Infinity;
+  function updateClockLabels() {
+    const minutes = Math.floor(S.cur * 60);
+    const two = value => String(value).padStart(2, '0');
+    const elapsed = `T+${two(Math.floor(minutes / 1440))}${t('d')} ${two(Math.floor(minutes / 60) % 24)}:${two(minutes % 60)}`;
+    const values = [elapsed, fmtDate(S.sc.A.start + S.cur * H), fmtDate(S.sc.B.start + S.cur * H)];
+    clockLabels.forEach((label, i) => {
+      if (label.textContent !== values[i]) label.textContent = values[i];
+    });
+    lastLabelUpdate = performance.now();
+  }
+  function renderCursor(playbackFrame = false) {
     const tot = S.dur * 24;
     $('#scrub').value = Math.round(S.cur / tot * 1000);
-    $('#tb-met').textContent = 'T+' + fmtDur(S.cur);
-    $('#tb-a').textContent = fmtDate(S.sc.A.start + S.cur * H);
-    $('#tb-b').textContent = fmtDate(S.sc.B.start + S.cur * H);
+    if (!playbackFrame || performance.now() - lastLabelUpdate >= 500) updateClockLabels();
     for (const el of $$('.wcur')) el.style.left = (S.cur / tot * 100) + '%';
     if (S.tab === 'sky') for (const k of KEYS) { drawSky(k); renderNow(k); }
     if (S.tab === 'time') drawChart();
-    if (S.tab === 'map' && (S.globe.light || S.globe.temp)) queueGlobe(S.playing); // both follow the mission clock
+    if (S.tab === 'map') queueGlobe(Boolean(S.globe.light || S.globe.temp)); // subpoints and readouts follow the clock even on the static mosaic
     if (S.tab === 'resources') renderVerify();
+    if (S.tab === 'console') window.AAMissionConsole?.update();
   }
-  let last = 0;
+  let last = 0, playbackRequest = 0;
   function tick(ts) {
     if (!S.playing) return;
     const dt = Math.min(100, ts - (last || ts)); last = ts;
     const tot = S.dur * 24;
     S.cur += tot * dt / 20000 * parseFloat($('#speed').value);
     if (S.cur >= tot) S.cur = 0;
-    renderCursor();
-    requestAnimationFrame(tick);
+    renderCursor(true);
+    playbackRequest = requestAnimationFrame(tick);
   }
   function setPlaying(p) {
+    if (p === S.playing) return;
     S.playing = p; last = 0;
     $('#play').textContent = p ? '❚❚' : '▶';
     $('#play').setAttribute('aria-label', t(p ? 'pause' : 'play'));
-    if (p) requestAnimationFrame(tick);
+    if (p) playbackRequest = requestAnimationFrame(tick);
+    else { cancelAnimationFrame(playbackRequest); updateClockLabels(); }
   }
 
   /* ---------- tabs, i18n, resources, state ---------- */
-  function showTab(id) {
+  const navIndicator = $('.nav-indicator');
+  const viewOrder = ['compare', 'sky', 'time', 'resources', 'settings', 'console', 'map'];
+  function positionNavIndicator(animate = false) {
+    const tab = $('.nav button[aria-current="page"]');
+    if (!tab || !tab.offsetWidth) {
+      navIndicator.hidden = true;
+      return;
+    }
+    const transform = `translate(${tab.offsetLeft}px, ${tab.offsetTop}px) scaleX(${tab.offsetWidth / 64})`;
+    const height = tab.offsetHeight + 'px';
+    if (!navIndicator.hidden && navIndicator.style.transform === transform && navIndicator.style.height === height) return;
+    navIndicator.classList.toggle('sliding', animate && !navIndicator.hidden);
+    navIndicator.hidden = false;
+    navIndicator.style.height = height;
+    navIndicator.style.transform = transform;
+  }
+  let inspectorOrigin = { view: 'compare', scroll: 0, opener: null };
+  function showTab(id, opener) {
+    if (!viewOrder.includes(id)) return;
+    const previous = S.tab;
+    if (id === 'map' && previous !== id) {
+      inspectorOrigin = { view: previous, scroll: window.scrollY, opener: opener || document.activeElement };
+    }
     S.tab = id;
+    if (previous !== id) {
+      const section = document.getElementById(id);
+      section.dataset.enterFrom = viewOrder.indexOf(id) > viewOrder.indexOf(previous) ? 'right' : 'left';
+      try {
+        const url = new URL(location.href);
+        if (id === 'settings' || id === 'console') url.searchParams.set('view', id);
+        else url.searchParams.delete('view');
+        if (url.href !== location.href) history.replaceState(null, '', url);
+      } catch { /* Embedded offline viewers may restrict history access. */ }
+    }
+    document.body.classList.toggle('map-view', id === 'map');
+    document.body.classList.toggle('settings-view', id === 'settings');
+    const clock = $('.timebar');
+    if (id === 'compare') $('#win-rows').parentElement.append(clock);
+    else if (clock.closest('main')) $('main').after(clock);
     $$('main > section').forEach(s => { s.hidden = s.id !== id; });
-    $$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
-    window.scrollTo(0, 0);
+    $$('.nav button').forEach(b => {
+      const current = b.dataset.tab === id || (id === 'console' && b.dataset.tab === 'settings');
+      b.classList.toggle('on', current);
+      if (current) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    positionNavIndicator(previous !== id);
+    window.scrollTo({top: 0, behavior: 'instant'});
     redrawVisible();
+    window.AAssist?.onViewChange?.();
+    if (previous !== id && !document.documentElement.classList.contains('tour-on') &&
+        !document.body.classList.contains('assist-on')) {
+      const title = document.querySelector('#' + id + ' h1');
+      title.tabIndex = -1;
+      title.focus({preventScroll: true});
+    }
+  }
+  function exitInspector() {
+    if (S.tab !== 'map') return;
+    const {view, scroll, opener} = inspectorOrigin;
+    showTab(view);
+    const target = opener && opener !== document.body && opener.getClientRects().length
+      ? opener : $('.inspect-launch');
+    target.focus({preventScroll: true});
+    window.scrollTo({top: scroll, behavior: 'instant'});
   }
   function redrawVisible() {
     renderCursor();
@@ -3580,7 +4369,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
   function applyLang() {
     document.documentElement.lang = S.lang;
+    $$('[data-aria-label]').forEach(el => el.setAttribute('aria-label', t(el.dataset.ariaLabel)));
+    $('#play').setAttribute('aria-label', t(S.playing ? 'pause' : 'play'));
     $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    positionNavIndicator();
     for (const g of ['lunar', 'partner'])
       $('#res-' + g).innerHTML = RESOURCES.filter(r => r.g === g).map(r =>
         `<a class="res" href="${r.url}" target="_blank" rel="noopener"><small>${r.org}</small><b>${r.name}</b><span>${r[S.lang]}</span></a>`).join('');
@@ -3591,16 +4383,26 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
   function loadHash() {
     const p = new URLSearchParams(location.hash.slice(1));
+    const number = value => value != null && value.trim() !== '' ? Number(value) : NaN;
     for (const k of KEYS) {
-      const v = (p.get(k.toLowerCase()) || '').split('|'); if (v.length !== 5) continue;
-      const lat = parseFloat(v[1]), lon = parseFloat(v[2]), st = fromLocal(v[3]), mk = v[4] === 'lola' ? 'lola' : parseFloat(v[4]);
-      if ([lat, lon, st].some(isNaN) || Math.abs(lat) > 90) continue;
-      S.sc[k] = { site: SITES.some(s => s.id === v[0]) ? v[0] : 'custom', lat, lon, start: st, mask: mk === 'lola' || MASKS.some(m => m[0] === mk) ? mk : 0 };
+      const parts = (p.get(k.toLowerCase()) || '').split('|');
+      if (parts.length !== 5) continue;
+      const [id, latitude, longitude, date, horizon] = parts;
+      const lat = number(latitude), lon = number(longitude), start = fromLocal(date);
+      if (![lat, lon, start].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+      const known = SITES.find(s => s.id === id && Math.abs(s.lat - lat) < 0.0006 && Math.abs(s.lon - lon) < 0.0006);
+      const angle = number(horizon);
+      const mask = horizon === 'lola' ? 'lola' : MASKS.some(m => m[0] === angle) ? angle : 0;
+      S.sc[k] = {site: known ? known.id : 'custom', lat, lon, start, mask};
     }
-    const d = parseFloat(p.get('d')); if (DURS.includes(d)) S.dur = d;
-    if (I18N[p.get('l')]) S.lang = p.get('l');
-    const pw = (p.get('p') || '').split('|').map(parseFloat);
-    if (pw.length === 3 && !pw.some(isNaN)) ['load', 'cap', 'area'].forEach((f, i) => { S.pwr[f] = Math.max(PWR_LIMITS[f][0], Math.min(PWR_LIMITS[f][1], pw[i])); });
+    const duration = number(p.get('d')); if (DURS.includes(duration)) S.dur = duration;
+    const lang = p.get('l'); if (lang === 'en' || lang === 'tr') S.lang = lang;
+    const power = (p.get('p') || '').split('|').map(number);
+    if (power.length === 3 && power.every(Number.isFinite)) {
+      ['load', 'cap', 'area'].forEach((key, i) => {
+        S.pwr[key] = Math.max(PWR_LIMITS[key][0], Math.min(PWR_LIMITS[key][1], power[i]));
+      });
+    }
   }
   function csv(k) {
     const d = S.data[k], sc = S.sc[k], rows = ['utc,sun_elevation_deg,sun_azimuth_deg,sun_disc_fraction,earth_elevation_deg,earth_azimuth_deg,earth_visible'];
@@ -3667,15 +4469,41 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     for (const k of KEYS) { buildScenario(k); buildSky(k); yearEvents(k); }
     fillSelects(); applyLang(); globeEvents(); if (!loadEmbeddedTexture()) loadTexture(2);
 
-    $$('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    $$('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab, b)));
+    document.addEventListener('click', e => {
+      if (e.target.closest('[data-exit-inspector]')) exitInspector();
+    });
+    const presets = $('.preset-menu');
+    document.addEventListener('pointerdown', e => {
+      if (!presets.contains(e.target)) presets.open = false;
+    });
+    presets.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        presets.open = false; presets.querySelector('summary').focus(); e.stopPropagation();
+      }
+    });
+    if (window.ResizeObserver) {
+      const navLayout = new ResizeObserver(() => positionNavIndicator());
+      for (const el of $$('.nav, .nav button')) navLayout.observe(el);
+    } else {
+      window.addEventListener('resize', () => positionNavIndicator());
+      document.fonts?.ready.then(() => positionNavIndicator());
+    }
     // Keyboard: 1-5 tabs, Space play/pause, arrows step the mission clock (Shift = 1 day).
     document.addEventListener('keydown', e => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey ||
+          document.body.classList.contains('analyst-modal') ||
+          document.activeElement?.closest('#assist, [role="dialog"]') ||
+          document.querySelector('.ap-picker-menu')) return;
+      if (e.key === 'Escape' && S.tab === 'map' && !document.body.classList.contains('assist-on') &&
+          !document.querySelector('dialog[open], .rep-modal')) {
+        e.preventDefault(); exitInspector(); return;
+      }
       // Typing fields keep every key; buttons, summaries and checkboxes keep Space/Enter; the slider keeps its arrows.
       const a = document.activeElement || document.body, tag = a.tagName, ty = a.type;
       if (tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'INPUT' && ty !== 'checkbox' && ty !== 'range')) return;
       if ((tag === 'BUTTON' || tag === 'SUMMARY' || ty === 'checkbox') && (e.key === ' ' || e.key === 'Enter')) return;
-      if (ty === 'range' && e.key.startsWith('Arrow')) return;
+      if ((ty === 'range' || a.id === 'verify') && e.key.startsWith('Arrow')) return;
       const tabs = ['compare', 'sky', 'time', 'map', 'resources'];
       if (e.key >= '1' && e.key <= '5') showTab(tabs[+e.key - 1]);
       else if (e.key === ' ') { e.preventDefault(); setPlaying(!S.playing); }
@@ -3687,7 +4515,12 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     });
     document.addEventListener('toggle', e => { if (e.target.tagName === 'DETAILS' && e.target.open) redrawVisible(); }, true);
     $('#dur').addEventListener('change', e => { S.dur = parseFloat(e.target.value); refresh(true); });
-    $('#presets').addEventListener('click', e => { if (e.target.dataset.preset) applyPreset(e.target.dataset.preset); });
+    $('#presets').addEventListener('click', e => { if (e.target.dataset.preset) {
+      applyPreset(e.target.dataset.preset);
+      const menu = e.currentTarget.closest('details');
+      menu.open = false;
+      menu.querySelector('summary').focus();
+    } });
     for (const f of ['load', 'cap', 'area']) $('#pw-' + f).addEventListener('change', e => setPower({ [f]: e.target.value }));
     $('#slips').addEventListener('click', e => {
       const v = e.target.dataset.slip; if (!v) return;
@@ -3729,7 +4562,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     // shared API for the assistant module
     window.AA = {
       S, KEYS, DURS, TERRAIN, Polar, C, t, nf, fmtDur, fmtDate, fmtCoord, fmtDay, siteName, winSummary, idxAt, hasTerrain, terrainOK, horizonSrc, countdown, showTab, refresh,
-      simulate, setSite, setPoint, stepMin, facts, powerSim, setPower, applyPreset, queueGlobe, syncForms, heatColor, horizonFn, routeFor, surfaceTemp, REGIONS, ROVER_KMH,
+      drawSky, setPlaying, simulate, setSite, setPoint, stepMin, facts, powerSim, setPower, applyPreset, queueGlobe, syncForms, scanMatchesMap, heatColor, horizonFn, routeFor, surfaceTemp, REGIONS, ROVER_KMH,
       POWER: { PV_EFF, CHG_EFF, DOD, WH_KG },
       onChange(fn) { hooks.push(fn); } // other modules re-render after every recomputation
     };
@@ -3913,7 +4746,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
         <div><h4>${t('pros')}</h4>${list(a.pros.slice(0, compact ? 2 : 4), 'pro')}</div>
         <div><h4>${t('cons')}</h4>${list(a.cons.slice(0, compact ? 2 : 4), 'con')}</div>
       </div>
-      <button class="ghost ask" data-ask="${a.k}">✦ ${t('ask_ai')}</button>`;
+      <button class="ghost ask" data-ask="${a.k}">${L('Analiste sor', 'Ask analyst')} <span aria-hidden="true">↗</span></button>`;
   }
   function renderReports() {
     for (const k of KEYS) $('#report-' + k).innerHTML = reportHTML(analyze(k), false);
@@ -4444,13 +5277,13 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
   /* ================= router ================= */
   const mem = { k: null, intent: null, history: [] };
-  async function localAnswer(q) {
+  async function localAnswer(q, selectedScope) {
     const e = parse(q), x = e.x;
     if (e.invalidDate) return esc(L('Bu tarih takvimde yok. Lütfen geçerli bir tarih girin (YYYY-AA-GG).', 'That date does not exist. Please enter a valid date (YYYY-MM-DD).'));
     let intents = detect(x);
     // a site named without a letter refers to the scenario that already uses it (“Malapert’te eğim nasıl?”)
     const named = !e.scen.length && e.site ? KEYS.find(x => S.sc[x].site === e.site.id) : null;
-    const k = e.scen[0] || named || mem.k || S.globe.target;
+    const k = e.scen[0] || named || selectedScope || mem.k || S.globe.target;
     // follow-up such as "and for B?": reuse the previous topic
     if (!intents.length && mem.intent && (e.scen.length || e.site || e.date || e.days || e.shift) && x.length < 40) intents = [mem.intent];
     const has = n => intents.includes(n);
@@ -4540,92 +5373,293 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   // Minimal, safe formatting of model text: escape everything, then allow **bold**, lists and line breaks.
   const fmtModel = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^#{1,4}\s*(.+)$/gm, '<b>$1</b>').replace(/^\s*[-•]\s+/gm, '• ').replace(/\n/g, '<br>');
 
-  async function respond(q) {
-    const local = await localAnswer(q), ai = window.AstroApexAI;
-    if (ai && typeof ai.ask === 'function') {
-      try {
-        const ctx = buildContext();
-        ctx.localAnalysis = toText(local);
-        ctx.history = mem.history.slice(-6);
-        const text = await ai.ask(q, ctx);
-        if (text && String(text).trim()) {
-          mem.history.push({ role: 'user', content: q }, { role: 'assistant', content: String(text) });
-          return fmtModel(String(text)) + `<details class="calc"><summary>${L('Hesaplanan veriler', 'Computed data')}</summary>${local}</details>`;
-        }
-      } catch (err) { /* fall back to the local engine */ }
-    }
-    return local;
+  const modes = ['auto', 'local', 'openai', 'gemini', 'qwen'];
+  const preferenceKey = 'astroapex:analyst-provider';
+  let mode = 'auto', search = false, authorized = false, retrying = false, revision = 0;
+  let providers = {openai: null, anthropic: null, gemini: null, qwen: null}, localToken = null;
+  let offlineToken = null, offlineSessionRequest = null, lastSource = null;
+  try {
+    const saved = JSON.parse(localStorage.getItem(preferenceKey) || '{}');
+    if (saved && modes.includes(saved.mode)) mode = saved.mode;
+    search = saved?.search === true;
+  } catch (_) { /* Preferences are optional. */ }
+  try { localToken = sessionStorage.getItem('astroapex-local-token'); } catch (_) {}
+
+  function getProviderSettings() {
+    return {mode, search, providers: {...providers}, authorized, retrying, lastSource};
   }
-  // The local server's private launch URL provisions this token for the current browser tab.
-  // Public/static pages never fetch a provider status without that local capability.
-  let localToken = null;
-  try { localToken = sessionStorage.getItem('astroapex-local-token'); } catch (e) { /* storage may be unavailable */ }
-  if (!window.AstroApexAI && localToken && /^https?:$/.test(location.protocol)) {
-    const headers = { 'X-AstroApex-Token': localToken };
-    fetch('api/status', { headers, credentials: 'same-origin' }).then(r => r.ok ? r.json() : null).then(st => {
-      if (!st || !st.ai || window.AstroApexAI) return;
-      const bridge = {
-        name: L('Yapay zekâ bağlı · ', 'AI connected · ') + st.model,
-        async ask(question, context) {
-          try {
-            const r = await fetch('api/chat', {
-              method: 'POST', credentials: 'same-origin',
-              headers: { ...headers, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ question, context })
-            });
-            if (!r.ok) {
-              if ((r.status === 401 || r.status === 403) && window.AstroApexAI === bridge) window.AstroApexAI = null;
-              throw new Error('chat ' + r.status);
-            }
-            const answer = (await r.json()).answer;
-            bridge.temporarilyUnavailable = false;
-            setModelLabel();
-            return answer;
-          } catch (error) {
-            bridge.temporarilyUnavailable = true;
-            setModelLabel();
-            throw error;
-          }
+  function providerChanged() {
+    setModelLabel();
+    window.dispatchEvent(new Event('astroapex:providerchange'));
+  }
+  function setProviderSettings(next) {
+    if (!next || !modes.includes(next.mode) || typeof next.search !== 'boolean') return;
+    if (mode === next.mode && search === next.search) return;
+    mode = next.mode; search = next.search; retrying = false; lastSource = null; revision++;
+    mem.history.length = 0;
+    try { localStorage.setItem(preferenceKey, JSON.stringify({mode, search})); } catch (_) {}
+    providerChanged();
+  }
+  function cloudProvider() {
+    if (mode === 'openai' || mode === 'gemini') return providers[mode] ? mode : null;
+    if (mode !== 'auto') return null;
+    if (providers.openai) return 'openai';
+    if (window.AstroApexAI?.ask) return 'host';
+    return providers.anthropic ? 'anthropic' : null;
+  }
+  function providerName(provider) {
+    return provider === 'host' ? window.AstroApexAI?.name || t('a_model_on') : providers[provider];
+  }
+
+  const loopback = location.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(location.hostname);
+  function discoverOffline() {
+    if (!loopback) return;
+    if (offlineSessionRequest) return offlineSessionRequest;
+    offlineSessionRequest = fetch('/api/offline-session', {
+      method: 'POST', credentials: 'same-origin', headers: {'X-AstroApex-Offline': '1'}
+    }).then(async r => {
+      if (!r.ok) return;
+      const status = await r.json();
+      offlineToken = typeof status.token === 'string' ? status.token : null;
+      providers.qwen = offlineToken && status.model === 'Qwen3.5 4B' ? status.model : null;
+      providerChanged();
+    }).catch(() => {
+      offlineToken = null; providers.qwen = null; providerChanged();
+    }).finally(() => { offlineSessionRequest = null; });
+    return offlineSessionRequest;
+  }
+  discoverOffline();
+  let cloudSessionRequest;
+  if (localToken && /^https?:$/.test(location.protocol)) {
+    cloudSessionRequest = fetch('/api/status', {headers: {'X-AstroApex-Token': localToken}, credentials: 'same-origin'})
+      .then(r => r.ok ? r.json() : null).then(st => {
+        if (!st) return;
+        authorized = true;
+        providers = {...providers, openai: st.providers?.openai || null, anthropic: st.providers?.anthropic || (st.ai ? st.model : null), gemini: st.providers?.gemini || null};
+        providerChanged();
+      }).catch(() => { /* Local analysis is always available. */ });
+  }
+
+  function grounding(result) {
+    const sources = [];
+    for (const item of (Array.isArray(result.sources) ? result.sources : [])) {
+      try {
+        const url = new URL(item.url);
+        if (url.protocol === 'https:' && !url.username && !url.password) {
+          sources.push(`<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">${esc(item.title || url.hostname)}</a>`);
         }
-      };
-      window.AstroApexAI = bridge;
-      setModelLabel();
-    }).catch(() => { /* the local analysis remains available if the service is unreachable */ });
+      } catch (_) { /* Ignore malformed provider citations. */ }
+    }
+    let html = sources.length ? `<p>${L('Web kaynakları', 'Web sources')} · ${sources.join(' · ')}</p>` : '';
+    if (typeof result.searchSuggestions === 'string' && result.searchSuggestions) {
+      // Google's attribution widget has its own opaque origin. No script, forms, embeds or external asset loads.
+      const policy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'";
+      const doc = '<meta http-equiv="Content-Security-Policy" content="' + policy + '"><base target="_blank">' + result.searchSuggestions;
+      html += `<iframe sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" style="width:100%;height:100px;border:0" title="${L('Google arama önerileri', 'Google Search suggestions')}" srcdoc="${esc(doc)}"></iframe>`;
+    }
+    return html;
+  }
+
+  async function bridgeAnswer(q, context, provider) {
+    const r = await fetch('/api/chat', {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'X-AstroApex-Token': provider === 'qwen' ? offlineToken : localToken, 'Content-Type': 'application/json'},
+      body: JSON.stringify({question: q, context, provider, search: provider === 'gemini' && search})
+    });
+    if (!r.ok) {
+      if (provider === 'qwen' && [401, 403, 502, 503].includes(r.status)) {
+        offlineToken = null; providers.qwen = null;
+      } else if (provider !== 'qwen' && [401, 403].includes(r.status)) {
+        authorized = false;
+        providers = {...providers, openai: null, anthropic: null, gemini: null};
+      }
+      throw new Error('chat ' + r.status);
+    }
+    return r.json();
+  }
+
+  function calculatedAnswer(local) {
+    return '<small>' + L('Yerel görev hesabı', 'Local mission calculation') + '</small><br>' + local;
+  }
+  async function respond(q, scope, view) {
+    const version = revision;
+    const local = await localAnswer(q, scope);
+    if (version !== revision || mode === 'local') return calculatedAnswer(local);
+    const ctx = buildContext();
+    ctx.selectedScenario = scope; ctx.workspaceView = view;
+    ctx.localAnalysis = toText(local); ctx.history = mem.history.slice(-6);
+    if (mode !== 'qwen' && cloudSessionRequest) await cloudSessionRequest;
+    const cloud = cloudProvider();
+    for (const provider of (cloud ? [cloud, 'qwen'] : ['qwen'])) {
+      if (provider === 'qwen' && !providers.qwen) await discoverOffline();
+      if (version !== revision) return calculatedAnswer(local);
+      const name = providerName(provider);
+      if (!name) continue;
+      try {
+        const result = provider === 'host' ? {answer: await window.AstroApexAI.ask(q, ctx)} : await bridgeAnswer(q, ctx, provider);
+        if (version !== revision) return calculatedAnswer(local);
+        if (typeof result?.answer !== 'string' || !result.answer.trim()) throw new Error('empty answer');
+        lastSource = provider;
+        retrying = false; providerChanged();
+        mem.history.push({role: 'user', content: q}, {role: 'assistant', content: result.answer});
+        if (mem.history.length > 6) mem.history.splice(0, mem.history.length - 6);
+        return '<small>' + esc(name) + '</small><br>' + fmtModel(result.answer) + grounding(result) +
+          `<details class="calc"><summary>${L('Hesaplanan veriler', 'Computed data')}</summary>${local}</details>`;
+      } catch (_) {
+        if (version !== revision) return calculatedAnswer(local);
+      }
+    }
+    lastSource = 'local';
+    retrying = !!cloud || mode === 'qwen' || mode === 'gemini'; providerChanged();
+    return calculatedAnswer(local);
   }
 
   /* ================= chat panel ================= */
   const panel = $('#assist'), log = $('#assist-log'), input = $('#assist-input'), opener = $('#assist-open');
+  const sheet = window.matchMedia('(max-width: 1099px)');
+  const scrollArea = $('#analyst-scroll');
+  const prompts = $('#analyst-questions');
+  const shade = $('#analyst-shade');
+  const isolated = new Set();
+  let scope = S.globe.target, lastMapTarget = S.globe.target, returnTo = opener, busy = false;
+
   function setModelLabel() {
-    const ai = window.AstroApexAI;
-    $('#assist-model').textContent = ai && ai.temporarilyUnavailable
-      ? L('Yerel analiz · sonraki soruda bağlantı tekrar denenecek', 'Local analysis · connection will retry on the next question')
-      : ai ? (ai.name || t('a_model_on')) : t('a_model');
+    const provider = lastSource || cloudProvider() || (mode !== 'local' ? 'qwen' : null);
+    $('#assist-model').textContent = providerName(provider) || L('Yerel görev hesabı', 'Local mission calculation');
   }
+
+  function renderContext() {
+    document.querySelectorAll('[data-analyst-name]').forEach(el => {
+      el.textContent = el.id === 'assist-title' ? L('Görev analisti', 'Mission analyst') : L('Analist', 'Analyst');
+    });
+    $('#assist-close').setAttribute('aria-label', t('a_close'));
+    $('#assist-form .send').setAttribute('aria-label', t('a_send'));
+    input.placeholder = L('Görev hakkında soru sor…', 'Ask about the mission…');
+    input.setAttribute('aria-label', input.placeholder);
+    $('#analyst-scope-label').textContent = L('İncelenen senaryo', 'Scenario in focus');
+    for (const btn of $('#analyst-sites').children) {
+      const k = btn.dataset.scope, n = AA.siteName(k);
+      btn.querySelector('.analyst-site-name').textContent = n;
+      btn.setAttribute('aria-pressed', String(scope === k));
+      btn.title = n + ' · ' + AA.fmtCoord(S.sc[k].lat, S.sc[k].lon);
+    }
+    $('#analyst-site-date').textContent = date(S.sc[scope].start) + ' UTC · ' + nf(S.dur, S.dur % 1 ? 1 : 0) + L(' gün', ' days');
+    $('#analyst-questions-label').textContent = L('Önerilen sorular', 'Suggested questions');
+    const cmp = t('q_cmp');
+    const terrain = L('İniş alanının eğimi nasıl?', 'How steep is the landing site?');
+    const light = L('Güneş ne zaman görünür?', 'When are the sunlight windows?');
+    const comm = L('Dünya görüş pencereleri ne zaman?', 'When are the Earth contact windows?');
+    const power = L('Batarya yeterli mi?', 'Will the battery last?');
+    const questions = {
+      compare: [cmp, power, L('İnişi 7 gün ertelersek?', 'What if we delay landing by 7 days?')],
+      map: [terrain, L('En yakın buz tuzağı nerede?', 'Where is the nearest ice trap?'), L('Bu sahanın riskleri neler?', 'What are the risks at this site?')],
+      sky: [light, comm, L('Şu an Güneş ve Dünya nerede?', 'Where are the Sun and Earth right now?')],
+      time: [power, comm, light],
+      resources: [L('Hangi veri kaynakları kullanılıyor?', 'Which data sources are used?'), t('q_safe'), L('SPICE nedir?', 'What is SPICE?')]
+    };
+    const quick = $('#assist-quick'), list = questions[S.tab] || questions.compare;
+    if (quick.children.length !== list.length || list.some((q, ix) => quick.children[ix].textContent !== q)) {
+      quick.replaceChildren(...list.map(q => {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.textContent = q; btn.dataset.question = q;
+        return btn;
+      }));
+    }
+    setModelLabel();
+  }
+
+  function syncPresentation() {
+    const modal = !panel.hidden && sheet.matches;
+    shade.hidden = !modal;
+    document.body.classList.toggle('analyst-modal', modal);
+    panel.setAttribute('role', modal ? 'dialog' : 'complementary');
+    if (modal) {
+      panel.setAttribute('aria-modal', 'true');
+      for (const el of document.querySelectorAll('body > .top, body > main, body > .timebar, body > .workspace-bar')) {
+        if (!el.inert) { el.inert = true; isolated.add(el); }
+      }
+      if (!panel.contains(document.activeElement)) $('#assist-title').focus({ preventScroll: true });
+    } else {
+      panel.removeAttribute('aria-modal');
+      isolated.forEach(el => { el.inert = false; }); isolated.clear();
+    }
+  }
+  sheet.addEventListener('change', syncPresentation);
+  const top = document.querySelector('header.top');
+  const sizeDock = () => panel.style.setProperty('--analyst-top', top.offsetHeight + 'px');
+  if (top && 'ResizeObserver' in window) new ResizeObserver(sizeDock).observe(top);
+
   function addMsg(role, html) {
     const el = document.createElement('div');
     el.className = 'msg ' + role;
     el.innerHTML = html;
     log.appendChild(el);
-    log.scrollTop = log.scrollHeight;
+    scrollArea.scrollTop = scrollArea.scrollHeight;
     return el;
   }
-  function open(focus = true) {
-    panel.hidden = false; document.body.classList.add('assist-on'); opener.setAttribute('aria-expanded', 'true');
-    setModelLabel();
-    if (focus) input.focus();
+  function open(from, k, keyboard = false) {
+    if (KEYS.includes(k)) scope = k;
+    else if (S.tab === 'map') scope = S.globe.target;
+    if (panel.hidden) returnTo = from || document.activeElement;
+    panel.hidden = false;
+    document.body.classList.add('assist-on');
+    opener.setAttribute('aria-expanded', 'true');
+    renderContext(); syncPresentation();
+    // On touch, the panel opens on its suggestions without lifting the software keyboard.
+    (sheet.matches && !keyboard ? $('#assist-title') : input).focus({ preventScroll: true });
   }
-  function close() { panel.hidden = true; document.body.classList.remove('assist-on'); opener.setAttribute('aria-expanded', 'false'); opener.focus(); }
-  let busy = false;
-  async function ask(q) {
+  function close(restore = true) {
+    panel.hidden = true;
+    document.body.classList.remove('assist-on');
+    opener.setAttribute('aria-expanded', 'false');
+    syncPresentation();
+    if (restore) (returnTo?.isConnected && returnTo.getClientRects().length ? returnTo : opener).focus({ preventScroll: true });
+  }
+
+  async function ask(q, typed = false) {
     q = q.trim(); if (!q || busy) return;
+    if (typed && window.AASettings?.commandsEnabled()) {
+      const action = window.AAMissionCommands?.run(q, scope);
+      if (action) {
+        addMsg('user', esc(q)); addMsg('note', esc(action.message));
+        if (action.view) { close(false); AA.showTab(action.view, opener); }
+        return;
+      }
+    }
     busy = true;
-    addMsg('user', esc(q));
+    const question = parse(q);
+    const comparing = detect(question.x).includes('compare') || question.scen.length === 2;
+    const namedScope = question.site && KEYS.find(k => S.sc[k].site === question.site.id);
+    const askedScope = question.scen[0] || namedScope || scope, view = S.tab;
+    if (!comparing && askedScope !== scope) { scope = askedScope; renderContext(); }
+    if (prompts.contains(document.activeElement)) {
+      prompts.querySelector('summary').focus({preventScroll: true});
+    }
+    prompts.open = false;
+    $('#assist-form .send').disabled = true;
+    const user = addMsg('user', esc(q));
+    const context = document.createElement('small');
+    context.className = 'analyst-msg-scope';
+    context.textContent = (comparing ? KEYS : [askedScope]).map(k => k + ' · ' + AA.siteName(k) + ' · ' + date(S.sc[k].start, false)).join(' / ');
+    user.prepend(context);
     const wait = addMsg('bot typing', '<i></i><i></i><i></i>');
+    wait.setAttribute('aria-label', L('Hesaplanıyor', 'Calculating'));
     let html;
-    try { html = await respond(q); } catch (err) { html = esc(L('Bu soruyu işlerken bir hata oluştu. Lütfen farklı bir şekilde sorun.', 'Something went wrong while answering. Please rephrase the question.')); }
-    wait.className = 'msg bot'; wait.innerHTML = html;
-    wait.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    try { html = await respond(q, askedScope, view); } catch (err) { html = esc(L('Bu soruyu işlerken bir hata oluştu. Lütfen farklı bir şekilde sorun.', 'Something went wrong while answering. Please rephrase the question.')); }
+    wait.className = 'msg bot'; wait.innerHTML = html; wait.removeAttribute('aria-label');
+    if (!panel.hidden && matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+      wait.classList.add('answer-arrived');
+      const settle = () => {
+        wait.classList.remove('answer-arrived');
+        wait.removeEventListener('animationcancel', settle);
+        wait.removeEventListener('animationend', settle);
+      };
+      wait.addEventListener('animationend', settle);
+      wait.addEventListener('animationcancel', settle);
+    }
+    if (!panel.hidden) scrollArea.scrollTop += wait.getBoundingClientRect().top - scrollArea.getBoundingClientRect().top - 12;
     busy = false;
+    $('#assist-form .send').disabled = false;
   }
   // Buttons inside answers that change the scenario.
   log.addEventListener('click', e => {
@@ -4634,7 +5668,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     if (a.type === 'start' && KEYS.includes(a.k)) { S.sc[a.k].start = a.ms; AA.refresh(); addMsg('note', esc(L(`${a.k} başlangıcı ${date(a.ms)} UTC olarak ayarlandı.`, `Start of ${a.k} set to ${date(a.ms)} UTC.`))); }
     else if (a.type === 'site' && KEYS.includes(a.k)) { AA.setSite(a.k, a.id); AA.refresh(); addMsg('note', esc(L(`${a.k} sahası ${AA.siteName(a.k)} olarak değiştirildi.`, `Site ${a.k} changed to ${AA.siteName(a.k)}.`))); }
     else if (a.type === 'dur' && AA.DURS.includes(a.d)) { S.dur = a.d; AA.refresh(true); addMsg('note', esc(L(`Görev süresi ${nf(a.d, a.d % 1 ? 1 : 0)} gün olarak ayarlandı.`, `Mission duration set to ${nf(a.d, a.d % 1 ? 1 : 0)} days.`))); }
-    else if (a.type === 'tab') AA.showTab(a.id);
+    else if (a.type === 'tab') { close(); AA.showTab(a.id); }
     else if (a.type === 'point' && KEYS.includes(a.k) && isFinite(a.lat) && isFinite(a.lon)) { AA.setPoint(a.k, +a.lat, +a.lon); if (a.mask === 'lola' || a.mask === 0) S.sc[a.k].mask = a.mask; AA.refresh(); addMsg('note', esc(L(`${a.k} noktası ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)} olarak ayarlandı.`, `Point ${a.k} set to ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)}.`))); }
     else if (a.type === 'layer' && ['ice', 'slope', 'heat', 'temp', 'regions', 'route'].includes(a.id)) {
       S.globe[a.id] = true;
@@ -4644,39 +5678,62 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       const sc = KEYS.includes(a.k) ? S.sc[a.k] : null;
       if (sc) S.globe.target = a.k;                    // the map's route and temperature readout follow this scenario
       Object.assign(S.globe, sc && sc.lat < -60 ? { lat0: sc.lat, lon0: sc.lon, zoom: a.id === 'route' ? 24 : 6 } : { lat0: -90, lon0: 0, zoom: 4 }); // close in for a route
-      AA.showTab('map'); AA.syncForms(); AA.queueGlobe();
+      close(); AA.showTab('map'); AA.syncForms(); AA.queueGlobe();
     }
     else if (a.type === 'pwr' && isFinite(a.load)) { AA.setPower({ load: a.load }); addMsg('note', esc(L(`Yük ${nf(S.pwr.load)} W olarak ayarlandı.`, `Load set to ${nf(S.pwr.load)} W.`))); }
-    else if (a.type === 'report' && window.AAReport) window.AAReport.open();
+    else if (a.type === 'report' && window.AAReport) { close(); window.AAReport.open(); }
   });
 
-  opener.addEventListener('click', () => panel.hidden ? open() : close());
-  $('#assist-close').addEventListener('click', close);
-  $('#assist-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = input.value; input.value = ''; ask(q); });
-  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#assist-form').requestSubmit(); } });
-  $('#assist-quick').addEventListener('click', e => { const q = e.target.dataset.q; if (q) ask(t(q)); });
-  document.addEventListener('click', e => {
-    const b = e.target.closest('[data-ask]'); if (!b) return;
-    open(); ask(t(b.dataset.ask === 'B' ? 'q_b' : 'q_a'));
+  opener.addEventListener('click', () => panel.hidden ? open(opener) : close());
+  $('#assist-close').addEventListener('click', () => close());
+  shade.addEventListener('click', () => close());
+  $('#analyst-sites').addEventListener('click', e => {
+    const b = e.target.closest('[data-scope]'); if (!b) return;
+    scope = b.dataset.scope;
+    renderContext();
   });
-  // Shortcuts: "/" or Ctrl/Cmd+K opens the assistant, Esc closes it.
+  $('#assist-form').addEventListener('submit', e => { e.preventDefault(); if (busy) return; const q = input.value; input.value = ''; ask(q, true); });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#assist-form').requestSubmit(); } });
+  $('#assist-quick').addEventListener('click', e => { const q = e.target.closest('[data-question]')?.dataset.question; if (q) ask(q); });
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-open-analyst], [data-ask]'); if (!b || b === opener) return;
+    open(b, b.dataset.ask || b.dataset.openAnalyst);
+    if (b.hasAttribute('data-explain-result')) ask(t('q_cmp'));
+    else if (b.dataset.ask) ask(t(b.dataset.ask === 'B' ? 'q_b' : 'q_a'));
+  });
   document.addEventListener('keydown', e => {
-    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
-    if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { e.preventDefault(); open(); }
-    else if (e.key === 'Escape' && !panel.hidden) close();
+    if (e.defaultPrevented || document.querySelector('.rep-modal:not([hidden]), .tour-pop:not([hidden]), .ap-picker-menu:not([hidden])')) return;
+    if (e.key === 'Escape' && !panel.hidden) { e.preventDefault(); e.stopImmediatePropagation(); close(); return; }
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || document.activeElement.isContentEditable;
+    if ((e.key === '/' && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { e.preventDefault(); open(null, null, true); }
+  }, true);
+  panel.addEventListener('keydown', e => {
+    // Keep app-wide transport and numeric view shortcuts outside of the work panel.
+    if (/^( |ArrowLeft|ArrowRight|[1-5])$/.test(e.key)) e.stopPropagation();
+    if (!sheet.matches || e.key !== 'Tab') return;
+    const focusable = Array.from(panel.querySelectorAll('button:not([disabled]), textarea, summary, [href]')).filter(el => el.getClientRects().length);
+    const first = focusable[0], last = focusable.at(-1);
+    if (e.shiftKey && [first, $('#assist-title')].includes(document.activeElement)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
 
   window.AAssist = {
-    analyze, evaluate, eligibility, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
-    onRefresh() { renderReports(); input.placeholder = t('a_place'); if (!panel.hidden) setModelLabel(); },
-    onPick(k) { // a point was chosen on the 3D map
-      open(false);
-      addMsg('note', esc(t('a_picked', { k })));
-      addMsg('bot', fullReport(analyze(k)));
+    getProviderSettings, setProviderSettings, analyze, evaluate, eligibility, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
+    onRefresh() {
+      if (S.tab === 'map' && S.globe.target !== lastMapTarget) scope = S.globe.target;
+      lastMapTarget = S.globe.target;
+      renderReports(); renderContext();
+    },
+    onViewChange() {
+      if (S.tab === 'map') scope = S.globe.target;
+      renderContext();
+    },
+    onPick(k) {
+      scope = k;
+      if (!panel.hidden) renderContext();
     }
   };
-  input.placeholder = t('a_place');
-  addMsg('bot', esc(t('a_hello')));
+  renderContext();
   renderReports();
 })();
 
@@ -4756,7 +5813,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     }
     k = KEYS.includes(k) ? k : S.globe.target;
     mode = mode === 'moon' || mode === 'pole' ? mode : S.scanMode;
-    S.scanMode = mode; syncMode();
+    S.scanMode = mode; syncMode(); AA.syncForms(); AA.queueGlobe(false);
     const start = S.sc[k].start, dur = S.dur, key = start + '|' + dur + '|' + mode;
     if (S.scout && S.scout.key === key) { token++; running = null; S.scout.k = k; render(); return Promise.resolve(S.scout); }
     if (running && running.key === key) return running.promise;
@@ -4816,7 +5873,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     if (!running) progress(null);
     if (!r) { out.innerHTML = ''; return; }
     // stale = the scenario this scan was made for has moved to another date, or the duration changed
-    const k = KEYS.includes(r.k) ? r.k : S.globe.target, stale = r.key !== S.sc[k].start + '|' + S.dur + '|' + S.scanMode;
+    const stale = !AA.scanMatchesMap(r);
     const fa = out.contains(document.activeElement) ? document.activeElement : null, keep = fa && fa.dataset.i != null ? `[data-i="${fa.dataset.i}"][data-k="${fa.dataset.k}"]` : null;
     out.innerHTML = `<ol class="scout-list">${r.top.map((p, i) => `<li>
         <span class="sc-n">${i + 1}</span>
@@ -4830,7 +5887,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
   const modeBox = $('#scan-mode');
   const syncMode = () => { [...modeBox.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.mode === S.scanMode)); $('#scan-lead').textContent = t(S.scanMode === 'moon' ? 'sct_lead_moon' : 'sct_lead') + (S.scanMode === 'moon' ? '' : ' ' + t('sct_caveat')); };
-  modeBox.addEventListener('click', e => { if (e.target.dataset.mode) { S.scanMode = e.target.dataset.mode; syncMode(); render(); } });
+  modeBox.addEventListener('click', e => { if (e.target.dataset.mode) { S.scanMode = e.target.dataset.mode; syncMode(); AA.syncForms(); AA.queueGlobe(false); render(); } });
   AA.onChange(syncMode);
   syncMode();
   btn.addEventListener('click', () => {
@@ -4894,7 +5951,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const r = S.regions;
     if (!Polar.ready) { rbtn.disabled = true; rbtn.textContent = t('reg_run'); rbox.innerHTML = ''; return; }
     if (!r) { rbox.innerHTML = ''; return; }
-    const rk = KEYS.includes(r.k) ? r.k : S.globe.target, stale = r.key !== S.sc[rk].start + '|' + S.dur;
+    const stale = !AA.scanMatchesMap(r);
     const fa = rbox.contains(document.activeElement) ? document.activeElement : null, keep = fa && fa.dataset.r != null ? `[data-r="${fa.dataset.r}"][data-k="${fa.dataset.k}"]` : null;
     rbox.innerHTML = `<ol class="reg-list">${r.rows.map((row, i) => { const b = row.best; return `<li>
         <span class="rs ${b ? '' : 'none'}">${b ? b.score : '—'}</span>
@@ -5091,7 +6148,7 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
       text(c, label, M, by + 18, sans(500, 14), MUTED);
       box(c, x0, by, w, 24, SOFT, null, 5);
       c.fillStyle = col;
-      for (const r of d.runs[b]) { const a0 = r[0] / N, a1 = Math.min(r[1], N) / N; if (a1 > a0) c.fillRect(x0 + a0 * w, by, Math.max(1.5, (a1 - a0) * w), 24); }
+      for (const r of d.runs[b]) { const a0 = r[0] / N, a1 = Math.min(r[1], N) / N; if (a1 > a0) c.fillRect(x0 + a0 * w, by, (a1 - a0) * w, 24); }
     });
     for (let i = 0; i <= 4; i++) text(c, AA.fmtDay(sc.start + i / 4 * S.dur * 24 * H_MS), x0 + i / 4 * w, y + 126, mono(12.5), MUTED, i === 0 ? 'left' : i === 4 ? 'right' : 'center');
     return y + 160;
@@ -5134,7 +6191,7 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     if (lo == null) {
       lo = -2; hi = 2;
       for (const k of KEYS) { const arr = opts.get(k); for (let j = 0; j < arr.length; j++) { if (arr[j] < lo) lo = arr[j]; if (arr[j] > hi) hi = arr[j]; } }
-      lo = Math.max(-90, Math.floor(lo - 1)); hi = Math.min(90, Math.ceil(hi + 1));
+      lo = Math.floor(lo - 1); hi = Math.ceil(hi + 1);
     }
     const X = hr => x + padL + hr / tot * pw, Y = v => top + (hi - v) / (hi - lo) * ph;
     box(c, x + padL, top, pw, ph, '#fff', LINE);
@@ -5146,7 +6203,10 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
       text(c, opts.fmt(v), x + padL - 8, Y(v) + 5, mono(12.5), MUTED, 'right');
     }
     const dStep = S.dur <= 14 ? 1 : S.dur <= 30 ? 5 : 10;
-    for (let dd = 0; dd <= S.dur; dd += dStep) text(c, dd + ' ' + t('d'), X(dd * 24), top + ph + 19, mono(12.5), MUTED, dd === 0 ? 'left' : 'center');
+    for (let dd = 0; dd < S.dur; dd += dStep) {
+      if (X(tot) - X(dd * 24) > 50) text(c, dd + ' ' + t('d'), X(dd * 24), top + ph + 19, mono(12.5), MUTED, dd === 0 ? 'left' : 'center');
+    }
+    text(c, days(S.dur) + ' ' + t('d'), X(tot), top + ph + 19, mono(12.5), MUTED, 'right');
     c.save(); c.beginPath(); c.rect(x + padL, top, pw, ph); c.clip();
     for (const k of KEYS) {
       const d = S.data[k], arr = opts.get(k), sc = opts.scale || 1;
@@ -5349,7 +6409,7 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
       [L('Ortalama eğim', 'Mean slope'), x => slopeDescription(x.f)],
       [L('Batarya boş kalma süresi', 'Time with an empty battery'), x => x.pw ? AA.fmtDur(x.pw.emptyH) : '—'],
       [L('En düşük batarya doluluğu', 'Minimum battery charge'), x => x.pw ? nf(x.pw.min * 100, 1) + '%' : '—'],
-      [L('Gereken batarya', 'Required battery capacity'), x => x.pw ? nf(Math.ceil(x.pw.need * 10) / 10, 1) + ' kWh' : '—']
+      [L('Gereken batarya', 'Required battery capacity'), x => x.pw ? nf(Math.ceil(x.pw.need * 10 - 1e-9) / 10, 1) + ' kWh' : '—']
     ];
     const tbody = table.createTBody();
     rows.forEach(([label, value]) => {
@@ -5433,13 +6493,12 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
 </script>
 <script>
 /* js/fx.js */
-/* AstroApex presentation layer: the rotating Moon backdrop, the opening sequence and the guided tour.
+/* AstroApex presentation layer: the lunar backdrop and the guided tour.
    Purely visual. Nothing here changes a calculation; if this file fails, the app still works. */
 (function () {
   'use strict';
   const $ = s => document.querySelector(s);
   const root = document.documentElement;
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const lang = () => (window.AA && window.AA.S.lang === 'en') ? 'en' : 'tr';
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -5451,8 +6510,7 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
   // smaller than a screen pixel; bilinear sampling keeps the rotation continuous.
   const M = { cv: $('#bg-moon'), N: 0, idx: null, row: null, col: null, level: null, blend: null,
     shade: null, rim: null, alpha: null, img: null, levels: null, mipSource: null,
-    tex: null, spin: 0, speed: 0, target: 0, last: 0, lastShift: -1 };
-  const SPIN = 4096 / 170; // texture columns per second at full speed: one turn in about 170 s
+    tex: null };
 
   function downsample(source, next) {
     for (let y = 0; y < next.h; y++) for (let x = 0; x < next.w; x++) {
@@ -5556,7 +6614,7 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     M.idx = Int32Array.from(idx); M.row = Float32Array.from(row); M.col = Float32Array.from(col);
     M.level = Uint8Array.from(level); M.blend = Float32Array.from(blend);
     M.shade = Float32Array.from(shade); M.rim = Float32Array.from(rim); M.alpha = Uint8Array.from(alpha);
-    M.img = M.cv.getContext('2d').createImageData(N, N); M.lastShift = -1;
+    M.img = M.cv.getContext('2d').createImageData(N, N);
   }
 
   function sampleMip(tex, u, v) {
@@ -5573,12 +6631,9 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
 
   function drawMoon() {
     const { idx, row, col, level, blend, shade, rim, alpha, levels, tex } = M, px = M.img.data;
-    const shift = ((M.spin % tex.w) + tex.w) % tex.w;
-    if (shift === M.lastShift) return;
-    M.lastShift = shift;
-    const turn = shift / tex.w, lastLevel = levels.length - 1;
+    const lastLevel = levels.length - 1;
     for (let n = 0; n < idx.length; n++) {
-      const lod = level[n], u = col[n] + turn, v = row[n];
+      const lod = level[n], u = col[n], v = row[n];
       const a = sampleMip(levels[lod], u, v), b = sampleMip(levels[Math.min(lod + 1, lastLevel)], u, v);
       const grey = a + (b - a) * blend[n];
       const g = ((grey - 105) * 1.25 + 120) * shade[n], r = rim[n], o = idx[n] * 4;
@@ -5588,21 +6643,12 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     }
     M.cv.getContext('2d').putImageData(M.img, 0, 0);
   }
-  function frame(ts) {
-    requestAnimationFrame(frame);
-    if (!M.tex || document.hidden) { M.last = ts; return; }
-    const dt = Math.min(0.1, (ts - (M.last || ts)) / 1000); M.last = ts;
-    M.speed += (M.target - M.speed) * Math.min(1, dt * 0.7); // ease into the spin
-    M.spin += M.speed * SPIN * dt * (M.tex.w / 4096);
-    drawMoon();
-  }
   function startBackdrop() {
     if (!M.cv) return;
     let tries = 0;
     (function wait() { // the app decodes the Moon map (embedded, or NASA tiles as a fallback); reuse it
       const tex = window.AA && window.AA.S.globe.tex;
       if (tex && tex !== M.tex) {
-        if (M.tex) M.spin *= tex.w / M.tex.w;
         M.tex = tex;
         try { buildSphere(); drawMoon(); M.cv.classList.add('on'); } catch (e) { M.tex = null; return; }
       }
@@ -5610,34 +6656,6 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     })();
     let rz = 0;
     window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (M.tex) { try { buildSphere(); drawMoon(); } catch (e) { /* keep the old frame */ } } }, 250); });
-    requestAnimationFrame(frame);
-  }
-
-  /* ---------- opening sequence ---------- */
-  const PHASES = ['pre-moon', 'pre-bar', 'pre-ui'];
-  let introTimers = [], introDone = false;
-  function finishIntro(fast) {
-    if (introDone) return;
-    introDone = true;
-    introTimers.forEach(clearTimeout); introTimers = [];
-    if (reduce) root.classList.remove('anim'); else if (fast) root.classList.add('intro-skip');
-    root.classList.remove(...PHASES);
-    M.target = reduce ? 0 : 1;
-    document.removeEventListener('pointerdown', skipIntro, true);
-    document.removeEventListener('keydown', skipIntro, true);
-    setTimeout(() => { root.classList.remove('anim', 'intro-skip'); }, fast ? 500 : 1900);
-    setTimeout(offerTour, fast ? 700 : 2100);
-  }
-  function skipIntro() { finishIntro(true); }
-  function runIntro() {
-    if (!root.classList.contains('anim') || reduce) { finishIntro(true); return; }
-    const at = (ms, fn) => introTimers.push(setTimeout(fn, ms));
-    document.addEventListener('pointerdown', skipIntro, true);
-    document.addEventListener('keydown', skipIntro, true);
-    at(120, () => root.classList.remove('pre-moon'));           // the Moon glides down
-    at(3300, () => { M.target = 1; });                           // ...and starts to turn
-    at(4000, () => root.classList.remove('pre-bar'));           // bar, logo and buttons drop in
-    at(5200, () => finishIntro(false));                          // panels settle over the Moon
   }
 
   /* ---------- guided tour ---------- */
@@ -5649,7 +6667,7 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
       keys: '← → ile ilerle · Esc ile çık',
       s: [
         ['AstroApex’e hoş geldiniz', 'Bu site, Ay’ın güney kutbunda iki iniş senaryosunu yan yana karşılaştırır: Güneş ne kadar görünüyor, Dünya ile iletişim ne zaman var, zemin ne kadar düz, buz ne kadar yakın. Kısa bir tur ile her bölümü göstereyim.'],
-        ['Beş bölüm', 'Üst menüden bölümler arasında geçilir: Karşılaştır, Gökyüzü, Zaman, 3B Harita ve Kaynaklar. Klavyede 1–5 tuşları da aynı işi yapar.'],
+        ['Beş bölüm', 'Üst menüden sahaları karşılaştırabilir, gökyüzünü ve zaman çizelgesini inceleyebilir veya 3B Ay’ı açabilirsiniz. 1–5 tuşlarıyla da görünümlere geçebilirsiniz.'],
         ['Hazır senaryolar', 'Tek tıkla gerçek iniş bölgelerini yükleyin: NASA çalışma bölgeleri, krater kenarları, ticari inişler ya da kutup ile ekvatorun karşılaştırması. Koordinat yazmanıza gerek kalmaz.'],
         ['Senaryo A ve B', 'Her senaryo için iniş bölgesini, başlangıç tarihini ve ufuk modelini buradan seçersiniz. Bir değeri değiştirdiğinizde bütün sayfa anında yeniden hesaplanır.'],
         ['Sonuç ve görev raporu', 'Hangi senaryoda güç ve iletişimin daha uzun süre birlikte olduğu tek cümleyle yazılır. “Görev raporu” tuşu her şeyi iki sayfalık bir PDF’te toplar.'],
@@ -5672,7 +6690,7 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
       keys: '← → to move · Esc to exit',
       s: [
         ['Welcome to AstroApex', 'This site compares two landing scenarios at the lunar south pole side by side: how much Sun each one gets, when Earth is in view, how flat the ground is and how close the ice is. Let me show you each part.'],
-        ['Five sections', 'Use the top menu to move between Compare, Sky, Time, 3D Map and Resources. Keys 1–5 do the same.'],
+        ['Five sections', 'Compare sites, inspect their sky or timeline, or open the 3D Moon to explore terrain. Keys 1–5 open each view.'],
         ['Ready-made scenarios', 'Load real landing regions with one click: NASA study regions, crater rims, commercial landings, or the pole against the equator. No coordinates to type.'],
         ['Scenario A and B', 'Choose the landing site, start date and horizon model for each scenario here. Change any value and the whole page recalculates at once.'],
         ['Verdict and mission report', 'One sentence says which scenario has power and comms together for longer. The “Mission report” button gathers everything into a two-page PDF.'],
@@ -5695,40 +6713,15 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     ['compare', '#win-rows'], ['compare', '.timebar'], ['sky', '#sky-A'], ['time', '#chart-sun'], ['time', '#chart-batt'], ['map', '#globe-wrap'],
     ['map', '#scout'], ['resources', '#verify'], ['resources', '#assist-open']
   ];
-  const T = { on: false, i: 0, hole: null, pop: null, toast: null, prevFocus: null };
-
-  function offerTour() {
-    const btn = $('#tour-open');
-    if (btn) { btn.title = TXT[lang()].open; btn.setAttribute('aria-label', TXT[lang()].open); }
-    // offered on every visit, once the page has settled; skipping only closes it for this visit
-    if (T.on || T.toast || T.asked || !window.AA) return;
-    T.asked = true;
-    const x = TXT[lang()], el = document.createElement('div');
-    el.className = 'tour-toast'; el.setAttribute('role', 'status');
-    el.innerHTML = `<span class="tt-av" aria-hidden="true">✦</span>
-      <div class="tt-body"><small>${x.toast_from}</small><b>${x.toast_t}</b><p>${x.toast_b}</p>
-      <div class="tt-acts"><button class="tt-go" type="button">${x.toast_go}</button><button class="tt-no" type="button">${x.toast_no}</button></div></div>
-      <button class="tt-x" type="button" aria-label="${x.toast_no}">×</button>`;
-    const bar = $('.top'); if (bar) el.style.top = Math.round(bar.getBoundingClientRect().height + 12) + 'px'; // clear the header at any width
-    document.body.appendChild(el); T.toast = el;
-    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in')));
-    el.querySelector('.tt-go').addEventListener('click', () => { closeToast(); startTour(); });
-    const no = () => { store.set('aa_tour', 'dismissed'); closeToast(); };
-    el.querySelector('.tt-no').addEventListener('click', no);
-    el.querySelector('.tt-x').addEventListener('click', no);
-  }
-  function closeToast() {
-    const el = T.toast; if (!el) return;
-    T.toast = null; el.classList.remove('in'); setTimeout(() => el.remove(), 450);
-  }
+  const T = { on: false, i: 0, hole: null, pop: null, prevFocus: null, previousTab: null, previousScroll: 0, openedDetails: [] };
 
   function startTour() {
     if (T.on || !window.AA) return;
-    if (!introDone) finishIntro(true);
-    closeToast();
     if (window.AAReport) window.AAReport.close();
     if (document.body.classList.contains('assist-on')) { const c = $('#assist-close'); if (c) c.click(); }
     T.on = true; T.i = 0; T.prevFocus = document.activeElement;
+    T.previousTab = window.AA.S.tab;
+    T.previousScroll = window.scrollY;
     T.hole = document.createElement('div'); T.hole.className = 'tour-hole';
     T.pop = document.createElement('div'); T.pop.className = 'tour-pop';
     T.pop.setAttribute('role', 'dialog'); T.pop.setAttribute('aria-modal', 'true'); T.pop.setAttribute('aria-labelledby', 'tour-title');
@@ -5753,8 +6746,11 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     for (const el of [T.hole, T.pop, T.shield]) if (el) el.remove();
     T.hole = T.pop = T.shield = null;
     root.classList.remove('tour-on');
-    if (window.AA.S.tab !== 'compare') window.AA.showTab('compare'); else window.scrollTo(0, 0);
-    const f = $('#tour-open') || T.prevFocus; if (f && f.focus) f.focus();
+    restoreDetails();
+    if (window.AA.S.tab !== T.previousTab) window.AA.showTab(T.previousTab);
+    const opener = T.prevFocus && T.prevFocus !== document.body && T.prevFocus.getClientRects().length ? T.prevFocus : $('#tour-open');
+    if (opener) opener.focus({preventScroll: true});
+    window.scrollTo({top: T.previousScroll, behavior: 'instant'});
   }
   function tourKeys(e) {
     if (!T.on) return;
@@ -5772,18 +6768,30 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     if (e.key !== 'Enter') e.stopPropagation(); // the app's shortcuts (1-5, Space, /) rest during the tour
     if (e.key === ' ' && !T.pop.contains(document.activeElement)) e.preventDefault();
   }
+  function restoreDetails() {
+    for (const el of T.openedDetails) el.open = false;
+    T.openedDetails.length = 0;
+  }
   function go(i) {
     if (!T.on) return;
     if (i >= STEPS.length) { endTour(); return; }
+    restoreDetails();
     T.i = Math.max(0, i);
     const [tab, sel] = STEPS[T.i], x = TXT[lang()], s = x.s[T.i], lastStep = T.i === STEPS.length - 1;
     if (window.AA.S.tab !== tab) window.AA.showTab(tab);
-    const target = sel && $(sel), d = target && target.closest('details');
-    if (d && !d.open) d.open = true;
+    const target = sel && $(sel);
+    for (let el = target; el; el = el.parentElement) {
+      if (el.tagName === 'DETAILS' && !el.open) {
+        el.open = true;
+        T.openedDetails.push(el);
+      }
+    }
     T.target = target && target.getClientRects().length ? target : null;
     if (T.target) {
-      const r = T.target.getBoundingClientRect(), fixed = T.target.closest('.top, .timebar');
-      if (!fixed) window.scrollTo(0, Math.max(0, window.scrollY + r.top - Math.max(90, (window.innerHeight - Math.min(r.height, window.innerHeight * 0.5)) / 2 - 60)));
+      const anchor = T.target.closest('.top, .timebar');
+      if (!anchor || !['fixed', 'sticky'].includes(getComputedStyle(anchor).position)) {
+        T.target.scrollIntoView({block: 'center', behavior: 'instant'});
+      }
     } else window.scrollTo(0, 0);
     T.pop.innerHTML = `<div class="tp-top"><span class="tp-step">${T.i + 1} ${x.of} ${STEPS.length}</span>${lastStep ? '' : `<button type="button" class="tp-skip" data-tour="skip">${x.skip}</button>`}</div>
       <h3 id="tour-title">${s[0]}</h3><p>${s[1]}</p>
@@ -5827,9 +6835,8 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     const lg = $('#lang');
     if (lg) lg.addEventListener('click', () => { // app.js has already switched S.lang on this same click
       if (btn) { btn.title = TXT[lang()].open; btn.setAttribute('aria-label', TXT[lang()].open); }
-      if (T.toast) { T.toast.remove(); T.toast = null; T.asked = false; offerTour(); } // redraw it in the new language
     });
-    runIntro();
+
   }
   window.AATour = { start: startTour, end: endTour };
   try { init(); } catch (e) { root.classList.remove('anim', 'pre-moon', 'pre-bar', 'pre-ui'); }
@@ -5898,7 +6905,7 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     picker.detail.textContent = selected ? coordinates(picker, selected.value) : '';
     picker.detail.hidden = !picker.detail.textContent;
     picker.trigger.disabled = picker.source.disabled;
-    picker.trigger.setAttribute('aria-label', label(picker) + ' · ' + picker.value.textContent);
+    picker.trigger.setAttribute('aria-label', [label(picker), picker.value.textContent, picker.detail.textContent].filter(Boolean).join(' · '));
     if (picker.label) picker.label.parentElement.htmlFor = picker.trigger.id;
     if (active === picker) {
       if (picker.source.disabled) return close(true);
@@ -6072,7 +7079,7 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
     const copy = element('span', 'ap-picker-copy');
     const value = element('span', 'ap-picker-value');
     const detail = element('span', 'ap-picker-detail');
-    copy.append(value, detail);
+    copy.append(value, ' ', detail);
     if (site) {
       const icon = element('span', 'ap-picker-icon', '◎');
       icon.setAttribute('aria-hidden', 'true');
@@ -6151,6 +7158,388 @@ window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":10
   AA.onChange(() => pickers.forEach(sync));
 })();
 
+
+</script>
+<script>
+/* js/inspector.js */
+// UI bindings for the surface inspector. The projection and scenario data are owned by app.js.
+(() => {
+  'use strict';
+  const AA = window.AA;
+  if (!AA) return;
+  const { S } = AA;
+  const map = document.getElementById('map');
+  const byId = id => document.getElementById(id);
+  const globe = byId('globe-wrap');
+  const cameraCoords = byId('inspect-coords');
+  const cameraZoom = byId('inspect-zoom');
+  const text = {
+    en: {
+      back: 'Back to planner', title: 'Lunar surface inspector', analyse: 'Mission analyst',
+      camera: 'Camera centre', gestures: 'Drag to rotate. Tap a point to set the active landing site.',
+      keys: 'Arrow keys rotate. Enter selects the centre point.', active: 'Active landing site',
+      center: 'Centre on site', views: 'Camera views', report: 'Landing site report', search: 'Find candidate sites',
+      position: 'Sun and Earth positions', model: 'Interactive lunar surface', zoomIn: 'Zoom in', zoomOut: 'Zoom out'
+    },
+    tr: {
+      back: 'Planlayıcıya dön', title: 'Ay yüzeyini incele', analyse: 'Görev analisti',
+      camera: 'Kamera merkezi', gestures: 'Döndürmek için sürükleyin. Aktif iniş sahasını seçmek için bir noktaya dokunun.',
+      keys: 'Ok tuşlarıyla döndürün. Merkezdeki noktayı seçmek için Enter’a basın.', active: 'Aktif iniş sahası',
+      center: 'Sahayı ortala', views: 'Kamera açıları', report: 'Saha raporu', search: 'Aday sahaları bul',
+      position: 'Güneş ve Dünya konumu', model: 'Etkileşimli Ay yüzeyi', zoomIn: 'Yakınlaştır', zoomOut: 'Uzaklaştır'
+    }
+  };
+
+  let lastLat, lastLon, lastZoom, lastLang;
+  function syncCamera() {
+    const { lat0, lon0, zoom } = S.globe;
+    if (lat0 !== lastLat || lon0 !== lastLon || S.lang !== lastLang) {
+      cameraCoords.textContent = AA.fmtCoord(lat0, ((lon0 % 360 + 540) % 360) - 180);
+    }
+    if (zoom !== lastZoom || S.lang !== lastLang) {
+      cameraZoom.textContent = AA.nf(zoom, Number.isInteger(zoom) ? 0 : 1) + '×';
+    }
+    lastLat = lat0; lastLon = lon0; lastZoom = zoom; lastLang = S.lang;
+  }
+  let labelLang;
+  function syncSite() {
+    if (labelLang !== S.lang) {
+      const labels = text[S.lang];
+      for (const node of map.querySelectorAll('[data-inspector]')) node.textContent = labels[node.dataset.inspector];
+      globe.setAttribute('aria-label', labels.model);
+      byId('zin').setAttribute('aria-label', labels.zoomIn);
+      byId('zout').setAttribute('aria-label', labels.zoomOut);
+      labelLang = S.lang;
+    }
+    const k = S.globe.target;
+    byId('inspect-site-title').textContent = AA.siteName(k);
+    byId('inspect-site-coords').textContent = AA.fmtCoord(S.sc[k].lat, S.sc[k].lon);
+    byId('inspect-center').dataset.view = k;
+    for (const b of map.querySelectorAll('[data-t]')) b.setAttribute('aria-pressed', String(k === b.dataset.t));
+    syncCamera();
+  }
+
+  globe.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const g = S.globe;
+    const step = (e.shiftKey ? 15 : 5) / g.zoom;
+    switch (e.key) {
+      case 'ArrowUp': g.lat0 = Math.min(90, g.lat0 + step); break;
+      case 'ArrowDown': g.lat0 = Math.max(-90, g.lat0 - step); break;
+      case 'ArrowLeft': g.lon0 -= step; break;
+      case 'ArrowRight': g.lon0 += step; break;
+      case '+': case '=': byId('zin').click(); break;
+      case '-': byId('zout').click(); break;
+      case 'Enter':
+        AA.setPoint(g.target, g.lat0, ((g.lon0 % 360 + 540) % 360) - 180);
+        AA.refresh(); break;
+      default: return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    AA.queueGlobe();
+  });
+  // Refit projected markers when opening the analyst changes only the workspace width.
+  if (window.ResizeObserver) new ResizeObserver(() => {
+    if (!map.hidden) AA.queueGlobe();
+  }).observe(globe);
+  window.AAInspector = { syncCamera };
+  AA.onChange(syncSite);
+  syncSite();
+})();
+
+</script>
+<script>
+/* js/mission-commands.js */
+// Typed directives from the analyst. Unrecognized text stays in the normal question flow.
+(() => {
+  'use strict';
+  const views = {
+    compare: ['compare', 'comparison', 'site comparison', 'karsilastirma', 'karsilastirmayi', 'saha karsilastirmasini'],
+    time: ['timeline', 'simulation', 'zaman cizelgesi', 'zaman cizelgesini', 'simulasyonu'],
+    sky: ['sky', 'gokyuzu', 'gokyuzunu'],
+    map: ['map', '3d moon', 'moon inspector', 'haritayi', '3b ay', '3b ayi'],
+    resources: ['resources', 'method', 'kaynaklar', 'kaynaklari', 'yontemi'],
+    settings: ['settings', 'ayarlar', 'ayarlari'],
+    console: ['mission console', 'overview', 'gorev konsolunu', 'genel gorunumu']
+  };
+  const normalize = text => text.trim().toLowerCase().replace(/ı/g, 'i')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’‘]/g, "'").replace(/\s+/g, ' ');
+
+  // Select the same enabled option a human could select; its existing handler updates every view.
+  function selectOption(control, value) {
+    const option = Array.from(control.options).find(o => o.value === value && !o.disabled);
+    if (!option) return false;
+    if (control.value !== value) {
+      control.value = value;
+      control.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    return true;
+  }
+
+  function run(raw, scope) {
+    const { AA } = window;
+    if (!AA || !AA.KEYS.includes(scope) || raw.length > 160 || /[?\r\n]/.test(raw)) return null;
+    const q = normalize(raw).replace(/[.!]+$/, '').replace(/^(?:please|lutfen) /, '');
+    const local = (tr, en) => AA.S.lang === 'tr' ? tr : en;
+    const navigation = q.match(/^(?:open|go to) (?:the )?(.+)$/) || q.match(/^(.+) ac$/);
+    if (navigation) {
+      const view = Object.keys(views).find(id => views[id].includes(navigation[1]));
+      const heading = view && document.querySelector('#' + view + ' h1');
+      if (heading) return {view, message: local(heading.textContent + ' açıldı.', 'Opened ' + heading.textContent + '.')};
+    }
+
+    const start = /^(?:(?:play|start|resume)(?: (?:the )?(?:clock|simulation|playback))?|(?:(?:simulasyonu|saati) )?(?:baslat|oynat))$/.test(q);
+    const stop = /^(?:(?:stop|pause)(?: (?:the )?(?:clock|simulation|playback))?|(?:(?:simulasyonu|saati) )?(?:durdur|duraklat))$/.test(q);
+    if (start || stop) {
+      if (AA.S.playing !== start) AA.setPlaying(start);
+      return {message: start ? local('Görev saati çalışıyor.', 'Mission clock is running.')
+        : local('Görev saati duraklatıldı.', 'Mission clock is paused.')};
+    }
+
+    const duration = q.match(/^set (?:mission )?duration to ([\d.,]+) days?$/) ||
+      q.match(/^(?:gorev )?sure(?:sini|yi) ([\d.,]+) gun (?:yap|olarak ayarla)$/);
+    if (duration) {
+      const days = Number(duration[1].replace(',', '.'));
+      const allowed = AA.DURS.map(n => n.toLocaleString(AA.S.lang)).join(' / ');
+      if (!selectOption(document.querySelector('#dur'), String(days)))
+        return {message: local('Kullanılabilir görev süreleri (gün): ', 'Available mission durations (days): ') + allowed + '.'};
+      return {message: local('Görev süresi: ' + days.toLocaleString('tr') + ' gün.', 'Mission duration: ' + days + ' days.')};
+    }
+
+    let site = q.match(/^set (?:(?:scenario )?([ab]) )?(?:landing )?site to (.+)$/) ||
+      q.match(/^set scenario ([ab]) to (.+)$/) ||
+      q.match(/^(?:(?:senaryo )?([ab]) (?:icin )?)?(?:inis )?sahasini (.+?) (?:yap|olarak ayarla|sec)$/);
+    const explicitSite = Boolean(site);
+    if (!site) {
+      site = q.match(/^(?:(?:senaryo )?([ab]) icin )?(.+) sec$/);
+      const pick = q.match(/^select (.+?)(?: for (?:scenario )?([ab]))?$/);
+      if (pick) site = [pick[0], pick[2], pick[1]];
+    }
+    if (site) {
+      const target = (site[1] || scope).toUpperCase();
+      const name = site[2].replace(/'(?:yi|yu|i|u)$/, '');
+      const location = window.SITES.find(s => normalize(s.name) === name || s.id === name);
+      if (!location && !explicitSite) return null;
+      if (!location) return {message: local('İniş sahasının listedeki tam adını kullanın.', 'Use the full name from the landing-site list.')};
+      const control = document.querySelector('#scn-' + target + ' [data-f="site"]');
+      if (selectOption(control, location.id)) return {message: local(target + ' iniş sahası: ', 'Landing site ' + target + ': ') + location.name + '.'};
+      return null;
+    }
+
+    const terrain = q.match(/^set (?:(?:scenario )?([ab]) )?(?:terrain|horizon) to (lola|[-+−]?[\d.,]+)(?:°| degrees?)?$/) ||
+      q.match(/^(?:(?:senaryo )?([ab]) (?:icin )?)?(?:ufku|ufkunu|araziyi|arazi esigini) (lola|[-+−]?[\d.,]+)(?:°| derece)? (?:yap|olarak ayarla)$/);
+    if (terrain) {
+      const target = (terrain[1] || scope).toUpperCase();
+      const control = document.querySelector('#scn-' + target + ' [data-f="mask"]');
+      const value = terrain[2] === 'lola' ? 'lola' : String(Number(terrain[2].replace(',', '.').replace('−', '-')));
+      if (!selectOption(control, value)) {
+        const options = Array.from(control.options).filter(o => !o.disabled)
+          .map(o => o.value === 'lola' ? 'LOLA' : Number(o.value).toLocaleString(AA.S.lang) + '°');
+        return {message: local(target + ' için kullanılabilir ufuklar: ', 'Available horizons for ' + target + ': ') + options.join(' / ') + '.'};
+      }
+      return {message: local(target + ' senaryosunun ufku: ', 'Horizon for ' + target + ': ') + control.selectedOptions[0].textContent + '.'};
+    }
+    return null;
+  }
+  window.AAMissionCommands = {run};
+})();
+
+</script>
+<script>
+/* js/mission-console.js */
+/* A single-scenario overview of the same samples shown in Compare and Sky. */
+(() => {
+  'use strict';
+  const root = document.getElementById('console');
+  const { AA } = window;
+  if (!root || !AA) return;
+  const { S, nf, fmtDate, fmtCoord, idxAt, siteName, t } = AA;
+  const get = id => document.getElementById('mc-' + id);
+  const copy = {
+    en: {
+      title: 'Mission console', lead: 'Follow one landing scenario from local sky conditions to mission-wide visibility.',
+      settings: 'Settings', scenarios: 'Scenario', edit: 'Edit landing scenarios', sky: 'Local sky', conditions: 'Mission conditions',
+      lit: 'Time in sunlight', contact: 'Earth visibility windows', joint: 'Sun and Earth together', dark: 'Longest darkness',
+      ask: 'Ask about this site', windows: 'Visibility windows', sunBand: 'Sunlight', earthBand: 'Earth visibility',
+      power: 'Timeline and power', method: 'Data and assumptions', sample: 'Sample interval', elev: 'Elevation', hidden: 'not visible'
+    },
+    tr: {
+      title: 'Görev konsolu', lead: 'Bir iniş senaryosunun gökyüzünü ve görev boyunca görüş pencerelerini inceleyin.',
+      settings: 'Ayarlar', scenarios: 'Senaryo', edit: 'İniş senaryolarını düzenle', sky: 'Yerel gökyüzü', conditions: 'Görev koşulları',
+      lit: 'Güneş ışığı alan süre', contact: 'Dünya ile görüş penceresi', joint: 'Güneş ve Dünya birlikte', dark: 'En uzun karanlık',
+      ask: 'Bu sahayı analiste sor', windows: 'Görüş pencereleri', sunBand: 'Güneş ışığı', earthBand: 'Dünya ile görüş',
+      power: 'Zaman çizelgesi ve enerji', method: 'Veriler ve varsayımlar', sample: 'Örnekleme aralığı', elev: 'Yükselim', hidden: 'görünmüyor'
+    }
+  };
+  let selected = 'A';
+  let previousData, previousLang, previousScenario, previousSample = -1;
+  const buttons = [...root.querySelectorAll('[data-mc-site]')];
+  const hours = h => nf(h, h && h < 1 ? 2 : Number.isInteger(h) ? 0 : 1) + ' ' + t('h');
+
+  function renderConditions(data, labels) {
+    const sc = S.sc[selected], stats = data.stats;
+    get('range').textContent = fmtDate(sc.start, false) + ' – ' + fmtDate(sc.start + stats.total * 3600000, false) + ' · UTC';
+    get('place').textContent = siteName(selected) + ' · ' + fmtCoord(sc.lat, sc.lon);
+    get('lit').textContent = new Intl.NumberFormat(S.lang, {style: 'percent', maximumFractionDigits: 2}).format(stats.sun / stats.total);
+    get('contact').textContent = nf(data.runs.earth.length);
+    get('joint').textContent = hours(stats.both);
+    get('dark').textContent = hours(stats.dark);
+    get('ask').dataset.openAnalyst = selected;
+    for (const button of buttons) {
+      const key = button.dataset.mcSite;
+      button.setAttribute('aria-pressed', String(key === selected));
+      button.lastElementChild.textContent = siteName(key);
+    }
+    get('sampling').textContent = labels.sample + ' · ' + nf(data.dtH * 60) + ' ' + t('m');
+    for (const band of root.querySelectorAll('[data-mc-band]')) {
+      const body = band.dataset.mcBand;
+      const tracks = document.createDocumentFragment();
+      for (const [start, end] of data.runs[body]) {
+        const segment = document.createElement('i');
+        segment.style.left = (100 * start / (data.n - 1)) + '%';
+        segment.style.width = (100 * (end - start) / (data.n - 1)) + '%';
+        tracks.append(segment);
+      }
+      band.querySelector('.mc-track').replaceChildren(tracks);
+      band.querySelector('b').textContent = hours(stats[body]);
+    }
+  }
+
+  function update(forceSky = false) {
+    if (S.tab !== 'console' || !S.data[selected]) return;
+    const labels = copy[S.lang], data = S.data[selected], sample = idxAt(selected);
+    const changed = previousData !== data || previousLang !== S.lang || previousScenario !== selected;
+    if (previousLang !== S.lang) {
+      for (const el of root.querySelectorAll('[data-mc]')) el.textContent = labels[el.dataset.mc];
+      root.querySelector('.mc-sites').setAttribute('aria-label', labels.scenarios);
+      get('sky').setAttribute('aria-label', labels.sky);
+    }
+    if (changed) renderConditions(data, labels);
+    if (changed || sample !== previousSample || forceSky) {
+      get('utc').textContent = fmtDate(S.sc[selected].start + sample * data.dtH * 3600000) + ' UTC';
+      for (const body of ['sun', 'earth']) {
+        const angle = data[body + 'El'][sample];
+        get(body + '-now').textContent = labels.elev + ' ' + (angle > 0 ? '+' : '') + nf(angle, 2) + '° · ' + (data[body + 'Up'][sample] ? t('up') : labels.hidden);
+      }
+      AA.drawSky(selected, get('sky'));
+    }
+    previousData = data; previousLang = S.lang; previousScenario = selected; previousSample = sample;
+  }
+
+  buttons.forEach(button => button.addEventListener('click', () => {
+    selected = button.dataset.mcSite; update();
+  }));
+  if ('ResizeObserver' in window) new ResizeObserver(() => update(true)).observe(get('sky'));
+  window.AAMissionConsole = { update };
+  update();
+})();
+
+</script>
+<script>
+/* js/settings.js */
+/* Browser preferences are separate from shareable mission scenarios. */
+(() => {
+  const AA = window.AA;
+  if (!AA) return;
+  const byId = id => document.getElementById(id);
+  const key = 'astroapex.workspace.settings.v1';
+  let preferences = {};
+  try {
+    const saved = JSON.parse(localStorage.getItem(key));
+    if (saved && typeof saved === 'object') preferences = saved;
+  } catch { /* Preferences still work in memory. */ }
+  function save(field, value) {
+    preferences[field] = value;
+    try { localStorage.setItem(key, JSON.stringify(preferences)); } catch { /* Session only. */ }
+  }
+  const home = byId('cfg-home'), commands = byId('cfg-commands'), search = byId('cfg-search');
+  home.checked = preferences.consoleHome === true;
+  commands.checked = preferences.commands === true;
+  home.addEventListener('change', () => save('consoleHome', home.checked));
+  commands.addEventListener('change', () => save('commands', commands.checked));
+  window.AASettings = { commandsEnabled: () => commands.checked };
+
+  const analyst = window.AAssist;
+  function refresh() {
+    const config = analyst.getProviderSettings();
+    byId('cfg-modes').querySelectorAll('input').forEach(el => { el.checked = el.value === config.mode; });
+    search.checked = config.search;
+    search.disabled = config.mode !== 'gemini';
+    let message = 'cfg_offline';
+    if (config.mode === 'gemini') {
+      message = config.authorized && config.providers.gemini ? 'cfg_gemini_ok'
+        : (config.providers.qwen ? 'cfg_gemini_fallback' : 'cfg_missing');
+    }
+    if (config.mode === 'auto' && (window.AstroApexAI?.ask || (config.authorized && config.providers.anthropic))) message = 'cfg_auto_ok';
+    if (config.mode === 'openai') message = config.authorized && config.providers.openai ? 'cfg_luna_on' : (config.providers.qwen ? 'cfg_luna_fallback' : 'cfg_luna_off');
+    if (config.mode === 'auto' && config.providers.openai) message = 'cfg_luna_on';
+    if (config.mode === 'qwen') message = config.providers.qwen ? 'cfg_qwen_on' : 'cfg_qwen_off';
+    if (config.mode === 'auto' && config.providers.qwen && message === 'cfg_offline') message = 'cfg_qwen_on';
+    if (config.mode !== 'local' && config.retrying) message = 'cfg_retry';
+    byId('cfg-status').textContent = AA.t(message);
+  }
+  byId('cfg-modes').addEventListener('change', e => {
+    if (e.target.name === 'cfg-provider') analyst.setProviderSettings({mode: e.target.value, search: search.checked});
+  });
+  search.addEventListener('change', () => analyst.setProviderSettings({mode: analyst.getProviderSettings().mode, search: search.checked}));
+  window.addEventListener('astroapex:providerchange', refresh);
+  AA.onChange(refresh);
+  refresh();
+  const requestedView = new URLSearchParams(location.search).get('view');
+  if (requestedView === 'settings' || requestedView === 'console') AA.showTab(requestedView);
+  else if (home.checked) AA.showTab('console');
+})();
+
+</script>
+<script>
+/* js/interaction-motion.js */
+/* Connect a change in mission-wide overlap to its displayed total. */
+(() => {
+  const planner = window.AA;
+  if (!planner) return;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  for (const row of document.querySelectorAll('[data-overlap]')) {
+    const value = row.querySelector('b');
+    const slot = document.createElement('span');
+    slot.className = 'overlap-value-slot';
+    value.replaceWith(slot);
+    slot.append(value);
+    const hours = () => planner.S.data[row.dataset.overlap].stats.both;
+    let previousHours = hours(), previousText = value.textContent;
+
+    planner.onChange(() => {
+      const current = hours(), text = value.textContent;
+      if (text === previousText && current === previousHours) return;
+      const from = previousText, direction = Math.sign(current - previousHours);
+      previousText = text;
+      previousHours = current;
+      slot.querySelector('.overlap-previous')?.remove();
+      value.getAnimations?.().forEach(animation => animation.cancel());
+      if (planner.S.tab !== 'compare' || reduced.matches || !direction || from === text || !value.animate) return;
+
+      const old = document.createElement('span');
+      old.className = 'overlap-previous';
+      old.setAttribute('aria-hidden', 'true');
+      old.textContent = from;
+      slot.append(old);
+      const shift = 11 * direction;
+      const timing = {duration: 300, easing: 'cubic-bezier(.22,.8,.22,1)'};
+      const leaving = old.animate([
+        {opacity: .85, transform: 'translateY(0)'},
+        {opacity: 0, transform: `translateY(${-shift}px)`}
+      ], timing);
+      leaving.onfinish = leaving.oncancel = () => old.remove();
+      value.animate([
+        {opacity: .18, transform: `translateY(${shift}px)`},
+        {opacity: 1, transform: 'translateY(0)'}
+      ], timing);
+    });
+    reduced.addEventListener('change', () => {
+      if (reduced.matches) slot.getAnimations({subtree: true}).forEach(animation => animation.cancel());
+    });
+  }
+})();
 
 </script>
 </body>

@@ -28,8 +28,8 @@ window.I18N = {
     h_sky: 'Gökyüzü ve ufuk',
     lead_sky: 'Seçili anda sahadan 360° ufuk panoraması. Çizgiler görev boyunca izlenen yolu gösterir; Ay’da atmosfer olmadığı için kırılma yoktur, ufuk yalnızca arazi ve kürenin kenarıdır.',
     elev: 'Yükselim', azim: 'Azimut', disc: 'Görünen disk', flux: 'Takip eden panel', flat: 'Yatay panel',
-    range: 'Görev boyunca aralık', up: 'görünür', down: 'ufuk altında',
-    sets_in: 'Batışa {t}', rises_in: 'Doğuşa {t}', until_end: 'Görev sonuna dek görünür', never: 'Görev boyunca görünmez',
+    range: 'Görev boyunca aralık', up: 'görünür', down: 'ufuk altında', sun_eclipsed: 'tutulmada',
+    sets_in: 'Işığın kesilmesine {t}', rises_in: 'Işığın geri gelmesine {t}', until_end: 'Görev sonuna dek görünür', never: 'Görev boyunca görünmez',
     earthset_in: 'Dünya batışına {t}', earthrise_in: 'Dünya doğuşuna {t}',
     geo_h: 'geometrik ufuk', loc_h: 'yerel ufuk',
     h_time: 'Zaman içinde değişim',
@@ -43,7 +43,7 @@ window.I18N = {
     h_map: 'Ay haritası',
     lead_map: 'Küreyi sürükleyip döndürün, tekerlekle yakınlaştırın. Tıkladığınız nokta seçili senaryonun özel koordinatı olur. Aydınlatma, seçili anda gerçek gündüz–gece sınırını gösterir.',
     v_near: 'Yakın yüz', v_south: 'Güney kutbu', v_far: 'Uzak yüz', v_north: 'Kuzey kutbu',
-    click_sets: 'Tıklama şunu ayarlar', lighting: 'Gerçek aydınlatma',
+    click_sets: 'Tıklama şunu ayarlar', lighting: 'Güneş yönüne göre gölgeleme',
     subsolar: 'Güneş altı noktası', subearth: 'Dünya altı noktası (librasyon)', em_dist: 'Dünya–Ay uzaklığı',
     map_credit: 'Görüntü: NASA Moon Trek · LRO WAC küresel mozaik',
     h_res: 'Kaynaklar ve yöntem',
@@ -90,8 +90,8 @@ window.I18N = {
     h_sky: 'Sky and horizon',
     lead_sky: 'A 360° horizon panorama from the site at the selected moment. Lines trace the path over the mission; with no atmosphere there is no refraction — the horizon is only terrain and the limb of the sphere.',
     elev: 'Elevation', azim: 'Azimuth', disc: 'Visible disc', flux: 'Tracking array', flat: 'Horizontal array',
-    range: 'Range over mission', up: 'visible', down: 'below horizon',
-    sets_in: 'Sunset in {t}', rises_in: 'Sunrise in {t}', until_end: 'Visible through end of mission', never: 'Not visible during mission',
+    range: 'Range over mission', up: 'visible', down: 'below horizon', sun_eclipsed: 'eclipsed',
+    sets_in: 'Sunlight ends in {t}', rises_in: 'Sunlight returns in {t}', until_end: 'Visible through end of mission', never: 'Not visible during mission',
     earthset_in: 'Earthset in {t}', earthrise_in: 'Earthrise in {t}',
     geo_h: 'geometric horizon', loc_h: 'local horizon',
     h_time: 'Change over time',
@@ -105,7 +105,7 @@ window.I18N = {
     h_map: 'Moon map',
     lead_map: 'Drag to rotate, scroll to zoom. A click sets the custom coordinates of the selected scenario. Lighting shows the real day–night terminator at the selected moment.',
     v_near: 'Near side', v_south: 'South pole', v_far: 'Far side', v_north: 'North pole',
-    click_sets: 'Click sets', lighting: 'Real lighting',
+    click_sets: 'Click sets', lighting: 'Shade by Sun direction',
     subsolar: 'Sub-solar point', subearth: 'Sub-Earth point (libration)', em_dist: 'Earth–Moon distance',
     map_credit: 'Imagery: NASA Moon Trek · LRO WAC global mosaic',
     h_res: 'Resources and method',
@@ -363,10 +363,10 @@ Object.assign(I18N.tr, {
  "ch_earth_t": "Dünya ufkun ne kadar üstünde?",
  "ch_earth_h": "Çizgi gri bölgedeyken Dünya ile doğrudan iletişim kurulamaz. Düz çizgi A, kesikli çizgi B.",
  "horizon": "ufuk",
- "below_h": "ufkun altı · görünmez",
+ "below_h": "merkez yerel ufkun altında",
  "sel_time": "seçili an",
  "year_t": "Yıl içinde en iyi günler · 365 gün",
- "year_lead": "Koyu yeşil günlerde güç ve iletişim gün boyu birlikte var. Bir güne tıklayınca görev o tarihe taşınır.",
+ "year_lead": "Daha parlak yeşil, o gün Güneş ve Dünya’nın daha uzun süre birlikte göründüğünü gösterir. Bir güne tıklayınca görev o tarihe taşınır.",
  "y_0": "Günde 0 saat",
  "y_24": "24 saat",
  "y_sel": "seçili görev"
@@ -391,10 +391,10 @@ Object.assign(I18N.en, {
  "ch_earth_t": "How far is Earth above the horizon?",
  "ch_earth_h": "While the line is in the grey zone there is no direct link to Earth. Solid line is A, dashed line is B.",
  "horizon": "horizon",
- "below_h": "below horizon · not visible",
+ "below_h": "centre below local horizon",
  "sel_time": "selected time",
  "year_t": "Best days of the year · 365 days",
- "year_lead": "On dark green days, power and comms are available together all day. Click a day to move the mission there.",
+ "year_lead": "Brighter green indicates more hours with simultaneous sunlight and Earth visibility that day. Click a day to move the mission there.",
  "y_0": "0 hours a day",
  "y_24": "24 hours",
  "y_sel": "selected mission"
@@ -619,7 +619,7 @@ Object.assign(I18N.tr, {
  "scan_moon": "Tüm Ay",
  "sct_lead_moon": "Tüm Ay yüzeyine eşit aralıklı 2.600 nokta (yaklaşık 120 km arayla) tarar. 82°G’nin güneyinde gerçek LOLA ufku, diğer yerlerde düz ufuk ve kaba eğim haritası kullanılır.",
  "leg_slope": "Eğim: ≤5° · ≤8° · ≤15° · >15° (kutuplar dışında kaba, ~7,6 km hücre)",
- "leg_ice": "Kalıcı gölge (yalnızca kutuplarda bulunur)",
+ "leg_ice": "Kalıcı gölge · kutup verileri",
  "limits_5": "Tüm Ay: eğim katmanı ve “Tüm Ay” taraması, NASA LOLA küresel yükseklik modelinden (16 piksel/derece) türetilen kaba bir eğim haritası kullanır (ekvatorda yaklaşık 7,6 km hücre); krater duvarlarını ve dağ yamaçlarını gösterir, iniş ölçeğindeki pürüzleri göstermez. Kuzey kutbundaki (80°K–90°K) kabartma, eğim ve kalıcı gölge yalnızca harita katmanıdır; gerçek ufuk, buz erişim puanı ve rota yalnızca güney kutbunda hesaplanır. Kalıcı gölge yalnızca kutuplara yakın bulunur."
 });
 Object.assign(I18N.en, {
@@ -627,7 +627,7 @@ Object.assign(I18N.en, {
  "scan_moon": "Whole Moon",
  "sct_lead_moon": "Scans 2,600 points spread evenly over the whole Moon (about 120 km apart). South of 82°S a point gets its real LOLA horizon; elsewhere the horizon is flat and the coarse slope map is used.",
  "leg_slope": "Slope: ≤5° · ≤8° · ≤15° · >15° (coarse outside the poles, ~7.6 km cells)",
- "leg_ice": "Permanent shadow (exists only near the poles)",
+ "leg_ice": "Permanent shadow · polar data coverage",
  "limits_5": "Whole Moon: the slope layer and the “Whole Moon” scan use a coarse slope map derived from the NASA LOLA global elevation model (16 pixels per degree; cells of about 7.6 km at the equator). It shows crater walls and mountain fronts, not landing-scale roughness. Relief, slope and permanent shadow at the north pole (80°N–90°N) are map layers only; real horizons, the ice-access score and the rover route are computed for the south pole only. Permanent shadow exists only near the poles."
 });
 
@@ -657,4 +657,53 @@ Object.assign(I18N.en, {
  "ch_sun_h": "When the line drops into the grey zone the Sun’s centre is below the horizon; power continues in proportion to the visible part of the disc and stops once the disc is fully hidden. Values are relative to the local horizon (terrain included).",
  "limits_1": "Terrain horizons come from two sources: a profile precomputed from the LOLA 80 m model for three NASA study-region centres (Shackleton Rim, Connecting Ridge, Malapert Massif), and a profile computed in the browser from the 480 m LOLA grid for every other point south of 82°S. At those three centres the two methods differ by 0.2°–1.3° on average and by up to 2.8° in single directions; the grid misses narrow ridges and usually gives the lower horizon. Because the Sun never rises more than about 1.5° at the pole, that difference can change the result by hours, and on a ridge crest by days (157 hours in 14 days at Connecting Ridge). Sunlight hours and scan scores from the 480 m grid are therefore upper bounds. Outside that area the horizon is a spherical Moon plus the fixed angle you choose.",
  "limits_6": "The power model includes lunar eclipses. Recommendations check for battery depletion, no Earth visibility during the mission and known mean slopes above 15°. Mission-specific contact and landing requirements need further evaluation."
+});
+
+Object.assign(I18N.tr, {map_layers: 'Harita katmanları', lead_map: 'Ay’ı sürükleyerek döndürün. Bir noktaya dokunarak seçili senaryonun iniş sahasını belirleyin.'});
+Object.assign(I18N.en, {map_layers: 'Map layers', lead_map: 'Drag to rotate the Moon. Select a point to set the landing site for the active scenario.'});
+
+Object.assign(I18N.en, {
+  launch_moon: '3D Moon', h_compare: 'Compare landing sites', nav_time: 'Timeline',
+  lead_compare: 'Choose two sites and landing dates to see when each has sunlight and a direct link to Earth.',
+  site_reports: 'Site scores and terrain', ask_result: 'Explain this result',
+  verdict_sub: 'Time with sunlight for power and a direct line of sight to Earth.'
+});
+Object.assign(I18N.tr, {
+  launch_moon: '3B Ay', h_compare: 'İniş sahalarını karşılaştır', nav_time: 'Zaman çizelgesi',
+  lead_compare: 'İki saha ve iniş tarihi seçerek hangi saatlerde hem güneş ışığı hem Dünya ile doğrudan görüş olduğunu inceleyin.',
+  site_reports: 'Saha puanları ve arazi', ask_result: 'Sonucu yorumla',
+  verdict_sub: 'Güneş ışığının ve Dünya ile doğrudan görüşün aynı anda bulunduğu süre.'
+});
+
+Object.assign(I18N.en, {
+  nav_sections: 'Sections', language: 'Language', cfg_title: 'Settings', cfg_console: 'Mission console',
+  cfg_console_desc: 'Inspect one landing scenario at a time. Follow its sky, sunlight and Earth contact on the mission clock.',
+  cfg_open: 'Open mission console', cfg_home: 'Start in the mission console on this browser',
+  cfg_hydrogen: 'Hydrogen assistant', cfg_analyst_desc: 'Choose how the mission analyst answers questions about the active plan.',
+  cfg_mode: 'Answer source', cfg_auto: 'Automatic', cfg_local: 'Calculations only', cfg_qwen_on: 'Qwen3.5 4B is available on this Mac. Questions stay on the device when it answers.', cfg_qwen_off: 'Qwen3.5 4B is unavailable. Open this planner through the local server and start the Qwen runtime.',
+  cfg_search: 'Allow Google Search for Gemini answers', cfg_commands: 'Allow typed planner commands',
+  cfg_command_eg: 'For example, “Set duration to 7 days” or “Open timeline”.',
+  cfg_luna_on: 'GPT-6 Luna is configured for this private session.', cfg_luna_off: 'GPT-6 Luna is unavailable. Answers use mission calculations.', cfg_luna_fallback: 'GPT-6 Luna is unavailable in this session. Qwen3.5 4B can answer on this Mac.',
+  cfg_setup: 'Connect an online model', cfg_setup_text: 'Set OPENAI_API_KEY for GPT-6 Luna or GEMINI_API_KEY for Gemini in the server environment, start server.py with --open, then use the private session it opens. Online questions send your prompt and mission context to the provider.',
+  cfg_ask: 'Open analyst', cfg_offline: 'Answers use the local mission engine.',
+  cfg_gemini_fallback: 'Gemini is unavailable in this session. Qwen3.5 4B can answer on this Mac.',
+  cfg_missing: 'Gemini is unavailable in this session. The analyst will use the offline engine.',
+  cfg_gemini_ok: 'Gemini is configured for this session.', cfg_auto_ok: 'The server provider is configured for this session.',
+  cfg_retry: 'The provider did not answer. The local engine supplied the last response.'
+});
+Object.assign(I18N.tr, {
+  nav_sections: 'Bölümler', language: 'Dil', cfg_title: 'Ayarlar', cfg_console: 'Görev konsolu',
+  cfg_console_desc: 'Bir iniş senaryosuna odaklanın. Görev saati boyunca gökyüzünü, güneş ışığını ve Dünya ile görüşü izleyin.',
+  cfg_open: 'Görev konsolunu aç', cfg_home: 'Bu tarayıcıda görev konsoluyla başla',
+  cfg_hydrogen: 'Hydrogen asistanı', cfg_analyst_desc: 'Görev analistinin seçili plan hakkındaki soruları nasıl yanıtlayacağını belirleyin.',
+  cfg_mode: 'Yanıt kaynağı', cfg_auto: 'Otomatik', cfg_local: 'Yalnızca hesaplamalar', cfg_qwen_on: 'Qwen3.5 4B bu Mac’te hazır. Bu model yanıtlarken sorular cihazda kalır.', cfg_qwen_off: 'Qwen3.5 4B kullanılamıyor. Planlayıcıyı yerel sunucudan açın ve Qwen sunucusunu başlatın.',
+  cfg_search: 'Gemini yanıtları için Google aramasına izin ver', cfg_commands: 'Yazılı planlayıcı komutlarına izin ver',
+  cfg_command_eg: 'Örneğin “Süreyi 7 gün yap” veya “Zaman çizelgesini aç”.',
+  cfg_luna_on: 'Bu özel oturumda GPT-6 Luna yapılandırılmış.', cfg_luna_off: 'GPT-6 Luna kullanılamıyor. Yanıtlar görev hesaplamalarından geliyor.', cfg_luna_fallback: 'Bu oturumda GPT-6 Luna kullanılamıyor. Qwen3.5 4B bu Mac’te yanıt verebilir.',
+  cfg_setup: 'Çevrimiçi bir model bağla', cfg_setup_text: 'Sunucu ortamında GPT-6 Luna için OPENAI_API_KEY veya Gemini için GEMINI_API_KEY değişkenini ayarlayın, server.py dosyasını --open ile başlatın ve açılan özel oturumu kullanın. Çevrimiçi sorularda mesajınız ve görev bağlamı sağlayıcıya gönderilir.',
+  cfg_ask: 'Analisti aç', cfg_offline: 'Yanıtlar yerel görev motorundan geliyor.',
+  cfg_gemini_fallback: 'Bu oturumda Gemini kullanılamıyor. Qwen3.5 4B bu Mac’te yanıt verebilir.',
+  cfg_missing: 'Bu oturumda Gemini bağlantısı yok. Analist çevrimdışı motoru kullanacak.',
+  cfg_gemini_ok: 'Bu oturumda Gemini yapılandırılmış.', cfg_auto_ok: 'Bu oturumda sunucu sağlayıcısı yapılandırılmış.',
+  cfg_retry: 'Sağlayıcı yanıt vermedi. Son yanıt yerel görev motorundan geldi.'
 });

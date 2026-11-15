@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "python3 navigator/tools/build_single.py",
-    "test": "node --test tests/test_navigator.cjs"
+    "test": "node --test tests/test_*.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

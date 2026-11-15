@@ -2,3 +2,6 @@ api_key.txt
 __pycache__/
 *.pyc
 kernels/
+
+# Reproducible snippet for sites that supply their own HTML shell.
+dist/astroapex-web.html

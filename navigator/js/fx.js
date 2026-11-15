@@ -1,10 +1,9 @@
-/* AstroApex presentation layer: the rotating Moon backdrop, the opening sequence and the guided tour.
+/* AstroApex presentation layer: the lunar backdrop and the guided tour.
    Purely visual. Nothing here changes a calculation; if this file fails, the app still works. */
 (function () {
   'use strict';
   const $ = s => document.querySelector(s);
   const root = document.documentElement;
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const lang = () => (window.AA && window.AA.S.lang === 'en') ? 'en' : 'tr';
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -16,8 +15,7 @@
   // smaller than a screen pixel; bilinear sampling keeps the rotation continuous.
   const M = { cv: $('#bg-moon'), N: 0, idx: null, row: null, col: null, level: null, blend: null,
     shade: null, rim: null, alpha: null, img: null, levels: null, mipSource: null,
-    tex: null, spin: 0, speed: 0, target: 0, last: 0, lastShift: -1 };
-  const SPIN = 4096 / 170; // texture columns per second at full speed: one turn in about 170 s
+    tex: null };
 
   function downsample(source, next) {
     for (let y = 0; y < next.h; y++) for (let x = 0; x < next.w; x++) {
@@ -121,7 +119,7 @@
     M.idx = Int32Array.from(idx); M.row = Float32Array.from(row); M.col = Float32Array.from(col);
     M.level = Uint8Array.from(level); M.blend = Float32Array.from(blend);
     M.shade = Float32Array.from(shade); M.rim = Float32Array.from(rim); M.alpha = Uint8Array.from(alpha);
-    M.img = M.cv.getContext('2d').createImageData(N, N); M.lastShift = -1;
+    M.img = M.cv.getContext('2d').createImageData(N, N);
   }
 
   function sampleMip(tex, u, v) {
@@ -138,12 +136,9 @@
 
   function drawMoon() {
     const { idx, row, col, level, blend, shade, rim, alpha, levels, tex } = M, px = M.img.data;
-    const shift = ((M.spin % tex.w) + tex.w) % tex.w;
-    if (shift === M.lastShift) return;
-    M.lastShift = shift;
-    const turn = shift / tex.w, lastLevel = levels.length - 1;
+    const lastLevel = levels.length - 1;
     for (let n = 0; n < idx.length; n++) {
-      const lod = level[n], u = col[n] + turn, v = row[n];
+      const lod = level[n], u = col[n], v = row[n];
       const a = sampleMip(levels[lod], u, v), b = sampleMip(levels[Math.min(lod + 1, lastLevel)], u, v);
       const grey = a + (b - a) * blend[n];
       const g = ((grey - 105) * 1.25 + 120) * shade[n], r = rim[n], o = idx[n] * 4;
@@ -153,21 +148,12 @@
     }
     M.cv.getContext('2d').putImageData(M.img, 0, 0);
   }
-  function frame(ts) {
-    requestAnimationFrame(frame);
-    if (!M.tex || document.hidden) { M.last = ts; return; }
-    const dt = Math.min(0.1, (ts - (M.last || ts)) / 1000); M.last = ts;
-    M.speed += (M.target - M.speed) * Math.min(1, dt * 0.7); // ease into the spin
-    M.spin += M.speed * SPIN * dt * (M.tex.w / 4096);
-    drawMoon();
-  }
   function startBackdrop() {
     if (!M.cv) return;
     let tries = 0;
     (function wait() { // the app decodes the Moon map (embedded, or NASA tiles as a fallback); reuse it
       const tex = window.AA && window.AA.S.globe.tex;
       if (tex && tex !== M.tex) {
-        if (M.tex) M.spin *= tex.w / M.tex.w;
         M.tex = tex;
         try { buildSphere(); drawMoon(); M.cv.classList.add('on'); } catch (e) { M.tex = null; return; }
       }
@@ -175,34 +161,6 @@
     })();
     let rz = 0;
     window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (M.tex) { try { buildSphere(); drawMoon(); } catch (e) { /* keep the old frame */ } } }, 250); });
-    requestAnimationFrame(frame);
-  }
-
-  /* ---------- opening sequence ---------- */
-  const PHASES = ['pre-moon', 'pre-bar', 'pre-ui'];
-  let introTimers = [], introDone = false;
-  function finishIntro(fast) {
-    if (introDone) return;
-    introDone = true;
-    introTimers.forEach(clearTimeout); introTimers = [];
-    if (reduce) root.classList.remove('anim'); else if (fast) root.classList.add('intro-skip');
-    root.classList.remove(...PHASES);
-    M.target = reduce ? 0 : 1;
-    document.removeEventListener('pointerdown', skipIntro, true);
-    document.removeEventListener('keydown', skipIntro, true);
-    setTimeout(() => { root.classList.remove('anim', 'intro-skip'); }, fast ? 500 : 1900);
-    setTimeout(offerTour, fast ? 700 : 2100);
-  }
-  function skipIntro() { finishIntro(true); }
-  function runIntro() {
-    if (!root.classList.contains('anim') || reduce) { finishIntro(true); return; }
-    const at = (ms, fn) => introTimers.push(setTimeout(fn, ms));
-    document.addEventListener('pointerdown', skipIntro, true);
-    document.addEventListener('keydown', skipIntro, true);
-    at(120, () => root.classList.remove('pre-moon'));           // the Moon glides down
-    at(3300, () => { M.target = 1; });                           // ...and starts to turn
-    at(4000, () => root.classList.remove('pre-bar'));           // bar, logo and buttons drop in
-    at(5200, () => finishIntro(false));                          // panels settle over the Moon
   }
 
   /* ---------- guided tour ---------- */
@@ -214,7 +172,7 @@
       keys: '← → ile ilerle · Esc ile çık',
       s: [
         ['AstroApex’e hoş geldiniz', 'Bu site, Ay’ın güney kutbunda iki iniş senaryosunu yan yana karşılaştırır: Güneş ne kadar görünüyor, Dünya ile iletişim ne zaman var, zemin ne kadar düz, buz ne kadar yakın. Kısa bir tur ile her bölümü göstereyim.'],
-        ['Beş bölüm', 'Üst menüden bölümler arasında geçilir: Karşılaştır, Gökyüzü, Zaman, 3B Harita ve Kaynaklar. Klavyede 1–5 tuşları da aynı işi yapar.'],
+        ['Beş bölüm', 'Üst menüden sahaları karşılaştırabilir, gökyüzünü ve zaman çizelgesini inceleyebilir veya 3B Ay’ı açabilirsiniz. 1–5 tuşlarıyla da görünümlere geçebilirsiniz.'],
         ['Hazır senaryolar', 'Tek tıkla gerçek iniş bölgelerini yükleyin: NASA çalışma bölgeleri, krater kenarları, ticari inişler ya da kutup ile ekvatorun karşılaştırması. Koordinat yazmanıza gerek kalmaz.'],
         ['Senaryo A ve B', 'Her senaryo için iniş bölgesini, başlangıç tarihini ve ufuk modelini buradan seçersiniz. Bir değeri değiştirdiğinizde bütün sayfa anında yeniden hesaplanır.'],
         ['Sonuç ve görev raporu', 'Hangi senaryoda güç ve iletişimin daha uzun süre birlikte olduğu tek cümleyle yazılır. “Görev raporu” tuşu her şeyi iki sayfalık bir PDF’te toplar.'],
@@ -237,7 +195,7 @@
       keys: '← → to move · Esc to exit',
       s: [
         ['Welcome to AstroApex', 'This site compares two landing scenarios at the lunar south pole side by side: how much Sun each one gets, when Earth is in view, how flat the ground is and how close the ice is. Let me show you each part.'],
-        ['Five sections', 'Use the top menu to move between Compare, Sky, Time, 3D Map and Resources. Keys 1–5 do the same.'],
+        ['Five sections', 'Compare sites, inspect their sky or timeline, or open the 3D Moon to explore terrain. Keys 1–5 open each view.'],
         ['Ready-made scenarios', 'Load real landing regions with one click: NASA study regions, crater rims, commercial landings, or the pole against the equator. No coordinates to type.'],
         ['Scenario A and B', 'Choose the landing site, start date and horizon model for each scenario here. Change any value and the whole page recalculates at once.'],
         ['Verdict and mission report', 'One sentence says which scenario has power and comms together for longer. The “Mission report” button gathers everything into a two-page PDF.'],
@@ -260,40 +218,15 @@
     ['compare', '#win-rows'], ['compare', '.timebar'], ['sky', '#sky-A'], ['time', '#chart-sun'], ['time', '#chart-batt'], ['map', '#globe-wrap'],
     ['map', '#scout'], ['resources', '#verify'], ['resources', '#assist-open']
   ];
-  const T = { on: false, i: 0, hole: null, pop: null, toast: null, prevFocus: null };
-
-  function offerTour() {
-    const btn = $('#tour-open');
-    if (btn) { btn.title = TXT[lang()].open; btn.setAttribute('aria-label', TXT[lang()].open); }
-    // offered on every visit, once the page has settled; skipping only closes it for this visit
-    if (T.on || T.toast || T.asked || !window.AA) return;
-    T.asked = true;
-    const x = TXT[lang()], el = document.createElement('div');
-    el.className = 'tour-toast'; el.setAttribute('role', 'status');
-    el.innerHTML = `<span class="tt-av" aria-hidden="true">✦</span>
-      <div class="tt-body"><small>${x.toast_from}</small><b>${x.toast_t}</b><p>${x.toast_b}</p>
-      <div class="tt-acts"><button class="tt-go" type="button">${x.toast_go}</button><button class="tt-no" type="button">${x.toast_no}</button></div></div>
-      <button class="tt-x" type="button" aria-label="${x.toast_no}">×</button>`;
-    const bar = $('.top'); if (bar) el.style.top = Math.round(bar.getBoundingClientRect().height + 12) + 'px'; // clear the header at any width
-    document.body.appendChild(el); T.toast = el;
-    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('in')));
-    el.querySelector('.tt-go').addEventListener('click', () => { closeToast(); startTour(); });
-    const no = () => { store.set('aa_tour', 'dismissed'); closeToast(); };
-    el.querySelector('.tt-no').addEventListener('click', no);
-    el.querySelector('.tt-x').addEventListener('click', no);
-  }
-  function closeToast() {
-    const el = T.toast; if (!el) return;
-    T.toast = null; el.classList.remove('in'); setTimeout(() => el.remove(), 450);
-  }
+  const T = { on: false, i: 0, hole: null, pop: null, prevFocus: null, previousTab: null, previousScroll: 0, openedDetails: [] };
 
   function startTour() {
     if (T.on || !window.AA) return;
-    if (!introDone) finishIntro(true);
-    closeToast();
     if (window.AAReport) window.AAReport.close();
     if (document.body.classList.contains('assist-on')) { const c = $('#assist-close'); if (c) c.click(); }
     T.on = true; T.i = 0; T.prevFocus = document.activeElement;
+    T.previousTab = window.AA.S.tab;
+    T.previousScroll = window.scrollY;
     T.hole = document.createElement('div'); T.hole.className = 'tour-hole';
     T.pop = document.createElement('div'); T.pop.className = 'tour-pop';
     T.pop.setAttribute('role', 'dialog'); T.pop.setAttribute('aria-modal', 'true'); T.pop.setAttribute('aria-labelledby', 'tour-title');
@@ -318,8 +251,11 @@
     for (const el of [T.hole, T.pop, T.shield]) if (el) el.remove();
     T.hole = T.pop = T.shield = null;
     root.classList.remove('tour-on');
-    if (window.AA.S.tab !== 'compare') window.AA.showTab('compare'); else window.scrollTo(0, 0);
-    const f = $('#tour-open') || T.prevFocus; if (f && f.focus) f.focus();
+    restoreDetails();
+    if (window.AA.S.tab !== T.previousTab) window.AA.showTab(T.previousTab);
+    const opener = T.prevFocus && T.prevFocus !== document.body && T.prevFocus.getClientRects().length ? T.prevFocus : $('#tour-open');
+    if (opener) opener.focus({preventScroll: true});
+    window.scrollTo({top: T.previousScroll, behavior: 'instant'});
   }
   function tourKeys(e) {
     if (!T.on) return;
@@ -337,18 +273,30 @@
     if (e.key !== 'Enter') e.stopPropagation(); // the app's shortcuts (1-5, Space, /) rest during the tour
     if (e.key === ' ' && !T.pop.contains(document.activeElement)) e.preventDefault();
   }
+  function restoreDetails() {
+    for (const el of T.openedDetails) el.open = false;
+    T.openedDetails.length = 0;
+  }
   function go(i) {
     if (!T.on) return;
     if (i >= STEPS.length) { endTour(); return; }
+    restoreDetails();
     T.i = Math.max(0, i);
     const [tab, sel] = STEPS[T.i], x = TXT[lang()], s = x.s[T.i], lastStep = T.i === STEPS.length - 1;
     if (window.AA.S.tab !== tab) window.AA.showTab(tab);
-    const target = sel && $(sel), d = target && target.closest('details');
-    if (d && !d.open) d.open = true;
+    const target = sel && $(sel);
+    for (let el = target; el; el = el.parentElement) {
+      if (el.tagName === 'DETAILS' && !el.open) {
+        el.open = true;
+        T.openedDetails.push(el);
+      }
+    }
     T.target = target && target.getClientRects().length ? target : null;
     if (T.target) {
-      const r = T.target.getBoundingClientRect(), fixed = T.target.closest('.top, .timebar');
-      if (!fixed) window.scrollTo(0, Math.max(0, window.scrollY + r.top - Math.max(90, (window.innerHeight - Math.min(r.height, window.innerHeight * 0.5)) / 2 - 60)));
+      const anchor = T.target.closest('.top, .timebar');
+      if (!anchor || !['fixed', 'sticky'].includes(getComputedStyle(anchor).position)) {
+        T.target.scrollIntoView({block: 'center', behavior: 'instant'});
+      }
     } else window.scrollTo(0, 0);
     T.pop.innerHTML = `<div class="tp-top"><span class="tp-step">${T.i + 1} ${x.of} ${STEPS.length}</span>${lastStep ? '' : `<button type="button" class="tp-skip" data-tour="skip">${x.skip}</button>`}</div>
       <h3 id="tour-title">${s[0]}</h3><p>${s[1]}</p>
@@ -392,9 +340,8 @@
     const lg = $('#lang');
     if (lg) lg.addEventListener('click', () => { // app.js has already switched S.lang on this same click
       if (btn) { btn.title = TXT[lang()].open; btn.setAttribute('aria-label', TXT[lang()].open); }
-      if (T.toast) { T.toast.remove(); T.toast = null; T.asked = false; offerTour(); } // redraw it in the new language
     });
-    runIntro();
+
   }
   window.AATour = { start: startTour, end: endTour };
   try { init(); } catch (e) { root.classList.remove('anim', 'pre-moon', 'pre-bar', 'pre-ui'); }

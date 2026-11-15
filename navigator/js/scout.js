@@ -71,7 +71,7 @@
     }
     k = KEYS.includes(k) ? k : S.globe.target;
     mode = mode === 'moon' || mode === 'pole' ? mode : S.scanMode;
-    S.scanMode = mode; syncMode();
+    S.scanMode = mode; syncMode(); AA.syncForms(); AA.queueGlobe(false);
     const start = S.sc[k].start, dur = S.dur, key = start + '|' + dur + '|' + mode;
     if (S.scout && S.scout.key === key) { token++; running = null; S.scout.k = k; render(); return Promise.resolve(S.scout); }
     if (running && running.key === key) return running.promise;
@@ -131,7 +131,7 @@
     if (!running) progress(null);
     if (!r) { out.innerHTML = ''; return; }
     // stale = the scenario this scan was made for has moved to another date, or the duration changed
-    const k = KEYS.includes(r.k) ? r.k : S.globe.target, stale = r.key !== S.sc[k].start + '|' + S.dur + '|' + S.scanMode;
+    const stale = !AA.scanMatchesMap(r);
     const fa = out.contains(document.activeElement) ? document.activeElement : null, keep = fa && fa.dataset.i != null ? `[data-i="${fa.dataset.i}"][data-k="${fa.dataset.k}"]` : null;
     out.innerHTML = `<ol class="scout-list">${r.top.map((p, i) => `<li>
         <span class="sc-n">${i + 1}</span>
@@ -145,7 +145,7 @@
 
   const modeBox = $('#scan-mode');
   const syncMode = () => { [...modeBox.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.mode === S.scanMode)); $('#scan-lead').textContent = t(S.scanMode === 'moon' ? 'sct_lead_moon' : 'sct_lead') + (S.scanMode === 'moon' ? '' : ' ' + t('sct_caveat')); };
-  modeBox.addEventListener('click', e => { if (e.target.dataset.mode) { S.scanMode = e.target.dataset.mode; syncMode(); render(); } });
+  modeBox.addEventListener('click', e => { if (e.target.dataset.mode) { S.scanMode = e.target.dataset.mode; syncMode(); AA.syncForms(); AA.queueGlobe(false); render(); } });
   AA.onChange(syncMode);
   syncMode();
   btn.addEventListener('click', () => {
@@ -209,7 +209,7 @@
     const r = S.regions;
     if (!Polar.ready) { rbtn.disabled = true; rbtn.textContent = t('reg_run'); rbox.innerHTML = ''; return; }
     if (!r) { rbox.innerHTML = ''; return; }
-    const rk = KEYS.includes(r.k) ? r.k : S.globe.target, stale = r.key !== S.sc[rk].start + '|' + S.dur;
+    const stale = !AA.scanMatchesMap(r);
     const fa = rbox.contains(document.activeElement) ? document.activeElement : null, keep = fa && fa.dataset.r != null ? `[data-r="${fa.dataset.r}"][data-k="${fa.dataset.k}"]` : null;
     rbox.innerHTML = `<ol class="reg-list">${r.rows.map((row, i) => { const b = row.best; return `<li>
         <span class="rs ${b ? '' : 'none'}">${b ? b.score : '—'}</span>

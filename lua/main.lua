@@ -31,7 +31,7 @@ local function build_contract_json(c_res, req)
 
     local dem_label = "GEOMETRIC_HORIZON_ONLY"
     if req.use_dem_horizon then
-        dem_label = c_res.using_real_dem and "LOLA_SOUTH_POLE_DEM_MMAP" or "SYNTHETIC_ANALYTICAL_FALLBACK"
+        dem_label = c_res.using_real_dem and "LOLA_SOUTH_POLE_DEM" or "GEOMETRIC_HORIZON_FALLBACK"
     end
 
     add('{\n')

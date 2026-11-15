@@ -107,13 +107,15 @@ This creates `navigator/dist/AstroApex.html` and a version for embedding, `navig
 
 ### Optional local chat service
 
-The local server can enable online chat through Anthropic. Start it from the repository root.
+The mission analyst can use GPT-6 Luna, Gemini, Anthropic, or a local Qwen3.5 4B runtime. Start the planner from the repository root.
 
 ```sh
 python3 navigator/server.py --open
 ```
 
-The server looks for an available local port starting at 5173. Online chat requires the `anthropic` package and the `ANTHROPIC_API_KEY` environment variable. The terminal prints a private session link that authorizes your browser. The `--open` flag opens it automatically. Keep that link private.
+The server looks for an available local port starting at 5173. Configure your chosen online provider in the server environment with `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `ANTHROPIC_API_KEY`. The Anthropic option also requires its Python package. With an online provider configured, `--open` opens a private browser session. Keep its link private. In Settings, choose the answer source and optionally open the single-scenario Mission console.
+
+On Apple Silicon, the optional offline Qwen runtime needs MLX-compatible model weights. Set `ASTROAPEX_QWEN_MODEL_DIR` to the local weight directory and follow the [Navigator guide](navigator/README.md#mission-analyst-models). The standalone HTML includes the planner’s calculations.
 
 If an older installation has a `navigator/api_key.txt` file, move its key to the environment variable and remove the file from the served directory. See the [server implementation](navigator/server.py) for startup and session handling.
 
@@ -141,7 +143,7 @@ make test
 make once
 ```
 
-`make test` runs the native regression suite. `make once` reads `data/input.json` and writes `data/output.json`. HTTP mode binds to 127.0.0.1 and sets separate five-second deadlines for reading a request and writing its response. With a Lua 5.4 interpreter, run `lua5.4 tests/test_json_retention.lua` to check memory retention. GitHub Actions builds and tests the engine on Linux. [Backend workflow](.github/workflows/backend.yml)
+`make test` runs the native regression suite. `make once` reads `data/input.json` and writes `data/output.json`. The native engine uses center-point visibility and falls back to a geometric horizon when its optional elevation grid is unavailable, invalid, or outside coverage. HTTP mode binds to 127.0.0.1 and sets separate five-second deadlines for reading a request and writing its response. With a Lua 5.4 interpreter, run `lua5.4 tests/test_json_retention.lua` to check memory retention. GitHub Actions builds and tests the engine on Linux. [Backend workflow](.github/workflows/backend.yml)
 
 ## Development tools
 

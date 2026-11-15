@@ -30,11 +30,15 @@ afterEach(async () => {
 
 test('standalone package embeds the exact source and retains six usable pickers', async () => {
   const html = await fs.readFile(path.join(root, 'navigator/dist/AstroApex.html'), 'utf8');
-  for (const name of ['app', 'assistant', 'polar', 'scout', 'report', 'fx', 'pickers']) {
-    const source = await fs.readFile(path.join(root, 'navigator/js', name + '.js'), 'utf8');
-    assert.ok(html.includes(source.replaceAll('</script', '<\\/script')), name + ' is current');
+  const index = await fs.readFile(path.join(root, 'navigator/index.html'), 'utf8');
+  const scripts = [...index.matchAll(/<script src="(js\/[^"?]+)(?:\?[^"]*)?"><\/script>/g)];
+  assert.ok(scripts.length >= 7);
+  for (const [,relative] of scripts) {
+    const source = await fs.readFile(path.join(root, 'navigator', relative), 'utf8');
+    assert.ok(html.includes(source.replaceAll('</script', '<\\/script')), relative + ' is current');
   }
   assert.equal(await page.locator('.ap-picker-trigger').count(), 6);
+  await page.locator('.site-reports > summary').click();
   assert.equal(await page.locator('#report-A .score strong').innerText(), '78');
   assert.equal(await page.locator('#report-B .score strong').innerText(), '58');
   const slider = page.locator('#scrub');
@@ -149,15 +153,19 @@ test('a transient local AI failure can recover on the next request', async () =>
   });
   await page.addInitScript(() => sessionStorage.setItem('astroapex-local-token', 'test-session'));
   await page.goto('https://astroapex.test/');
-  await page.waitForFunction(() => window.AstroApexAI && window.AA?.Polar.ready);
-  const result = await page.evaluate(async () => {
-    let failed = false;
-    try { await AstroApexAI.ask('first', {}); } catch (_) { failed = true; }
-    const availableForRetry = !!window.AstroApexAI;
-    const recovered = availableForRetry ? await AstroApexAI.ask('second', {}) : null;
-    return { failed, availableForRetry, recovered };
-  });
-  assert.deepEqual(result, { failed: true, availableForRetry: true, recovered: 'recovered' });
+  await page.waitForFunction(() => window.AAssist?.getProviderSettings().authorized && AA.Polar.ready);
+  await page.locator('#assist-open').click();
+  const ask = async question => {
+    await page.locator('#assist-input').fill(question);
+    await page.locator('#assist-input').press('Enter');
+  };
+  await ask('Compare A and B');
+  await page.waitForFunction(() => AAssist.getProviderSettings().lastSource === 'local');
+  assert.equal(await page.locator('#assist-log .msg.bot small').first().textContent(), 'Local mission calculation');
+  assert.equal(requests, 1);
+  await ask('Compare A and B again');
+  await page.waitForFunction(() => AAssist.getProviderSettings().lastSource === 'anthropic');
+  assert.match(await page.locator('#assist-log .msg.bot').last().innerText(), /recovered/);
   assert.equal(requests, 2);
 });
 
@@ -298,6 +306,43 @@ test('PDF has searchable Turkish text and its preview has a semantic transcript'
   }finally{await fs.rm(folder,{recursive:true,force:true});}
 });
 
+test('PDF altitude chart contains relative-to-horizon samples below minus 90 degrees', async () => {
+  const result = await page.evaluate(() => {
+    AA.setPoint('A', 0, 120);
+    AA.S.sc.A.mask = 5;
+    AA.S.dur = 29.5;
+    AA.refresh();
+    const min = Math.min(...AA.S.data.A.sunM);
+    const proto = CanvasRenderingContext2D.prototype;
+    const rect = proto.rect, lineTo = proto.lineTo;
+    const clips = new WeakMap();
+    let samples = 0, cropped = 0;
+    try {
+      proto.rect = function(x, y, width, height) {
+        clips.set(this, [y, y + height]);
+        return rect.call(this, x, y, width, height);
+      };
+      proto.lineTo = function(x, y) {
+        const bounds = clips.get(this);
+        if (bounds && this.strokeStyle === '#d98a00' && this.lineWidth === 2.5) {
+          samples++;
+          if (y < bounds[0] - 0.01 || y > bounds[1] + 0.01) cropped++;
+        }
+        return lineTo.call(this, x, y);
+      };
+      const pages = AAReport.build();
+      const endTicks = pages[1].reportTextRuns.filter(run => run.text === '29,5 g').length;
+      return {min, samples, cropped, endTicks};
+    } finally {
+      proto.rect = rect; proto.lineTo = lineTo;
+    }
+  });
+  assert.ok(result.min < -90);
+  assert.ok(result.samples > 1000);
+  assert.equal(result.cropped, 0);
+  assert.equal(result.endTicks, 3);
+});
+
 test('CSV preserves original columns and includes scenario provenance', async()=>{
   await page.locator('#compare > details').last().locator('summary').click();
   const waiting=page.waitForEvent('download');
@@ -310,3 +355,112 @@ test('CSV preserves original columns and includes scenario provenance', async()=
   assert.match(download.suggestedFilename(),/20270108T0000Z_14d_lola80/);
 });
 
+
+test('share action round-trips independent dates, coordinates, horizon, language, duration and power', async () => {
+  const plan = () => ({ sc: AA.S.sc, lang: AA.S.lang, dur: AA.S.dur, pwr: AA.S.pwr });
+  await page.evaluate(() => {
+    AA.setPoint('A', 12.345, -91.246);
+    AA.S.sc.A.mask = 2;
+    AA.S.sc.A.start = Date.UTC(2028, 1, 29, 23, 44);
+    AA.S.sc.B.start = Date.UTC(2030, 11, 31, 3, 17);
+    AA.S.dur = 7;
+    AA.setPower({ load: 120, cap: 12.5, area: 2.5 });
+    AA.refresh();
+    Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {
+      writeText: async (text) => { window.sharedScenario = text; }
+    }});
+  });
+  const expected = await page.evaluate(plan);
+  await page.locator('#compare > details').last().locator('summary').click();
+  await page.locator('#share').click();
+  const url = await page.evaluate(() => window.sharedScenario);
+  assert.ok(url && new URL(url).hash.includes('a=custom'));
+  await page.goto(url);
+  await page.reload();
+  await page.waitForFunction(() => window.AA?.Polar.ready);
+  assert.deepEqual(await page.evaluate(plan), expected);
+});
+
+test('mismatched names and malformed links cannot mislabel a site or break initialization', async () => {
+  const base = page.url().split('#')[0];
+  const defaults = await page.evaluate(() => AA.S.sc);
+  await page.goto(base + '#a=ridge|0|90|2028-02-29T02:30|0&b=custom|2|Infinity|2027-02-30T01:00|0&l=toString');
+  await page.reload();
+  await page.waitForFunction(() => window.AA?.Polar.ready);
+  const actual = await page.evaluate(() => ({ lang: AA.S.lang, a: AA.S.sc.A, b: AA.S.sc.B, name: AA.siteName('A') }));
+  assert.equal(actual.a.lat, 0); assert.equal(actual.a.lon, 90);
+  assert.equal(actual.a.site, 'custom');
+  assert.notEqual(actual.name, 'Connecting Ridge');
+  assert.ok(['en', 'tr'].includes(actual.lang));
+  assert.deepEqual(actual.b, defaults.B);
+});
+
+test('guided tour restores its origin and translated keyboard controls preserve the mission clock', async () => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.locator('.nav [data-tab=settings]').click();
+  assert.equal(await page.locator('.nav').getAttribute('aria-label'), 'Bölümler');
+  assert.equal(await page.locator('#scrub').getAttribute('aria-label'), 'Görev zamanı');
+  assert.equal(await page.locator('#play').getAttribute('aria-label'), 'Oynat');
+
+  await page.locator('#tour-open').click();
+  await page.locator('.tp-next').click();
+  await page.locator('.tp-next').click();
+  assert.ok(await page.locator('.preset-menu').evaluate(el => el.open));
+  await page.keyboard.press('Escape');
+  assert.ok(await page.locator('#settings').isVisible());
+  assert.equal(await page.locator('.preset-menu').evaluate(el => el.open), false);
+  assert.equal(await page.locator(':focus').getAttribute('id'), 'tour-open');
+
+  await page.locator('.nav [data-tab=resources]').click();
+  const table = page.locator('#verify');
+  await table.focus();
+  const cursor = await page.locator('#scrub').inputValue();
+  await page.keyboard.press('ArrowRight');
+  await page.waitForFunction(() => document.querySelector('#verify').scrollLeft > 0);
+  assert.equal(await page.locator('#scrub').inputValue(), cursor);
+});
+
+test('eclipse at sunrise clips the same solar disc against both Earth and the horizon', async () => {
+  const result = await page.evaluate(() => {
+    const lat = 10, lon = -84.1069015, start = Date.UTC(2026, 2, 3, 9, 20);
+    const mission = AA.simulate({site: 'custom', lat, lon, start, mask: 0}, 1, 10);
+    const sample = Ephem.observe(Ephem.site(lat, lon), start);
+    // Independently estimate the visible fraction by counting rays on a fine solar-disc grid.
+    const rad = Math.PI / 180, elevation = sample.sun.el * rad, azimuth = sample.sun.az * rad;
+    const direction = (a, e) => [Math.cos(e) * Math.cos(a), Math.cos(e) * Math.sin(a), Math.sin(e)];
+    const earth = direction(sample.earth.az * rad, sample.earth.el * rad);
+    const centre = direction(azimuth, elevation), right = [-Math.sin(azimuth), Math.cos(azimuth), 0];
+    const up = direction(azimuth, elevation + Math.PI / 2);
+    let total = 0, lit = 0;
+    for (let y = -199; y < 200; y += 2) for (let x = -199; x < 200; x += 2) {
+      if (x*x + y*y > 200*200) continue;
+      const angle = Math.tan(sample.sun.rad * rad) / 200;
+      const ray = centre.map((v, j) => v + angle * (x * right[j] + y * up[j]));
+      const dot = ray.reduce((sum, v, j) => sum + v * earth[j], 0) / Math.hypot(...ray);
+      if (ray[2] > 0 && dot < Math.cos(sample.earth.rad * rad)) lit++;
+      total++;
+    }
+    const last = Ephem.observe(Ephem.site(lat, lon), start + 86400000);
+    return {actual: mission.frac[0], expected: lit / total, firstRadius: mission.earthR[0],
+      lastRadius: mission.earthR[mission.n - 1], expectedFirst: sample.earth.rad, expectedLast: last.earth.rad};
+  });
+  assert.ok(Math.abs(result.actual - result.expected) < 0.001);
+  assert.ok(Math.abs(result.firstRadius - result.expectedFirst) < 1e-6);
+  assert.ok(Math.abs(result.lastRadius - result.expectedLast) < 1e-6);
+});
+
+test('two-week polar visibility durations agree with JPL Horizons on the same terrain profiles', async () => {
+  // Reproduce using Horizons OBSERVER at coord@301 with QUANTITIES='4,13' (az/el,
+  // apparent diameter), UTC 2027-01-08 through 2027-01-22, STEP_SIZE='10m'.
+  // Across 2,016 intervals per site, sum Sun upper limb / Earth centre above the
+  // interpolated 80 m site skyline; count the final instantaneous sample for 0 h.
+  const values = await page.evaluate(() => ['ridge', 'malapert'].map(site => {
+    const terrain = AA.TERRAIN[site];
+    const d = AA.simulate({site, lat:terrain.lat, lon:terrain.lon, start:Date.UTC(2027,0,8), mask:'lola'}, 14, 10);
+    return [d.stats.sun, d.stats.earth, d.stats.both].map(h => Math.round(h * 6));
+  }));
+  const horizonsCounts = [[1894, 1382, 1260], [913, 1592, 489]];
+  values.forEach((counts, site) => counts.forEach((n, metric) => {
+    assert.ok(Math.abs(n - horizonsCounts[site][metric]) <= 1, `site ${site} metric ${metric} = ${n} samples`);
+  }));
+});

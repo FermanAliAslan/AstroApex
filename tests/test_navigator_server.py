@@ -1,6 +1,6 @@
 """Local session and input checks for the optional Navigator server. No provider calls."""
 import http.client
-import importlib.util
+import sys
 import io
 import json
 import os
@@ -12,10 +12,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location("navigator_server", ROOT / "navigator" / "server.py")
-server_module = importlib.util.module_from_spec(SPEC)
-with patch.dict(os.environ, {}, clear=True):
-    SPEC.loader.exec_module(server_module)
+with patch.dict(os.environ, {}, clear=True), patch.object(sys, "path", [str(ROOT), *sys.path]):
+    from navigator import server as server_module
 
 
 class NavigatorServerTests(unittest.TestCase):
@@ -94,6 +92,51 @@ class NavigatorServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)["answer"], "Local test answer")
         self.model.assert_called_once_with("Describe this scenario", {})
+
+    def test_configured_online_provider_routing(self):
+        for provider, configured, endpoint in (
+            ("openai", "OPENAI_CONFIGURED", "ask_luna"),
+            ("gemini", "GEMINI_KEY", "ask_gemini")
+        ):
+            with self.subTest(provider=provider), patch.object(server_module, configured, True), patch.object(
+                server_module, endpoint, return_value={"answer": "computed"}
+            ) as call:
+                _, _, body = self.request("GET", "/api/status", headers=self.headers)
+                self.assertTrue(json.loads(body)["providers"][provider])
+                status, _, body = self.chat({"provider": provider, "question": "Compare A with B"})
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body)["answer"], "computed")
+                call.assert_called_once()
+
+    def test_offline_session_is_origin_bound_and_scoped(self):
+        origin = {"Origin": "http://" + self.host, "X-AstroApex-Offline": "1"}
+        with patch.object(server_module, "qwen_available", return_value=True):
+            status, _, _ = self.request("POST", "/api/offline-session", headers={})
+            self.assertEqual(status, 403)
+            status, headers, body = self.request("POST", "/api/offline-session", headers=origin)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["model"], server_module.QWEN_LABEL)
+        offline = dict(self.headers, Cookie=headers["Set-Cookie"].split(";", 1)[0])
+        offline["X-AstroApex-Token"] = json.loads(body)["token"]
+        with patch.object(server_module, "ask_qwen", return_value={"answer": "offline"}) as ask:
+            status, _, _ = self.chat({"provider": "qwen", "question": "Compare"}, headers=offline)
+            self.assertEqual(status, 200)
+            ask.assert_called_once()
+            for provider in ("openai", "gemini", "anthropic"):
+                with self.subTest(provider=provider):
+                    self.assertEqual(self.chat({"provider": provider, "question": "Compare"}, headers=offline)[0], 403)
+        self.model.assert_not_called()
+
+    def test_qwen_must_identify_the_requested_model(self):
+        with patch.object(server_module, "qwen_request", return_value={"data": [{"id": "other"}]}):
+            self.assertFalse(server_module.qwen_available())
+            with self.assertRaises(RuntimeError):
+                server_module.ask_qwen("Compare", {})
+        with patch.object(server_module, "qwen_available", return_value=True), patch.object(
+            server_module, "qwen_request", return_value={"model": "other", "choices": [{"message": {"content": "text"}}]}
+        ):
+            with self.assertRaises(RuntimeError):
+                server_module.ask_qwen("Compare", {})
 
     def test_cookie_and_per_origin_header_are_both_required(self):
         for missing in ("Cookie", "X-AstroApex-Token"):
@@ -177,6 +220,8 @@ class NavigatorServerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, patch.object(server_module, "ROOT", tmp):
             (Path(tmp) / "api_key.txt").write_text("fake-key-for-local-test")
             (Path(tmp) / "public.txt").write_text("public fixture")
+            (Path(tmp) / ".env.local").write_text("private fixture")
+            (Path(tmp) / "assets").mkdir()
             with patch.dict(os.environ, {}, clear=True):
                 client, reason = server_module.make_client()
             self.assertIsNone(client)
@@ -186,6 +231,9 @@ class NavigatorServerTests(unittest.TestCase):
             try:
                 self.assertEqual(self.request("GET", "/public.txt")[0], 200)
                 self.assertEqual(self.request("GET", "/api_key.txt")[0], 404)
+                self.assertEqual(self.request("HEAD", "/.env.local")[0], 404)
+                self.assertEqual(self.request("GET", "/.env.local")[0], 404)
+                self.assertEqual(self.request("GET", "/assets/")[0], 404)
             finally:
                 self.server.RequestHandlerClass = original_handler
 
@@ -204,6 +252,53 @@ class NavigatorServerTests(unittest.TestCase):
 
     def test_private_source_file_remains_unavailable(self):
         self.assertEqual(self.request("GET", "/server.py")[0], 404)
+
+
+class ProviderAdapterTests(unittest.TestCase):
+    def test_luna_keeps_credential_server_side_and_extracts_answer(self):
+        result = {"status": "completed", "output": [
+            {"type": "reasoning"}, {"type": "message", "role": "assistant",
+            "content": [{"type": "output_text", "text": "First "}, {"type": "output_text", "text": "second"}]}]}
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-credential"}), patch(
+            "http.client.HTTPSConnection"
+        ) as connect:
+            conn = connect.return_value
+            conn.getresponse.return_value.status = 200
+            conn.getresponse.return_value.read.return_value = json.dumps(result).encode()
+            answer = server_module.ask_luna("instructions", [], "mission question")
+            self.assertEqual(answer["answer"], "First second")
+            args, kwargs = conn.request.call_args
+            self.assertEqual(args, ("POST", "/v1/responses"))
+            self.assertEqual(kwargs["headers"]["Authorization"], "Bearer test-credential")
+            request = json.loads(kwargs["body"])
+            self.assertFalse(request["store"])
+            self.assertEqual(request["model"], server_module.LUNA_MODEL)
+            conn.getresponse.return_value.status = 429
+            with self.assertRaisesRegex(RuntimeError, "429"):
+                server_module.ask_luna("instructions", [], "mission question")
+
+    def test_gemini_grounding_is_opt_in(self):
+        candidate = {"finishReason": "STOP",
+                     "content": {"parts": [{"thought": True, "text": "internal"}, {"text": "mission result"}]},
+                     "groundingMetadata": {"groundingChunks": [{"web": {"uri": "https://science.nasa.gov/",
+                                                                      "title": "NASA Science"}}]}}
+        with patch.object(server_module, "GEMINI_KEY", "test-credential"), patch(
+            "http.client.HTTPSConnection"
+        ) as connect:
+            conn = connect.return_value
+            conn.getresponse.return_value.status = 200
+            conn.getresponse.return_value.read.return_value = json.dumps({"candidates": [candidate]}).encode()
+            for use_search in (True, False):
+                result = server_module.ask_gemini("site", {}, use_search)
+                self.assertEqual(result["answer"], "mission result")
+                self.assertEqual("sources" in result, use_search)
+                args, kwargs = conn.request.call_args
+                self.assertNotIn("test-credential", args[1])
+                self.assertEqual(kwargs["headers"]["x-goog-api-key"], "test-credential")
+                self.assertEqual("tools" in json.loads(kwargs["body"]), use_search)
+            conn.getresponse.return_value.read.return_value = b'{"candidates":[]}'
+            with self.assertRaises(RuntimeError):
+                server_module.ask_gemini("site", {}, False)
 
 
 if __name__ == "__main__":

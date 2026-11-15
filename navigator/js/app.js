@@ -25,7 +25,7 @@
     scout: null,                             // result of the last region scan (js/scout.js)
     scanMode: 'pole',                        // 'pole' = south pole with real terrain, 'moon' = whole Moon, coarse
     regions: null,                           // best point inside each NASA study region (js/scout.js)
-    globe: { lat0: -90, lon0: 0, zoom: 4, light: false, labels: true, ice: true, slope: false, temp: false, regions: true, route: true, heat: true, heatBy: 'score', target: 'A', tex: null }
+    globe: { lat0: -58, lon0: -18, zoom: 1, light: false, labels: false, ice: true, slope: false, temp: false, regions: false, route: false, heat: true, heatBy: 'score', target: 'A', tex: null }
   };
 
   /* ---------- helpers ---------- */
@@ -47,7 +47,10 @@
     return `${mm} ${t('m')}`;
   };
   const toLocal = ms => new Date(ms).toISOString().slice(0, 16);
-  const fromLocal = v => Date.parse(v + (v.length === 16 ? ':00Z' : 'Z'));
+  function fromLocal(value) {
+    const ms = Date.parse(value + 'Z');
+    return Number.isFinite(ms) && toLocal(ms) === value ? ms : NaN;
+  }
   const stepMin = (duration = S.dur) => duration <= 14 ? 10 : duration <= 30 ? 20 : duration <= 60 ? 30 : 60;
   const siteName = k => {
     const s = SITES.find(x => x.id === S.sc[k].site);
@@ -70,7 +73,7 @@
   // carry a precomputed 80 m skyline; any other point south of 82 S gets one computed here from the 480 m LOLA grid.
   const skyCache = new Map();
   // The 80 m skyline belongs to a place, not to a menu entry: a custom point at the same coordinates gets it too.
-  const terrainEntry = sc => TERRAIN[sc.site] || Object.values(TERRAIN).find(T => Math.abs(T.lat - sc.lat) < 6e-4 && Math.abs(T.lon - sc.lon) < 6e-4) || null;
+  const terrainEntry = sc => Object.values(TERRAIN).find(T => Math.abs(T.lat - sc.lat) < 6e-4 && Math.abs(T.lon - sc.lon) < 6e-4) || null;
   // Which horizon a scenario really uses: 'lola80' (precomputed 80 m profile), 'lola480' (480 m grid) or 'flat'.
   const horizonSrc = sc => sc.mask !== 'lola' ? 'flat' : sc.sky ? 'lola480' : terrainEntry(sc) ? 'lola80' : profile(sc) ? 'lola480' : 'flat';
   function profile(sc) {
@@ -150,11 +153,47 @@
       - 0.5 * Math.sqrt(Math.max(0, (-sep + r + R) * (sep + r - R) * (sep - r + R) * (sep + r + R)));
     return Math.max(0, 1 - area / (Math.PI * r * r));
   }
+  // At sunrise during a partial eclipse, Earth and the ground may hide the same part
+  // of the Sun. Integrate the visible cap with the Earth disc removed in the local
+  // tangent plane. Units here are solar radii; the horizon is a horizontal line.
+  function sunCapOutsideEarth(o, margin) {
+    const s = o.sun, e = o.earth, az = (e.az - s.az) * D, se = s.el * D, ee = e.el * D;
+    const east = Math.cos(ee) * Math.sin(az);
+    const up = Math.sin(ee) * Math.cos(se) - Math.cos(ee) * Math.sin(se) * Math.cos(az);
+    const sinSep = Math.hypot(east, up);
+    const dist = Math.asin(Math.min(1, sinSep)) / (D * s.rad);
+    const cx = dist * east / sinSep, cy = dist * up / sinSep, rad = e.rad / s.rad;
+    const lower = -margin / s.rad;
+    // Slice boundaries where the circles exchange left/right order or start/end.
+    const along = (1 - rad * rad + dist * dist) / (2 * dist);
+    const mid = along * cy / dist, half = Math.sqrt(Math.max(0, 1 - along * along)) * cx / dist;
+    const cuts = [lower, ...[cy - rad, cy + rad, mid - half, mid + half]
+      .filter(y => y > lower && y < 1).sort((a, b) => a - b), 1];
+    // Integral of a semicircle's half-width from its centreline to y.
+    function area(y, r) {
+      const v = Math.max(-r, Math.min(r, y));
+      return (v * Math.sqrt(Math.max(0, r * r - v * v)) + r * r * Math.asin(v / r)) / 2;
+    }
+    let visible = 0;
+    for (let i = 1; i < cuts.length; i++) {
+      const a = cuts[i - 1], b = cuts[i], h = b - a, y = (a + b) / 2;
+      const sw = Math.sqrt(Math.max(0, 1 - y * y));
+      const sunArea = area(b, 1) - area(a, 1);
+      const ew2 = rad * rad - (y - cy) ** 2;
+      if (ew2 <= 0 || Math.abs(cx) >= sw + Math.sqrt(ew2)) { visible += 2 * sunArea; continue; }
+      const ew = Math.sqrt(ew2), earthArea = area(b - cy, rad) - area(a - cy, rad);
+      if (cx - ew > -sw) visible += sunArea + cx * h - earthArea;  // left uncovered strip
+      if (cx + ew < sw) visible += sunArea - cx * h - earthArea;   // right uncovered strip
+    }
+    return Math.max(0, Math.min(1, visible / Math.PI));
+  }
   // The mission and the yearly overview use the same terrain and eclipse criteria.
   function visibleFraction(o, sunMargin) {
     const terrainFraction = Ephem.discFrac(sunMargin / o.sun.rad);
     const uncovered = terrainFraction > 0 ? sunUncovered(o) : 1;
-    return { fraction: terrainFraction * uncovered, eclipse: uncovered < 1 };
+    const fraction = terrainFraction < 1 && uncovered > 0 && uncovered < 1
+      ? sunCapOutsideEarth(o, sunMargin) : terrainFraction * uncovered;
+    return { fraction, eclipse: uncovered < 1 };
   }
   // Pure simulation of one scenario: sc = {site, lat, lon, start, mask}, dur in days, sm = step in minutes.
   function simulate(sc, dur, sm) {
@@ -164,7 +203,7 @@
       n, dtH, sunEl: new Float32Array(n), sunAz: new Float32Array(n), earthEl: new Float32Array(n),
       earthAz: new Float32Array(n), frac: new Float32Array(n), flux: new Float32Array(n),
       sunM: new Float32Array(n), earthM: new Float32Array(n), // elevation above the LOCAL horizon (terrain included)
-      sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), fromSpice: new Uint8Array(n), sunR: 0.27, earthR: 0.95
+      sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), fromSpice: new Uint8Array(n), sunR: new Float32Array(n), earthR: new Float32Array(n)
     };
     let sunC = 0, earthC = 0, bothC = 0, elSum = 0, energy = 0, eclC = 0;
     let maxEl = -90, eMin = 90, eMax = -90, sMin = 90, nSpice = 0;
@@ -181,7 +220,7 @@
       d.sunUp[i] = f > 0 ? 1 : 0;
       d.earthUp[i] = o.earth.el > hz(o.earth.az) ? 1 : 0;
       d.both[i] = d.sunUp[i] & d.earthUp[i];
-      d.sunR = o.sun.rad; d.earthR = o.earth.rad;
+      d.sunR[i] = o.sun.rad; d.earthR[i] = o.earth.rad;
       maxEl = Math.max(maxEl, o.sun.el); sMin = Math.min(sMin, o.sun.el);
       eMin = Math.min(eMin, o.earth.el); eMax = Math.max(eMax, o.earth.el);
       if (i < n - 1) {
@@ -281,6 +320,10 @@
     $('#slips').innerHTML = [1, 7, 14, 29.5].map(d => `<button data-slip="${d}">${t('same_site')} · +${nf(d, d % 1 ? 1 : 0)} ${t('days')}</button>`).join('') +
       `<button data-slip="swap">${t('swap')}</button>`;
   }
+  function scanMatchesMap(result) {
+    return !!result && result.start === S.sc[S.globe.target].start && result.dur === S.dur &&
+      (!result.mode || result.mode === S.scanMode);
+  }
   function syncForms() {
     for (const k of KEYS) {
       const sc = S.sc[k], el = $('#scn-' + k);
@@ -295,15 +338,20 @@
     }
     $('#dur').value = S.dur;
     $$('#target button').forEach(b => b.classList.toggle('on', b.dataset.t === S.globe.target));
-    $$('#lang button').forEach(b => b.classList.toggle('on', b.dataset.lang === S.lang));
+    $$('#lang button').forEach(b => {
+      const selected = b.dataset.lang === S.lang;
+      b.classList.toggle('on', selected);
+      b.setAttribute('aria-pressed', String(selected));
+    });
     $('#light').checked = S.globe.light; $('#labels').checked = S.globe.labels;
-    for (const id of LAYERS) { const el = $('#lay-' + id); el.checked = S.globe[id]; el.disabled = id === 'heat' ? !S.scout : id === 'temp' || id === 'regions' ? false : !Polar.ready; }
-    const legOn = id => id === 'heat' ? !!(S.scout && S.globe.heat) : id === 'temp' || id === 'regions' ? S.globe[id] : id === 'route' ? false : Polar.ready && S.globe[id];
+    const currentHeat = scanMatchesMap(S.scout);
+    for (const id of LAYERS) { const el = $('#lay-' + id); el.checked = S.globe[id] && (id !== 'heat' || currentHeat); el.disabled = id === 'heat' ? !currentHeat : id === 'temp' || id === 'regions' ? false : !Polar.ready; }
+    const legOn = id => id === 'heat' ? currentHeat && S.globe.heat : id === 'temp' || id === 'regions' ? S.globe[id] : id === 'route' ? false : Polar.ready && S.globe[id];
     $('#map-legend').hidden = !LAYERS.some(legOn);
     $$('#map-legend [data-leg]').forEach(el => { el.hidden = !legOn(el.dataset.leg); });
     $('#leg-heat-text').textContent = t('leg_heat_' + S.globe.heatBy);
     $$('#heat-by button').forEach(b => b.classList.toggle('on', b.dataset.by === S.globe.heatBy));
-    $('#heat-by').hidden = !S.scout;
+    $('#heat-by').hidden = !currentHeat;
     renderRoute();
     for (const f of ['load', 'cap', 'area']) $('#pw-' + f).value = S.pwr[f];
     $$('#presets button').forEach(b => { const p = PRESETS.find(x => x.id === b.dataset.preset); b.classList.toggle('on', !!p && presetActive(p)); });
@@ -335,6 +383,13 @@
   }
 
   /* ---------- verdict, windows, table ---------- */
+  // Preserve short outages and short windows at the limits of a rounded percentage.
+  function visibilityPercent(h, total) {
+    const rounded = Math.round(h / total * 100);
+    if (h > 0 && rounded === 0) return '&lt;1%';
+    if (h < total - 1e-9 && rounded === 100) return '&gt;99%';
+    return nf(rounded) + '%';
+  }
   function renderVerdict() {
     const a = S.data.A.stats, b = S.data.B.stats, diff = b.both - a.both;
     const tol = S.data.A.dtH / 2; // less than half a time step is no difference
@@ -342,13 +397,21 @@
     $('#verdict-h').textContent = a.both <= 0 && b.both <= 0 ? t('verdict_none')
       : Math.abs(diff) < tol ? t('verdict_eq2', { h: hm(a.both) })
         : t('verdict_more2', { w: diff > 0 ? 'B' : 'A', h: hm(Math.abs(diff)) });
+    for (const row of $$('[data-overlap]')) {
+      const k = row.dataset.overlap;
+      const hours = S.data[k].stats.both;
+      const fraction = Math.max(0, Math.min(1, hours / (S.dur * 24)));
+      row.querySelector('.overlap-name').textContent = siteName(k);
+      row.querySelector('b').textContent = hm(hours);
+      row.querySelector('i').style.transform = `scaleX(${fraction})`;
+    }
     $('#verdict-chips').innerHTML = KEYS.map(k => {
       const s = S.data[k].stats, ps = s.sun / s.total, pe = s.earth / s.total;
       const pc = ps > 0.8 ? 'good' : ps > 0.4 ? 'mid' : 'bad', pl = { good: 'p_good', mid: 'p_mid', bad: 'p_bad' }[pc];
       const cc = s.nocomm <= 0 ? 'good' : pe > 0 ? 'mid' : 'bad', cl = { good: 'c_full', mid: 'c_part', bad: 'c_none' }[cc];
       return `<div class="vchip"><span class="badge ${k.toLowerCase()}">${k}</span>
-        <span class="pill ${pc}">${t('power')} <b>${t(pl)}</b> · ${nf(ps * 100)}%</span>
-        <span class="pill ${cc}">${t('comm')} <b>${t(cl)}</b> · ${pe < 1 && Math.round(pe * 100) === 100 ? '&lt;100' : nf(pe * 100)}%</span></div>`;
+        <span class="pill ${pc}">${t('power')} <b>${t(pl)}</b> · ${visibilityPercent(s.sun, s.total)}</span>
+        <span class="pill ${cc}">${t('comm')} <b>${t(cl)}</b> · ${visibilityPercent(s.earth, s.total)}</span></div>`;
     }).join('');
   }
   // One plain sentence per scenario, so the bars can be understood without reading them.
@@ -381,8 +444,8 @@
           <div class="track ${b}" title="${k} · ${t(b)}">${segs}${gaps}<b class="wcur"></b></div><span class="wv">${val}</span></div>`;
       };
       const hShort = h => h > 0 && h < 10 ? fmtDur(h) : nf(h) + ' ' + t('h'); // minutes stay visible
-      const pv = (h) => `<b>${nf(h / s.total * 100)}%</b> · ${hShort(h)}`;
-      const ticks = [0, 1, 2, 3, 4].map(i => `<span>${fmtDay(sc.start + i / 4 * tot * H)}</span>`).join('');
+      const pv = (h) => `<b>${visibilityPercent(h, s.total)}</b> · ${hShort(h)}`;
+      const ticks = [0, 1, 2, 3, 4].map(i => `<span style="left:${i * 25}%">${fmtDay(sc.start + i / 4 * tot * H)}</span>`).join('');
       return `<div class="wcard">
         <div class="wcard-head"><div class="scn-title"><span class="badge ${k.toLowerCase()}">${k}</span><b>${siteName(k)}</b></div>
           <span class="mono coord">${fmtDay(sc.start)} – ${fmtDate(sc.start + tot * H, false)} · ${nf(S.dur, S.dur % 1 ? 1 : 0)} ${t('days')}</span></div>
@@ -422,9 +485,9 @@
       <canvas data-sky></canvas>
       <div class="readouts"><div class="ro sun" data-ro="sun"></div><div class="ro earth" data-ro="earth"></div></div>`;
   }
-  function drawSky(k) {
+  function drawSky(k, canvas) {
     const d = S.data[k], sc = S.sc[k], st = d.stats, i = idxAt(k), hz = horizonFn(sc), terr = hasTerrain(sc);
-    const { ctx, w, h } = fit($(`#sky-${k} [data-sky]`));
+    const { ctx, w, h } = fit(canvas || $(`#sky-${k} [data-sky]`));
     const L = 40, R = 10, T = 12, B = 26;
     let hMin = hz(0), hMax = hMin, azMax = 0;
     if (terr) for (let a = 0; a < 360; a += 1) { const v = hz(a); hMin = Math.min(hMin, v); if (v > hMax) { hMax = v; azMax = a; } }
@@ -488,8 +551,8 @@
       ctx.fillStyle = C.text; ctx.textAlign = x > w - 90 ? 'right' : 'left';
       ctx.fillText(label, x + (x > w - 90 ? -r - 7 : r + 7), Math.max(T + 8, y - r - 6));
     };
-    disc(d.earthAz[i], d.earthEl[i], d.earthR, C.earth, 6, t('earth'), d.earthUp[i]);
-    disc(d.sunAz[i], d.sunEl[i], d.sunR, C.sun, 5, t('sun'), d.sunUp[i]);
+    disc(d.earthAz[i], d.earthEl[i], d.earthR[i], C.earth, 6, t('earth'), d.earthUp[i]);
+    disc(d.sunAz[i], d.sunEl[i], d.sunR[i], C.sun, 5, t('sun'), d.sunUp[i]);
     ctx.restore();
   }
   function countdown(k, body) {
@@ -511,8 +574,9 @@
     const d = S.data[k], sc = S.sc[k], i = idxAt(k), el = $('#sky-' + k), hz = horizonFn(sc);
     el.querySelector('[data-name]').textContent = siteName(k);
     el.querySelector('[data-when]').textContent = fmtDate(sc.start + i * d.dtH * H) + ' UTC';
+    const eclipsed = !d.sunUp[i] && d.sunM[i] > -d.sunR[i];
     const ro = (body, elv, az, up, extra) => `
-      <div class="ro-top"><b>${t(body)}</b><span class="${up ? 'up' : ''}">${up ? t('up') : t('down')}</span></div>
+      <div class="ro-top"><b>${t(body)}</b><span class="${up ? 'up' : ''}">${up ? t('up') : t(body === 'sun' && eclipsed ? 'sun_eclipsed' : 'down')}</span></div>
       <div class="ro-big">${elv >= 0 ? '+' : '−'}${nf(Math.abs(elv), 2)}°</div>
       <div class="ro-count">${countdown(k, body)}</div>
       <dl><div><dt>${t('azim')}</dt><dd>${nf(az, 1)}°</dd></div>
@@ -528,13 +592,34 @@
 
   /* ---------- elevation charts (one per body, relative to the local horizon) ---------- */
   const chartGeom = { L: 46, R: 14, T: 24, B: 26 };
+  function drawMissionDays(ctx, w, h) {
+    const { L, R, T, B } = chartGeom, span = w - L - R;
+    const label = day => nf(day, Number.isInteger(day) ? 0 : 1) + ' ' + t('d');
+    const gap = ctx.measureText(label(S.dur)).width + 12;
+    const step = [1, 2, 5, 10, 15, 30, 45, 90].find(day => day / S.dur * span >= gap) || 90;
+    const ticks = [0];
+    for (let day = step; day < S.dur && (S.dur - day) / S.dur * span >= gap; day += step) ticks.push(day);
+    ticks.push(S.dur);
+    ctx.textAlign = 'center'; ctx.lineWidth = 1;
+    for (const day of ticks) {
+      const x = L + day / S.dur * span, text = label(day), half = ctx.measureText(text).width / 2;
+      ctx.strokeStyle = '#ffffff10'; ctx.beginPath(); ctx.moveTo(x + .5, T); ctx.lineTo(x + .5, h - B); ctx.stroke();
+      ctx.fillStyle = C.muted; ctx.fillText(text, Math.max(half, Math.min(w - half, x)), h - B + 14);
+    }
+  }
+  // The chart connects successive samples with straight segments; put its marker on that line.
+  function chartValue(series, dtH) {
+    const position = Math.max(0, Math.min(series.length - 1, S.cur / dtH));
+    const i = Math.floor(position), j = Math.min(i + 1, series.length - 1);
+    return series[i] + (series[j] - series[i]) * (position - i);
+  }
   function drawElev(id, key, col) {
     const { ctx, w, h } = fit($(id)), { L, R, T, B } = chartGeom, tot = S.dur * 24;
     let lo = -2, hi = 2;
     for (const k of KEYS) { const a = S.data[k][key]; for (let j = 0; j < a.length; j++) { if (a[j] < lo) lo = a[j]; if (a[j] > hi) hi = a[j]; } }
-    lo = Math.max(-90, Math.floor(lo - 1)); hi = Math.min(90, Math.ceil(hi + 1));
+    lo = Math.floor(lo - 1); hi = Math.ceil(hi + 1);
     const X = hr => L + hr / tot * (w - L - R), Y = el => T + (hi - el) / (hi - lo) * (h - T - B);
-    // everything below the horizon line is "not visible"
+    // Zero is the centre of the body on the local horizon; a solar limb can remain visible.
     ctx.fillStyle = '#ffffff0f'; ctx.fillRect(L, Y(0), w - L - R, h - B - Y(0));
     ctx.font = '11px "JetBrains Mono", monospace'; ctx.textBaseline = 'middle';
     const stp = niceStep(hi - lo);
@@ -542,15 +627,10 @@
       ctx.strokeStyle = e === 0 ? '#8a92a3' : '#ffffff10'; ctx.lineWidth = e === 0 ? 1.5 : 1;
       ctx.beginPath(); ctx.moveTo(L, Y(e) + .5); ctx.lineTo(w - R, Y(e) + .5); ctx.stroke();
       ctx.fillStyle = e === 0 ? C.text : C.muted; ctx.textAlign = 'right';
-      ctx.fillText(e === 0 ? t('horizon') : (e > 0 ? '+' : '') + e + '°', L - 6, Y(e));
+      ctx.fillText((e > 0 ? '+' : '') + e + '°', L - 6, Y(e));
     }
     if (h - B - Y(0) > 18) { ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(t('below_h'), w - R - 6, h - B - 4); ctx.textBaseline = 'middle'; }
-    const dStep = S.dur <= 14 ? 1 : S.dur <= 30 ? 5 : 10;
-    ctx.textAlign = 'center'; ctx.lineWidth = 1;
-    for (let dd = 0; dd <= S.dur; dd += dStep) {
-      ctx.strokeStyle = '#ffffff10'; ctx.beginPath(); ctx.moveTo(X(dd * 24) + .5, T); ctx.lineTo(X(dd * 24) + .5, h - B); ctx.stroke();
-      ctx.fillStyle = C.muted; ctx.fillText(dd + ' ' + t('d'), X(dd * 24), h - B + 14);
-    }
+    drawMissionDays(ctx, w, h);
     ctx.save(); ctx.beginPath(); ctx.rect(L, T, w - L - R, h - T - B); ctx.clip();
     for (const k of KEYS) {
       const d = S.data[k], arr = d[key];
@@ -572,9 +652,9 @@
     const cx = X(S.cur);
     ctx.strokeStyle = C.text; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(cx, T); ctx.lineTo(cx, h - B); ctx.stroke(); ctx.setLineDash([]);
     for (const k of KEYS) {
-      const d = S.data[k], i = idxAt(k);
+      const d = S.data[k];
       ctx.fillStyle = col; ctx.strokeStyle = '#12151a'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, Y(d[key][i]), 4.5, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, Y(chartValue(d[key], d.dtH)), 4.5, 0, 7); ctx.fill(); ctx.stroke();
     }
     ctx.restore();
     ctx.font = '11px "JetBrains Mono", monospace'; ctx.fillStyle = C.muted; ctx.textBaseline = 'middle';
@@ -593,12 +673,7 @@
       ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.fillText(v + '%', L - 6, Y(v / 100));
     }
     ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(t('b_reserve'), w - R - 6, Y(0) - 4); ctx.textBaseline = 'middle';
-    const dStep = S.dur <= 14 ? 1 : S.dur <= 30 ? 5 : 10;
-    ctx.textAlign = 'center'; ctx.lineWidth = 1;
-    for (let dd = 0; dd <= S.dur; dd += dStep) {
-      ctx.strokeStyle = '#ffffff10'; ctx.beginPath(); ctx.moveTo(X(dd * 24) + .5, T); ctx.lineTo(X(dd * 24) + .5, h - B); ctx.stroke();
-      ctx.fillStyle = C.muted; ctx.fillText(dd + ' ' + t('d'), X(dd * 24), h - B + 14);
-    }
+    drawMissionDays(ctx, w, h);
     ctx.save(); ctx.beginPath(); ctx.rect(L, T - 2, w - L - R, h - T - B + 4); ctx.clip();
     for (const k of KEYS) {
       const d = S.data[k], soc = d.pw.soc;
@@ -619,9 +694,9 @@
     const cx = X(S.cur);
     ctx.strokeStyle = C.text; ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(cx, T); ctx.lineTo(cx, h - B); ctx.stroke(); ctx.setLineDash([]);
     for (const k of KEYS) {
-      const d = S.data[k], i = idxAt(k);
+      const d = S.data[k];
       ctx.fillStyle = C.both; ctx.strokeStyle = '#12151a'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, Y(d.pw.soc[i]), 4.5, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, Y(chartValue(d.pw.soc, d.dtH)), 4.5, 0, 7); ctx.fill(); ctx.stroke();
     }
     ctx.restore();
   }
@@ -667,13 +742,14 @@
   }
   function drawYear(k) {
     const y = S.year[k]; if (!y) return;
-    const { ctx, w } = fit($('#year-' + k));
+    const cv = $('#year-' + k), { ctx, w } = fit(cv);
     const rowH = 30, cw = w / 365;
+    const pixel = i => Math.round(i * cv.width / 365) * w / cv.width;
     ctx.fillStyle = '#191d24'; ctx.fillRect(0, 0, w, rowH);
     ctx.fillStyle = C.both;
     for (let i = 0; i < 365; i++) { // one row: hours per day with power AND comms together
       const v = y.both[i] / 24; if (!v) continue;
-      ctx.globalAlpha = 0.12 + 0.88 * v; ctx.fillRect(i * cw, 0, Math.ceil(cw), rowH);
+      ctx.globalAlpha = 0.12 + 0.88 * v; ctx.fillRect(pixel(i), 0, pixel(i + 1) - pixel(i), rowH);
     }
     ctx.globalAlpha = 1;
     const off = (S.sc[k].start - y.day0) / DAY;
@@ -681,11 +757,17 @@
     ctx.strokeRect(off * cw + .75, .75, Math.max(3, S.dur * cw), rowH - 1.5);
     ctx.font = '11px "JetBrains Mono", monospace'; ctx.fillStyle = C.muted; ctx.textBaseline = 'top';
     const d0 = new Date(y.day0);
+    ctx.textAlign = 'left';
+    let nextLabelX = 0;
     for (let m = 0; m < 13; m++) {
       const ms = Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + m, 1), x = (ms - y.day0) / DAY * cw;
       if (x < 0 || x > w - 26) continue;
       ctx.fillRect(x, rowH, 1, 4);
-      ctx.fillText(new Date(ms).toLocaleString(S.lang, { month: 'short', timeZone: 'UTC' }), x + 3, rowH + 4);
+      const month = new Date(ms).toLocaleString(S.lang, { month: 'short', timeZone: 'UTC' });
+      if (x >= nextLabelX) {
+        ctx.fillText(month, x + 3, rowH + 4);
+        nextLabelX = x + ctx.measureText(month).width + 7;
+      }
     }
   }
   function yearEvents(k) {
@@ -704,7 +786,8 @@
   }
 
   /* ---------- globe ---------- */
-  const G = { size: 760, full: 760, img: null, raf: 0, hits: [], idle: 0 };
+  const GLOBE_SIZE = 760, GLOBE_FRAME_MS = 1000 / 30;
+  const G = { img: null, raf: 0, hits: [], dragging: false, nextFrame: 0, terrainDirty: true };
   const RIM = 1 - 6 / 380; // disc radius as a fraction of the half-canvas, same at every render size
   const TILES = 'https://trek.nasa.gov/tiles/Moon/EQ/LRO_WAC_Mosaic_Global_303ppd_v02/1.0.0/default/default028mm/';
   function loadTexture(z) {
@@ -756,21 +839,30 @@
     };
   }
   const globeTime = () => S.sc[S.globe.target].start + S.cur * H;
-  // fast = true renders at half resolution (dragging, zooming, playback) and sharpens once things settle.
-  function queueGlobe(fast) {
-    clearTimeout(G.idle);
-    G.size = fast === true ? G.full / 2 : G.full;
-    if (fast === true) G.idle = setTimeout(() => queueGlobe(false), 160);
-    if (!G.raf) G.raf = requestAnimationFrame(() => { G.raf = 0; if (S.tab === 'map') drawGlobe(); });
+  // Keep only one pending frame; draw the latest camera state at full resolution.
+  function queueGlobe(redrawTerrain = true) {
+    if (redrawTerrain) G.terrainDirty = true;
+    if (!G.raf && S.tab === 'map') G.raf = requestAnimationFrame(renderGlobeFrame);
   }
-  function drawGlobe() {
-    const cv = $('#globe'), N = G.size;
+  function renderGlobeFrame(ts) {
+    G.raf = 0;
+    if (S.tab !== 'map') return;
+    // rAF timestamps are rounded, including on 60 Hz displays.
+    if (ts + 0.2 < G.nextFrame) { queueGlobe(false); return; }
+    G.nextFrame = ts + GLOBE_FRAME_MS;
+    const fr = Ephem.frame(globeTime()), sp = Ephem.subPoint(fr.sun), ep = Ephem.subPoint(fr.earth);
+    const sd = Ephem.site(sp.lat, sp.lon).u;
+    if (G.terrainDirty) { drawGlobe(sd); G.terrainDirty = false; }
+    drawOverlay(sp, ep);
+    updateGlobeReadouts(sp, ep, sd);
+  }
+  function drawGlobe(sd) {
+    const cv = $('#globe'), N = GLOBE_SIZE;
     if (cv.width !== N) { cv.width = N; cv.height = N; }
     const ctx = cv.getContext('2d');
     if (!G.img || G.img.width !== N) G.img = ctx.createImageData(N, N);
     const px = G.img.data, { fw, rt, up } = globeBasis(), zoom = S.globe.zoom, tex = S.globe.tex;
-    const fr = Ephem.frame(globeTime()), sp = Ephem.subPoint(fr.sun), ep = Ephem.subPoint(fr.earth);
-    const sd = Ephem.site(sp.lat, sp.lon).u, light = S.globe.light;
+    const light = S.globe.light;
     const half = N / 2, rad = half * RIM, PI = Math.PI;
     const tg = tex && tex.g, tw = tex && tex.w, th = tex && tex.h;
     // map layers from the LOLA grid: permanent shadow (ice traps) in blue, slope classes in green / amber / red
@@ -779,7 +871,7 @@
     const lay = Polar.ready ? Polar.grid() : null, ice = S.globe.ice, slp = S.globe.slope && !tmp;
     const PN = lay ? lay.n : 0, PH = PN / 2, PQ = lay ? 2 * lay.R / lay.cell : 0, PP = lay && lay.psr, PS = lay && lay.slope, PE = lay && lay.elev, PC = lay ? lay.cell : 1;
     // the same north of 80 N (a coarser pack), and a coarse slope map for everything in between
-    const nor = NORTH = Polar.north ? Polar.north() : null, wld = Polar.world ? Polar.world() : null;
+    const nor = Polar.north?.(), wld = Polar.world ? Polar.world() : null;
     const NN = nor ? nor.n : 0, NH = NN / 2, NQ = nor ? 2 * nor.R / nor.cell : 0, NP = nor && nor.psr, NS = nor && nor.slope, NE = nor && nor.elev, NC = nor ? nor.cell : 1;
     const WS = wld && wld.slope, WW = wld ? wld.w : 0, WH = wld ? wld.h : 0, WP = wld ? wld.ppd : 0;
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
@@ -790,19 +882,7 @@
       const vx = x * rt[0] + y * up[0] + z * fw[0], vy = x * rt[1] + y * up[1] + z * fw[1];
       let vz = x * rt[2] + y * up[2] + z * fw[2];
       vz = vz > 1 ? 1 : vz < -1 ? -1 : vz;
-      let g;
-      if (tg) { // bilinear sample of the equirectangular mosaic
-        const fu = (Math.atan2(vy, vx) / PI + 1) / 2 * tw - 0.5, fv = Math.acos(vz) / PI * th - 0.5;
-        let u0 = Math.floor(fu), v0 = Math.floor(fv);
-        const du = fu - u0, dv = fv - v0;
-        const u1 = (u0 + 1 + tw) % tw; u0 = (u0 + tw) % tw;
-        const v1 = v0 + 1 > th - 1 ? th - 1 : v0 + 1; v0 = v0 < 0 ? 0 : v0;
-        g = (tg[v0 * tw + u0] * (1 - du) + tg[v0 * tw + u1] * du) * (1 - dv) + (tg[v1 * tw + u0] * (1 - du) + tg[v1 * tw + u1] * du) * dv;
-        g = (g - 105) * 1.22 + 118;
-      } else {
-        const lat = Math.asin(vz) / D, lon = Math.atan2(vy, vx) / D;
-        g = (Math.abs(lat % 15) < 0.4 || Math.abs(lon % 15) < 0.4 / Math.max(0.05, Math.cos(lat * D))) ? 120 : 78;
-      }
+      let relief = 0;
       // cell of the polar grid under this pixel, and how far inside the 80 S circle it is (0 at 80 S, 1 from 81 S)
       let pc = -1, pw = 0;
       if (lay && vz < POLE_EDGE) {
@@ -818,7 +898,7 @@
               (((PE[c2 - 1] - PE[c2 + 1]) - (PE[c2 - PN] - PE[c2 + PN])) * (1 - u) + ((PE[c3 - 1] - PE[c3 + 1]) - (PE[c3 - PN] - PE[c3 + PN])) * u) * v;
           } else sh = (PE[pc - 1] - PE[pc + 1]) - (PE[pc - PN] - PE[pc + PN]);
           const hill = 128 + sh / (2 * PC) * 300;
-          g = g * (1 - pw) + (hill < 25 ? 25 : hill > 240 ? 240 : hill) * pw;
+          relief = Math.max(25, Math.min(240, hill));
         }
       }
       let nc = -1, nw = 0;
@@ -827,8 +907,26 @@
         if (ci > 0 && cj > 0 && ci < NN - 1 && cj < NN - 1) {
           nc = cj * NN + ci; nw = (vz + POLE_EDGE) / POLE_FADE; if (nw > 1) nw = 1;
           const hill = 128 + ((NE[nc - 1] - NE[nc + 1]) - (NE[nc - NN] - NE[nc + NN])) / (2 * NC) * 300;
-          g = g * (1 - nw) + (hill < 25 ? 25 : hill > 240 ? 240 : hill) * nw;
+          relief = Math.max(25, Math.min(240, hill));
         }
+      }
+      // The polar relief fully replaces the mosaic beyond the one-degree blend band.
+      const reliefWeight = pw || nw;
+      let g = relief;
+      if (reliefWeight < 1) {
+        if (tg) { // bilinear sample of the equirectangular mosaic
+          const fu = (Math.atan2(vy, vx) / PI + 1) / 2 * tw - 0.5, fv = Math.acos(vz) / PI * th - 0.5;
+          let u0 = Math.floor(fu), v0 = Math.floor(fv);
+          const du = fu - u0, dv = fv - v0;
+          const u1 = u0 + 1 === tw ? 0 : u0 + 1; if (u0 < 0) u0 += tw;
+          const v1 = v0 + 1 > th - 1 ? th - 1 : v0 + 1; v0 = v0 < 0 ? 0 : v0;
+          g = (tg[v0 * tw + u0] * (1 - du) + tg[v0 * tw + u1] * du) * (1 - dv) + (tg[v1 * tw + u0] * (1 - du) + tg[v1 * tw + u1] * du) * dv;
+          g = (g - 105) * 1.22 + 118;
+        } else {
+          const lat = Math.asin(vz) / D, lon = Math.atan2(vy, vx) / D;
+          g = (Math.abs(lat % 15) < 0.4 || Math.abs(lon % 15) < 0.4 / Math.max(0.05, Math.cos(lat * D))) ? 120 : 78;
+        }
+        if (reliefWeight) g = g * (1 - reliefWeight) + relief * reliefWeight;
       }
       let k = 1;
       if (light) { const c = vx * sd[0] + vy * sd[1] + vz * sd[2]; k = 0.3 + 0.8 * Math.max(0, Math.min(1, c * 6 + 0.1)) * (0.55 + 0.45 * Math.max(0, c)); }
@@ -836,7 +934,7 @@
       g *= k; g = g < 0 ? 0 : g;
       let cr = g * 1.04, cg = g, cb = g * 0.95;
       if (tmp) { // estimated surface temperature at the selected moment (see surfaceTemp)
-        const T = Math.max(0, Math.min(400, Math.round(surfaceTemp(vx, vy, vz, sd, lay)))) * 3;
+        const T = Math.max(0, Math.min(400, Math.round(surfaceTemp(vx, vy, vz, sd, lay, nor)))) * 3;
         cr = cr * 0.22 + TEMP_LUT[T] * 0.78; cg = cg * 0.22 + TEMP_LUT[T + 1] * 0.78; cb = cb * 0.22 + TEMP_LUT[T + 2] * 0.78;
       }
       // slope and shadow under this pixel: the polar packs where they exist (weight lw), the coarse world map elsewhere
@@ -854,13 +952,15 @@
       px[o] = cr > 255 ? 255 : cr; px[o + 1] = cg > 255 ? 255 : cg; px[o + 2] = cb > 255 ? 255 : cb; px[o + 3] = 255;
     }
     ctx.putImageData(G.img, 0, 0);
-    drawOverlay(sp, ep);
+  }
+  function updateGlobeReadouts(sp, ep, sd) {
+    if (!G.dragging) window.AAInspector?.syncCamera();
     $('#f-sun').textContent = fmtCoord(sp.lat, sp.lon);
     $('#f-earth').textContent = fmtCoord(ep.lat, ep.lon);
     $('#f-dist').textContent = nf(ep.dist) + ' km';
     // the readout respects the terrain horizon of the simulation: no Sun at this moment means night temperature
     const tk0 = S.globe.target, tu = Ephem.site(S.sc[tk0].lat, S.sc[tk0].lon).u, td = S.data[tk0], lit = !td || td.frac[idxAt(tk0)] > 0;
-    const tK = lit ? surfaceTemp(tu[0], tu[1], tu[2], sd, Polar.ready ? Polar.grid() : null) : (facts(S.sc[tk0]).shadow >= 0.5 ? T_PSR : T_NIGHT);
+    const tK = surfaceTemp(tu[0], tu[1], tu[2], lit ? sd : [0, 0, 0], Polar.ready ? Polar.grid() : null, Polar.north?.());
     $('#f-temp').textContent = `${S.globe.target} · ${nf(tK)} K (${nf(tK - 273.15)} °C)`;
   }
   /* Surface temperature model for the map layer (K). Radiative equilibrium with the Sun at the selected moment:
@@ -873,8 +973,7 @@
   // slope classes by quarter degree: under 5 deg green, to 8 light green, to 15 amber, above red
   const SLOPE_LUT = new Uint8Array(256 * 3);
   for (let s = 0; s < 256; s++) SLOPE_LUT.set(s <= 20 ? [60, 200, 120] : s <= 32 ? [150, 210, 90] : s <= 60 ? [240, 180, 60] : [235, 90, 70], s * 3);
-  let NORTH = null; // the north pack of the current frame, for the permanent shadow in surfaceTemp
-  function surfaceTemp(vx, vy, vz, sd, lay) {
+  function surfaceTemp(vx, vy, vz, sd, lay, north = Polar.north?.()) {
     let c = vx * sd[0] + vy * sd[1] + vz * sd[2], shadow = 0;
     if (lay && vz < POLE_EDGE) {
       const w = Math.min(1, (POLE_EDGE - vz) / POLE_FADE), c0 = c;
@@ -888,9 +987,9 @@
         shadow = w * (lay.psr[o] & 31) / 16;
       }
     }
-    else if (NORTH && vz > -POLE_EDGE) {
-      const n = NORTH.n, q = 2 * NORTH.R / NORTH.cell / (1 + vz), ci = Math.floor(vy * q + n / 2), cj = Math.floor(n / 2 + vx * q);
-      if (ci >= 0 && cj >= 0 && ci < n && cj < n) shadow = Math.min(1, (vz + POLE_EDGE) / POLE_FADE) * (NORTH.psr[cj * n + ci] & 31) / 16;
+    else if (north && vz > -POLE_EDGE) {
+      const n = north.n, q = 2 * north.R / north.cell / (1 + vz), ci = Math.floor(vy * q + n / 2), cj = Math.floor(n / 2 + vx * q);
+      if (ci >= 0 && cj >= 0 && ci < n && cj < n) shadow = Math.min(1, (vz + POLE_EDGE) / POLE_FADE) * (north.psr[cj * n + ci] & 31) / 16;
     }
     const lit = c > 0 ? Math.max(T_NIGHT, T_SUBSOLAR * Math.sqrt(Math.sqrt(c))) : T_NIGHT;
     return lit * (1 - shadow) + T_PSR * shadow;
@@ -904,16 +1003,17 @@
     for (let c = 0; c < 3; c++) TEMP_LUT[T * 3 + c] = Math.round(a[c + 1] + (b[c + 1] - a[c + 1]) * f);
   }
   function drawOverlay(sp, ep) {
-    const N = G.size, half = N / 2, rad = half * RIM, zoom = S.globe.zoom, { fw, rt, up } = globeBasis();
+    const N = GLOBE_SIZE, half = N / 2, rad = half * RIM, zoom = S.globe.zoom, { fw, rt, up } = globeBasis();
     const { ctx: oc, w } = fit($('#globe-ov')), sc = w / N;
     const dv = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     const proj = (lat, lon) => {
       const u = Ephem.site(lat, lon).u, x = dv(u, rt) * zoom, y = dv(u, up) * zoom;
-      if (dv(u, fw) <= 0.02 || x * x + y * y > 0.97) return null;
+      if (dv(u, fw) < 0 || x * x + y * y > 1) return null;
       return [(half + x * rad) * sc, (half - y * rad) * sc];
     };
     oc.strokeStyle = '#ffffff30'; oc.lineWidth = 1; oc.beginPath(); oc.arc(half * sc, half * sc, rad * sc, 0, 7); oc.stroke();
     const placed = [];
+    const showNames = S.globe.labels && !G.dragging;
     const label = (p, text, font, col, off) => {
       oc.font = font;
       const tw = oc.measureText(text).width, right = p[0] + off + tw < w - 4;
@@ -949,10 +1049,10 @@
     ring(sp, C.sun); ring(ep, C.earth);
     for (const [p, s] of dots) {
       oc.fillStyle = s.g === 'pole' ? C.both : '#ffffff'; oc.strokeStyle = '#000000aa'; oc.lineWidth = 1.5;
-      oc.beginPath(); oc.arc(p[0], p[1], 3.6, 0, 7); oc.fill(); oc.stroke();
+      oc.beginPath(); oc.arc(p[0], p[1], showNames ? 3.6 : 2.4, 0, 7); oc.fill(); oc.stroke();
     }
     // region scan: one dot per scored point, numbered rings on the best ones
-    const sct = S.scout && S.globe.heat ? S.scout : null;
+    const sct = S.globe.heat && scanMatchesMap(S.scout) ? S.scout : null;
     if (sct) {
       const kmPx = rad * zoom * sc / 1737.4;
       oc.globalAlpha = 0.78;
@@ -979,9 +1079,9 @@
         oc.strokeStyle = r.a24 ? '#ffd166' : '#ffffff99'; oc.lineWidth = r.a24 ? 2 : 1.2; oc.setLineDash(r.a24 ? [] : [4, 4]);
         oc.beginPath(); oc.arc(p[0], p[1], Math.max(3, rPx), 0, 7); oc.stroke(); oc.setLineDash([]);
         oc.font = FI; // a region that is also a listed site is already named by its site dot
-        if (S.globe.labels && zoom >= 3 && !SITES.some(s => s.name === r.name)) label([p[0], p[1] - Math.max(3, rPx) - 8], r.name, FI, r.a24 ? '#ffd166' : '#ffffffcc', -oc.measureText(r.name).width / 2);
+        if (showNames && zoom >= 3 && !SITES.some(s => s.name === r.name)) label([p[0], p[1] - Math.max(3, rPx) - 8], r.name, FI, r.a24 ? '#ffd166' : '#ffffffcc', -oc.measureText(r.name).width / 2);
       }
-      if (S.regions) for (const row of S.regions.rows) if (row.best) {
+      if (scanMatchesMap(S.regions)) for (const row of S.regions.rows) if (row.best) {
         const p = proj(row.best.lat, row.best.lon); if (!p) continue;
         oc.fillStyle = '#ffd166'; oc.strokeStyle = '#0a0c0f'; oc.lineWidth = 1.5; oc.beginPath(); oc.arc(p[0], p[1], 4.2, 0, 7); oc.fill(); oc.stroke();
       }
@@ -999,9 +1099,9 @@
       if (pe) { oc.fillStyle = '#7fe3ff'; oc.strokeStyle = '#0a0c0f'; oc.lineWidth = 1.5; oc.beginPath(); oc.moveTo(pe[0], pe[1] - 6); oc.lineTo(pe[0] + 6, pe[1]); oc.lineTo(pe[0], pe[1] + 6); oc.lineTo(pe[0] - 6, pe[1]); oc.closePath(); oc.fill(); oc.stroke(); }
     }
     pin(S.sc.B, C.b, 'B'); pin(S.sc.A, C.text, 'A');
-    if (S.globe.labels && S.globe.ice && Polar.ready && zoom >= 2)
+    if (showNames && S.globe.ice && Polar.ready && zoom >= 2)
       for (const [name, la, lo] of Polar.CRATERS) { const p = proj(la, lo); if (p) label([p[0], p[1]], name, FI, '#a9d4ff', 2); }
-    if (S.globe.labels) {
+    if (showNames) {
       for (const k of KEYS) { const p = proj(S.sc[k].lat, S.sc[k].lon); if (p) label(p, siteName(k), F, '#ffffff', 16); }
       for (const [p, s] of dots) label(p, s.name, F, s.g === 'pole' ? '#c9f5e2' : '#ffffff', 8);
       for (const m of LANDMARKS) { const p = proj(m.lat, m.lon); if (p) label(p, m.name, FI, '#d7dbe4c0', 2); }
@@ -1012,23 +1112,27 @@
   const heatValue = pt => S.globe.heatBy === 'sun' ? 35 + pt.sun * 45 : S.globe.heatBy === 'earth' ? 35 + pt.earth * 45 : pt.score;
   const REGIONS = window.REGIONS || [];
   // up to 40x: at the pole the LOLA relief stays sharp enough to follow a rover route (about 90 km across)
-  function setZoom(z) { S.globe.zoom = Math.max(1, Math.min(40, z)); queueGlobe(true); }
+  function setZoom(z) { S.globe.zoom = Math.max(1, Math.min(40, z)); queueGlobe(); }
   function globeEvents() {
     const wrap = $('#globe-wrap'); let drag = null;
     wrap.addEventListener('pointerdown', e => {
-      if (e.target.closest('.zoom-btns')) return;
-      drag = { x: e.clientX, y: e.clientY, lat: S.globe.lat0, lon: S.globe.lon0, moved: false }; wrap.setPointerCapture(e.pointerId);
+      if (drag || e.button !== 0 || !e.isPrimary || e.target.closest('.zoom-btns')) return;
+      drag = { pointer: e.pointerId, x: e.clientX, y: e.clientY, lat: S.globe.lat0, lon: S.globe.lon0, moved: false }; wrap.setPointerCapture(e.pointerId);
     });
     wrap.addEventListener('pointermove', e => {
-      if (!drag) return;
+      if (!drag || drag.pointer !== e.pointerId) return;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y, r = wrap.getBoundingClientRect().width / 2 * S.globe.zoom;
       if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
       if (!drag.moved) return;
+      G.dragging = true;
       S.globe.lon0 = drag.lon - dx / r * 57.3; S.globe.lat0 = Math.max(-90, Math.min(90, drag.lat + dy / r * 57.3));
-      queueGlobe(true);
+      queueGlobe();
     });
     wrap.addEventListener('pointerup', e => {
-      const d = drag; drag = null; if (!d || d.moved) return;
+      if (!drag || drag.pointer !== e.pointerId) return;
+      const d = drag;
+      drag = null; G.dragging = false;
+      if (d.moved) { queueGlobe(); return; }
       const r = wrap.getBoundingClientRect(), half = r.width / 2, rad = half * RIM;
       const px = e.clientX - r.left, py = e.clientY - r.top, k = S.globe.target;
       const hit = G.hits.map(h => [Math.hypot(h.x - px, h.y - py), h]).filter(h => h[0] < 13).sort((a, b) => a[0] - b[0])[0];
@@ -1042,6 +1146,10 @@
       }
       refresh();
       if (window.AAssist) window.AAssist.onPick(k);
+    });
+    wrap.addEventListener('lostpointercapture', e => {
+      if (!drag || drag.pointer !== e.pointerId) return;
+      drag = null; G.dragging = false; queueGlobe();
     });
     wrap.addEventListener('wheel', e => { e.preventDefault(); setZoom(S.globe.zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2)); }, { passive: false });
     $('#zin').addEventListener('click', () => setZoom(S.globe.zoom * 1.4));
@@ -1069,42 +1177,115 @@
   }
 
   /* ---------- time bar ---------- */
-  function renderCursor() {
+  // The scrubber tracks every frame. The text gets a readable snapshot twice a second.
+  const clockLabels = ['#tb-met', '#tb-a', '#tb-b'].map($);
+  let lastLabelUpdate = -Infinity;
+  function updateClockLabels() {
+    const minutes = Math.floor(S.cur * 60);
+    const two = value => String(value).padStart(2, '0');
+    const elapsed = `T+${two(Math.floor(minutes / 1440))}${t('d')} ${two(Math.floor(minutes / 60) % 24)}:${two(minutes % 60)}`;
+    const values = [elapsed, fmtDate(S.sc.A.start + S.cur * H), fmtDate(S.sc.B.start + S.cur * H)];
+    clockLabels.forEach((label, i) => {
+      if (label.textContent !== values[i]) label.textContent = values[i];
+    });
+    lastLabelUpdate = performance.now();
+  }
+  function renderCursor(playbackFrame = false) {
     const tot = S.dur * 24;
     $('#scrub').value = Math.round(S.cur / tot * 1000);
-    $('#tb-met').textContent = 'T+' + fmtDur(S.cur);
-    $('#tb-a').textContent = fmtDate(S.sc.A.start + S.cur * H);
-    $('#tb-b').textContent = fmtDate(S.sc.B.start + S.cur * H);
+    if (!playbackFrame || performance.now() - lastLabelUpdate >= 500) updateClockLabels();
     for (const el of $$('.wcur')) el.style.left = (S.cur / tot * 100) + '%';
     if (S.tab === 'sky') for (const k of KEYS) { drawSky(k); renderNow(k); }
     if (S.tab === 'time') drawChart();
-    if (S.tab === 'map' && (S.globe.light || S.globe.temp)) queueGlobe(S.playing); // both follow the mission clock
+    if (S.tab === 'map') queueGlobe(Boolean(S.globe.light || S.globe.temp)); // subpoints and readouts follow the clock even on the static mosaic
     if (S.tab === 'resources') renderVerify();
+    if (S.tab === 'console') window.AAMissionConsole?.update();
   }
-  let last = 0;
+  let last = 0, playbackRequest = 0;
   function tick(ts) {
     if (!S.playing) return;
     const dt = Math.min(100, ts - (last || ts)); last = ts;
     const tot = S.dur * 24;
     S.cur += tot * dt / 20000 * parseFloat($('#speed').value);
     if (S.cur >= tot) S.cur = 0;
-    renderCursor();
-    requestAnimationFrame(tick);
+    renderCursor(true);
+    playbackRequest = requestAnimationFrame(tick);
   }
   function setPlaying(p) {
+    if (p === S.playing) return;
     S.playing = p; last = 0;
     $('#play').textContent = p ? '❚❚' : '▶';
     $('#play').setAttribute('aria-label', t(p ? 'pause' : 'play'));
-    if (p) requestAnimationFrame(tick);
+    if (p) playbackRequest = requestAnimationFrame(tick);
+    else { cancelAnimationFrame(playbackRequest); updateClockLabels(); }
   }
 
   /* ---------- tabs, i18n, resources, state ---------- */
-  function showTab(id) {
+  const navIndicator = $('.nav-indicator');
+  const viewOrder = ['compare', 'sky', 'time', 'resources', 'settings', 'console', 'map'];
+  function positionNavIndicator(animate = false) {
+    const tab = $('.nav button[aria-current="page"]');
+    if (!tab || !tab.offsetWidth) {
+      navIndicator.hidden = true;
+      return;
+    }
+    const transform = `translate(${tab.offsetLeft}px, ${tab.offsetTop}px) scaleX(${tab.offsetWidth / 64})`;
+    const height = tab.offsetHeight + 'px';
+    if (!navIndicator.hidden && navIndicator.style.transform === transform && navIndicator.style.height === height) return;
+    navIndicator.classList.toggle('sliding', animate && !navIndicator.hidden);
+    navIndicator.hidden = false;
+    navIndicator.style.height = height;
+    navIndicator.style.transform = transform;
+  }
+  let inspectorOrigin = { view: 'compare', scroll: 0, opener: null };
+  function showTab(id, opener) {
+    if (!viewOrder.includes(id)) return;
+    const previous = S.tab;
+    if (id === 'map' && previous !== id) {
+      inspectorOrigin = { view: previous, scroll: window.scrollY, opener: opener || document.activeElement };
+    }
     S.tab = id;
+    if (previous !== id) {
+      const section = document.getElementById(id);
+      section.dataset.enterFrom = viewOrder.indexOf(id) > viewOrder.indexOf(previous) ? 'right' : 'left';
+      try {
+        const url = new URL(location.href);
+        if (id === 'settings' || id === 'console') url.searchParams.set('view', id);
+        else url.searchParams.delete('view');
+        if (url.href !== location.href) history.replaceState(null, '', url);
+      } catch { /* Embedded offline viewers may restrict history access. */ }
+    }
+    document.body.classList.toggle('map-view', id === 'map');
+    document.body.classList.toggle('settings-view', id === 'settings');
+    const clock = $('.timebar');
+    if (id === 'compare') $('#win-rows').parentElement.append(clock);
+    else if (clock.closest('main')) $('main').after(clock);
     $$('main > section').forEach(s => { s.hidden = s.id !== id; });
-    $$('.nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
-    window.scrollTo(0, 0);
+    $$('.nav button').forEach(b => {
+      const current = b.dataset.tab === id || (id === 'console' && b.dataset.tab === 'settings');
+      b.classList.toggle('on', current);
+      if (current) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    positionNavIndicator(previous !== id);
+    window.scrollTo({top: 0, behavior: 'instant'});
     redrawVisible();
+    window.AAssist?.onViewChange?.();
+    if (previous !== id && !document.documentElement.classList.contains('tour-on') &&
+        !document.body.classList.contains('assist-on')) {
+      const title = document.querySelector('#' + id + ' h1');
+      title.tabIndex = -1;
+      title.focus({preventScroll: true});
+    }
+  }
+  function exitInspector() {
+    if (S.tab !== 'map') return;
+    const {view, scroll, opener} = inspectorOrigin;
+    showTab(view);
+    const target = opener && opener !== document.body && opener.getClientRects().length
+      ? opener : $('.inspect-launch');
+    target.focus({preventScroll: true});
+    window.scrollTo({top: scroll, behavior: 'instant'});
   }
   function redrawVisible() {
     renderCursor();
@@ -1113,7 +1294,10 @@
   }
   function applyLang() {
     document.documentElement.lang = S.lang;
+    $$('[data-aria-label]').forEach(el => el.setAttribute('aria-label', t(el.dataset.ariaLabel)));
+    $('#play').setAttribute('aria-label', t(S.playing ? 'pause' : 'play'));
     $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    positionNavIndicator();
     for (const g of ['lunar', 'partner'])
       $('#res-' + g).innerHTML = RESOURCES.filter(r => r.g === g).map(r =>
         `<a class="res" href="${r.url}" target="_blank" rel="noopener"><small>${r.org}</small><b>${r.name}</b><span>${r[S.lang]}</span></a>`).join('');
@@ -1124,16 +1308,26 @@
   }
   function loadHash() {
     const p = new URLSearchParams(location.hash.slice(1));
+    const number = value => value != null && value.trim() !== '' ? Number(value) : NaN;
     for (const k of KEYS) {
-      const v = (p.get(k.toLowerCase()) || '').split('|'); if (v.length !== 5) continue;
-      const lat = parseFloat(v[1]), lon = parseFloat(v[2]), st = fromLocal(v[3]), mk = v[4] === 'lola' ? 'lola' : parseFloat(v[4]);
-      if ([lat, lon, st].some(isNaN) || Math.abs(lat) > 90) continue;
-      S.sc[k] = { site: SITES.some(s => s.id === v[0]) ? v[0] : 'custom', lat, lon, start: st, mask: mk === 'lola' || MASKS.some(m => m[0] === mk) ? mk : 0 };
+      const parts = (p.get(k.toLowerCase()) || '').split('|');
+      if (parts.length !== 5) continue;
+      const [id, latitude, longitude, date, horizon] = parts;
+      const lat = number(latitude), lon = number(longitude), start = fromLocal(date);
+      if (![lat, lon, start].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+      const known = SITES.find(s => s.id === id && Math.abs(s.lat - lat) < 0.0006 && Math.abs(s.lon - lon) < 0.0006);
+      const angle = number(horizon);
+      const mask = horizon === 'lola' ? 'lola' : MASKS.some(m => m[0] === angle) ? angle : 0;
+      S.sc[k] = {site: known ? known.id : 'custom', lat, lon, start, mask};
     }
-    const d = parseFloat(p.get('d')); if (DURS.includes(d)) S.dur = d;
-    if (I18N[p.get('l')]) S.lang = p.get('l');
-    const pw = (p.get('p') || '').split('|').map(parseFloat);
-    if (pw.length === 3 && !pw.some(isNaN)) ['load', 'cap', 'area'].forEach((f, i) => { S.pwr[f] = Math.max(PWR_LIMITS[f][0], Math.min(PWR_LIMITS[f][1], pw[i])); });
+    const duration = number(p.get('d')); if (DURS.includes(duration)) S.dur = duration;
+    const lang = p.get('l'); if (lang === 'en' || lang === 'tr') S.lang = lang;
+    const power = (p.get('p') || '').split('|').map(number);
+    if (power.length === 3 && power.every(Number.isFinite)) {
+      ['load', 'cap', 'area'].forEach((key, i) => {
+        S.pwr[key] = Math.max(PWR_LIMITS[key][0], Math.min(PWR_LIMITS[key][1], power[i]));
+      });
+    }
   }
   function csv(k) {
     const d = S.data[k], sc = S.sc[k], rows = ['utc,sun_elevation_deg,sun_azimuth_deg,sun_disc_fraction,earth_elevation_deg,earth_azimuth_deg,earth_visible'];
@@ -1200,15 +1394,41 @@
     for (const k of KEYS) { buildScenario(k); buildSky(k); yearEvents(k); }
     fillSelects(); applyLang(); globeEvents(); if (!loadEmbeddedTexture()) loadTexture(2);
 
-    $$('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    $$('[data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab, b)));
+    document.addEventListener('click', e => {
+      if (e.target.closest('[data-exit-inspector]')) exitInspector();
+    });
+    const presets = $('.preset-menu');
+    document.addEventListener('pointerdown', e => {
+      if (!presets.contains(e.target)) presets.open = false;
+    });
+    presets.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        presets.open = false; presets.querySelector('summary').focus(); e.stopPropagation();
+      }
+    });
+    if (window.ResizeObserver) {
+      const navLayout = new ResizeObserver(() => positionNavIndicator());
+      for (const el of $$('.nav, .nav button')) navLayout.observe(el);
+    } else {
+      window.addEventListener('resize', () => positionNavIndicator());
+      document.fonts?.ready.then(() => positionNavIndicator());
+    }
     // Keyboard: 1-5 tabs, Space play/pause, arrows step the mission clock (Shift = 1 day).
     document.addEventListener('keydown', e => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey ||
+          document.body.classList.contains('analyst-modal') ||
+          document.activeElement?.closest('#assist, [role="dialog"]') ||
+          document.querySelector('.ap-picker-menu')) return;
+      if (e.key === 'Escape' && S.tab === 'map' && !document.body.classList.contains('assist-on') &&
+          !document.querySelector('dialog[open], .rep-modal')) {
+        e.preventDefault(); exitInspector(); return;
+      }
       // Typing fields keep every key; buttons, summaries and checkboxes keep Space/Enter; the slider keeps its arrows.
       const a = document.activeElement || document.body, tag = a.tagName, ty = a.type;
       if (tag === 'TEXTAREA' || tag === 'SELECT' || (tag === 'INPUT' && ty !== 'checkbox' && ty !== 'range')) return;
       if ((tag === 'BUTTON' || tag === 'SUMMARY' || ty === 'checkbox') && (e.key === ' ' || e.key === 'Enter')) return;
-      if (ty === 'range' && e.key.startsWith('Arrow')) return;
+      if ((ty === 'range' || a.id === 'verify') && e.key.startsWith('Arrow')) return;
       const tabs = ['compare', 'sky', 'time', 'map', 'resources'];
       if (e.key >= '1' && e.key <= '5') showTab(tabs[+e.key - 1]);
       else if (e.key === ' ') { e.preventDefault(); setPlaying(!S.playing); }
@@ -1220,7 +1440,12 @@
     });
     document.addEventListener('toggle', e => { if (e.target.tagName === 'DETAILS' && e.target.open) redrawVisible(); }, true);
     $('#dur').addEventListener('change', e => { S.dur = parseFloat(e.target.value); refresh(true); });
-    $('#presets').addEventListener('click', e => { if (e.target.dataset.preset) applyPreset(e.target.dataset.preset); });
+    $('#presets').addEventListener('click', e => { if (e.target.dataset.preset) {
+      applyPreset(e.target.dataset.preset);
+      const menu = e.currentTarget.closest('details');
+      menu.open = false;
+      menu.querySelector('summary').focus();
+    } });
     for (const f of ['load', 'cap', 'area']) $('#pw-' + f).addEventListener('change', e => setPower({ [f]: e.target.value }));
     $('#slips').addEventListener('click', e => {
       const v = e.target.dataset.slip; if (!v) return;
@@ -1262,7 +1487,7 @@
     // shared API for the assistant module
     window.AA = {
       S, KEYS, DURS, TERRAIN, Polar, C, t, nf, fmtDur, fmtDate, fmtCoord, fmtDay, siteName, winSummary, idxAt, hasTerrain, terrainOK, horizonSrc, countdown, showTab, refresh,
-      simulate, setSite, setPoint, stepMin, facts, powerSim, setPower, applyPreset, queueGlobe, syncForms, heatColor, horizonFn, routeFor, surfaceTemp, REGIONS, ROVER_KMH,
+      drawSky, setPlaying, simulate, setSite, setPoint, stepMin, facts, powerSim, setPower, applyPreset, queueGlobe, syncForms, scanMatchesMap, heatColor, horizonFn, routeFor, surfaceTemp, REGIONS, ROVER_KMH,
       POWER: { PV_EFF, CHG_EFF, DOD, WH_KG },
       onChange(fn) { hooks.push(fn); } // other modules re-render after every recomputation
     };

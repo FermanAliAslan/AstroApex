@@ -11,19 +11,22 @@ double-click index.html. The server adds one thing — an optional AI model for 
     set ANTHROPIC_API_KEY=...        (Windows)      export ANTHROPIC_API_KEY=...   (macOS / Linux)
     python server.py --open
 
+For Hydrogen, set GEMINI_API_KEY in the server environment and run python server.py --open.
+ASTROAPEX_GEMINI_MODEL optionally selects a different Gemini model.
 Use the environment for provider credentials. If you previously used api_key.txt, move the key
 to ANTHROPIC_API_KEY and remove the old file from the served directory. With a key configured,
 use the private session URL printed
 by the server (or --open) to authorize the browser. A bare root URL keeps the assistant in local mode.
 The bridge accepts up to 12 model requests per minute, with at most two in flight.
 """
+import http.client
 import json
 import secrets
 import socket
 import time
 from collections import deque
 from http.cookies import CookieError, SimpleCookie
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 import os
 import sys
 import threading
@@ -31,9 +34,20 @@ import webbrowser
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
+if __package__:
+    from .tools.luna_provider import LUNA_MODEL, ask_luna
+else:
+    from tools.luna_provider import LUNA_MODEL, ask_luna
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MODEL = os.environ.get("ASTROAPEX_MODEL", "claude-opus-5-5")
+GEMINI_MODEL = os.environ.get("ASTROAPEX_GEMINI_MODEL", "gemini-3.5-flash-lite")
+GEMINI_KEY = os.environ.get("GEMINI_API_KEY")
+OPENAI_CONFIGURED = bool(os.environ.get("OPENAI_API_KEY", "").strip())
+QWEN_MODEL = "qwen3.5-4b"
+QWEN_LABEL = "Qwen3.5 4B"
 MAX_BODY = 400_000
+MAX_GEMINI_RESPONSE = 1_000_000
 BODY_TIMEOUT = 10
 REQUEST_TIMEOUT = 45
 MAX_CONNECTIONS = 16
@@ -96,10 +110,7 @@ def make_client():
 CLIENT, AI_OFF_REASON = make_client()
 
 
-def ask_model(question, context):
-    """One assistant turn. Returns the answer text, or raises RuntimeError with a short reason."""
-    import anthropic
-
+def conversation(question, context):
     context = dict(context or {})
     raw_history = context.pop("history", [])
     if not isinstance(raw_history, list):
@@ -111,6 +122,12 @@ def ask_model(question, context):
     local = context.pop("localAnalysis", "")
     turn = "QUESTION:\n%s\n\nLOCAL ANALYSIS:\n%s\n\nMISSION DATA:\n%s" % (
         question, local or "(none)", json.dumps(context, ensure_ascii=False))
+    return history, turn
+
+
+def ask_model(question, context):
+    import anthropic
+    history, turn = conversation(question, context)
     try:
         response = CLIENT.beta.messages.create(
             model=MODEL,
@@ -139,6 +156,132 @@ def ask_model(question, context):
     if not text:
         raise RuntimeError("empty answer")
     return text
+
+
+def ask_gemini(question, context, search):
+    history, turn = conversation(question, context)
+    contents = [{"role": "model" if m["role"] == "assistant" else "user",
+                 "parts": [{"text": m["content"]}]} for m in history]
+    contents.append({"role": "user", "parts": [{"text": turn}]})
+    system = SYSTEM_PROMPT
+    if search:
+        system += (" For external mission facts you may use Google Search. Keep external facts separate "
+                   "from the simulation. Never use search results to replace calculated planning values.")
+    payload = {"contents": contents, "systemInstruction": {"parts": [{"text": system}]},
+               "generationConfig": {"maxOutputTokens": 4096}}
+    if search:
+        payload["tools"] = [{"googleSearch": {}}]
+
+    conn = http.client.HTTPSConnection("generativelanguage.googleapis.com", timeout=30)
+    try:
+        path = "/v1beta/models/%s:generateContent" % quote(GEMINI_MODEL, safe="")
+        conn.request("POST", path, body=json.dumps(payload).encode("utf-8"),
+                     headers={"Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY})
+        res = conn.getresponse()
+        if res.status != 200:
+            raise RuntimeError("Gemini API error %d" % res.status)
+        raw = res.read(MAX_GEMINI_RESPONSE + 1)
+        if len(raw) > MAX_GEMINI_RESPONSE:
+            raise RuntimeError("Gemini response was too large")
+        candidate = json.loads(raw)["candidates"][0]
+        if candidate.get("finishReason") not in (None, "STOP", "MAX_TOKENS"):
+            raise RuntimeError("Gemini did not return a complete answer")
+        parts = candidate["content"]["parts"]
+        answer = "".join(p["text"] for p in parts if isinstance(p, dict)
+                         and isinstance(p.get("text"), str) and not p.get("thought")).strip()
+        if not answer:
+            raise RuntimeError("empty Gemini answer")
+        result = {"answer": answer}
+        if search:
+            grounding = candidate.get("groundingMetadata") or {}
+            sources = []
+            for chunk in grounding.get("groundingChunks", []):
+                web = chunk.get("web") or {}
+                uri = web.get("uri")
+                if isinstance(uri, str) and uri.startswith("https://"):
+                    sources.append({"url": uri, "title": str(web.get("title") or urlsplit(uri).hostname)})
+            result["sources"] = sources
+            entry = (grounding.get("searchEntryPoint") or {}).get("renderedContent")
+            if isinstance(entry, str) and entry:
+                result["searchSuggestions"] = entry
+        return result
+    except (OSError, http.client.HTTPException):
+        raise RuntimeError("Gemini connection failed")
+    except (AttributeError, IndexError, KeyError, ValueError, TypeError):
+        raise RuntimeError("invalid Gemini response")
+    finally:
+        conn.close()
+
+
+def qwen_request(path, payload=None):
+    """The offline transport talks only to a fixed loopback address and follows no redirects."""
+    conn = http.client.HTTPConnection("127.0.0.1", 8772, timeout=30 if payload else 1)
+    try:
+        if payload is None:
+            conn.request("GET", path)
+        else:
+            conn.request("POST", path, json.dumps(payload).encode(), {"Content-Type": "application/json"})
+        res = conn.getresponse()
+        if res.status != 200:
+            raise RuntimeError("Local model unavailable")
+        raw = res.read(128_001)
+        if len(raw) > 128_000:
+            raise RuntimeError("Local model response too large")
+        result = json.loads(raw)
+        if not isinstance(result, dict):
+            raise ValueError()
+        return result
+    except (OSError, http.client.HTTPException, ValueError):
+        raise RuntimeError("Local model unavailable")
+    finally:
+        conn.close()
+
+
+def qwen_available():
+    try:
+        models = qwen_request("/v1/models").get("data")
+        return isinstance(models, list) and any(isinstance(m, dict) and m.get("id") == QWEN_MODEL for m in models)
+    except RuntimeError:
+        return False
+
+
+def ask_qwen(question, context):
+    if not qwen_available():
+        raise RuntimeError("Qwen3.5 4B is unavailable")
+    history, turn = conversation(question, context)
+    instructions = (SYSTEM_PROMPT +
+                    "\nFor questions about the selected sites in the plural, give both scenario A and scenario B "
+                    "and their site names. selectedScenario is the analyst's focus; activeScenario is the map tool's "
+                    "target. Use the question to decide whether to discuss one scenario or both.")
+    # The local 4B model needs the comparison facts next to the user's question.
+    # Keep the sign explicit so it never needs to subtract rounded display values.
+    scenarios = context.get("scenarios")
+    if isinstance(scenarios, dict):
+        summary = {}
+        for k in ("A", "B"):
+            item = scenarios.get(k)
+            if isinstance(item, dict) and isinstance(item.get("hours"), dict):
+                hours = item["hours"].get("both")
+                if isinstance(hours, (float, int)) and 0 <= hours <= 2160:
+                    summary[k] = {"site": item.get("site"), "jointHours": round(hours, 2)}
+        if len(summary) == 2:
+            delta = scenarios["A"]["hours"]["both"] - scenarios["B"]["hours"]["both"]
+            summary["jointHours_A_minus_B"] = round(delta, 2)
+            turn += "\n\nCURRENT SCENARIO PAIR:\n" + json.dumps(summary, ensure_ascii=False)
+    turn += "\n\nAnswer this latest question directly in the requested language: " + question
+    messages = [{"role": "system", "content": instructions}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": turn})
+    result = qwen_request("/v1/chat/completions", {
+        "model": QWEN_MODEL, "messages": messages, "temperature": 0.2, "max_tokens": 400
+    })
+    try:
+        answer = result["choices"][0]["message"]["content"]
+        if result.get("model") != QWEN_MODEL or not isinstance(answer, str) or not answer.strip():
+            raise ValueError()
+        return {"answer": answer.strip(), "provider": "qwen", "model": QWEN_LABEL}
+    except (KeyError, IndexError, TypeError, ValueError):
+        raise RuntimeError("Invalid Qwen3.5 4B answer")
 
 
 def same_secret(value, expected):
@@ -179,9 +322,11 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         super().end_headers()
 
-    def send_json(self, code, obj):
+    def send_json(self, code, obj, cookie=None):
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
+        if cookie:
+            self.send_header("Set-Cookie", cookie)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -197,19 +342,22 @@ class Handler(SimpleHTTPRequestHandler):
         return (len(origins) <= 1 and (not origins or origins[0] == expected)
                 and self.headers.get("Sec-Fetch-Site", "none") in ("none", "same-origin"))
 
-    def authorized(self):
+    def authorized(self, offline=False):
         if not self.valid_host() or not self.same_origin():
             return False
         tokens = self.headers.get_all("X-AstroApex-Token", [])
-        if len(tokens) != 1 or not same_secret(tokens[0], self.server.launch_token):
+        token = self.server.offline_token if offline else self.server.launch_token
+        if len(tokens) != 1 or not same_secret(tokens[0], token):
             return False
         cookies = SimpleCookie()
         try:
             cookies.load(self.headers.get("Cookie", ""))
         except CookieError:
             return False
-        cookie = cookies.get(self.server.cookie_name)
-        return bool(cookie and same_secret(cookie.value, self.server.session_cookie))
+        name = self.server.cookie_name + ("_qwen" if offline else "")
+        value = self.server.offline_cookie if offline else self.server.session_cookie
+        cookie = cookies.get(name)
+        return bool(cookie and same_secret(cookie.value, value))
 
     def bootstrap(self):
         tokens = parse_qs(urlsplit(self.path).query).get("token", [])
@@ -239,7 +387,11 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/status":
             if not self.authorized():
                 return self.send_json(403, {"ai": False, "reason": "Open the session link printed by the local server."})
-            return self.send_json(200, {"ai": CLIENT is not None, "model": MODEL if CLIENT else None, "reason": AI_OFF_REASON})
+            return self.send_json(200, {"ai": CLIENT is not None, "model": MODEL if CLIENT else None,
+                                        "providers": {"openai": LUNA_MODEL if OPENAI_CONFIGURED else None,
+                                                      "anthropic": MODEL if CLIENT else None,
+                                                      "gemini": GEMINI_MODEL if GEMINI_KEY else None},
+                                        "reason": AI_OFF_REASON})
         if self.is_private():
             return self.send_error(404)
         return super().do_GET()
@@ -261,8 +413,15 @@ class Handler(SimpleHTTPRequestHandler):
         except ValueError:
             return True
         rel = rel.replace(os.sep, "/").casefold()
-        first = rel.split("/")[0].rstrip(". ")
-        return rel.startswith("..") or first in {p.strip("/").casefold() for p in PRIVATE}
+        parts = rel.split("/")
+        first = parts[0].rstrip(". ")
+        return (any((part != "." and part.startswith(".")) or part == "__pycache__" for part in parts)
+                or first in {p.strip("/").casefold() for p in PRIVATE})
+
+    def list_directory(self, path):
+        # Only named assets and index pages are part of the planner.
+        self.send_error(404)
+        return None
 
     def read_body(self, length):
         deadline = time.monotonic() + BODY_TIMEOUT
@@ -281,16 +440,24 @@ class Handler(SimpleHTTPRequestHandler):
         return b"".join(parts)
 
     def do_POST(self):
+        if urlsplit(self.path).path == "/api/offline-session":
+            # Only the planner origin can read this grant. Its scope excludes all paid providers.
+            if (not self.valid_host() or not self.same_origin()
+                    or self.headers.get("Origin") != "http://" + self.headers.get("Host", "")
+                    or self.headers.get_all("X-AstroApex-Offline", []) != ["1"]):
+                return self.send_json(403, {"error": "Local origin required"})
+            online = qwen_available()
+            cookie = "%s_qwen=%s; HttpOnly; SameSite=Strict; Path=/api" % (self.server.cookie_name, self.server.offline_cookie)
+            return self.send_json(200, {"model": QWEN_LABEL if online else None, "token": self.server.offline_token}, cookie)
         if urlsplit(self.path).path != "/api/chat":
             return self.send_error(404)
-        if not self.authorized():
+        full_access = self.authorized()
+        if not full_access and not self.authorized(offline=True):
             return self.send_json(403, {"error": "Local session authorization required"})
         if self.headers.get("Transfer-Encoding") or len(self.headers.get_all("Content-Length", [])) != 1:
             return self.send_json(400, {"error": "Content-Length required"})
         if self.headers.get_content_type() != "application/json":
             return self.send_json(415, {"error": "application/json required"})
-        if CLIENT is None:
-            return self.send_json(503, {"error": AI_OFF_REASON})
         try:
             length = int(self.headers.get("Content-Length", "0"))
             if not 0 < length <= MAX_BODY:
@@ -303,19 +470,39 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.send_json(400, {"error": "empty question"})
         except TimeoutError:
             return self.send_json(408, {"error": "request body timed out"})
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, RecursionError):
             return self.send_json(400, {"error": "bad request"})
+        provider = data.get("provider", "anthropic")
+        search = data.get("search", False)
+        if not full_access and provider != "qwen":
+            return self.send_json(403, {"error": "Private session required"})
+        if provider not in ("anthropic", "gemini", "openai", "qwen") or not isinstance(search, bool) or (search and provider != "gemini"):
+            return self.send_json(400, {"error": "unsupported provider or search setting"})
+        if provider == "openai" and not OPENAI_CONFIGURED:
+            return self.send_json(503, {"error": "OpenAI is not configured"})
+        if provider == "anthropic" and CLIENT is None:
+            return self.send_json(503, {"error": AI_OFF_REASON})
+        if provider == "gemini" and not GEMINI_KEY:
+            return self.send_json(503, {"error": "Gemini is not configured"})
         if not self.server.model_slots.acquire(blocking=False):
             return self.send_json(429, {"error": "Two requests are already running. Try again shortly."})
         try:
             if not self.server.allow_model_request():
                 return self.send_json(429, {"error": "Local request limit reached. Try again in a minute."})
-            answer = ask_model(question, data.get("context") if isinstance(data.get("context"), dict) else {})
+            context = data.get("context") if isinstance(data.get("context"), dict) else {}
+            if provider == "qwen":
+                result = ask_qwen(question, context)
+            elif provider == "openai":
+                result = ask_luna(SYSTEM_PROMPT, *conversation(question, context))
+            elif provider == "gemini":
+                result = ask_gemini(question, context, search)
+            else:
+                result = {"answer": ask_model(question, context)}
         except RuntimeError as e:
             return self.send_json(502, {"error": str(e)})
         finally:
             self.server.model_slots.release()
-        return self.send_json(200, {"answer": answer})
+        return self.send_json(200, result)
 
 
 class Server(ThreadingHTTPServer):
@@ -330,6 +517,8 @@ class Server(ThreadingHTTPServer):
         self.allowed_hosts = {"127.0.0.1:%d" % port, "localhost:%d" % port}
         self.launch_token = secrets.token_urlsafe(32)
         self.session_cookie = secrets.token_urlsafe(32)
+        self.offline_token = secrets.token_urlsafe(32)
+        self.offline_cookie = secrets.token_urlsafe(32)
         self.cookie_name = "astroapex_session_%d" % port
         self.connection_slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
         self.model_slots = threading.BoundedSemaphore(MAX_MODEL_REQUESTS)
@@ -378,13 +567,18 @@ def main():
     if server is None:
         sys.exit("No free port found near %d." % port)
     url = "http://127.0.0.1:%d/" % port
-    if CLIENT is not None:
+    if OPENAI_CONFIGURED or CLIENT is not None or GEMINI_KEY:
         url += "_bootstrap?token=" + server.launch_token
     if os.path.exists(os.path.join(ROOT, "api_key.txt")):
         print("Legacy api_key.txt is ignored. Use ANTHROPIC_API_KEY and remove the old file from this directory.")
     print("AstroApex is running at %s" % url)
-    print("AI model: %s" % (MODEL if CLIENT else "off - " + AI_OFF_REASON))
-    if CLIENT is not None:
+    if OPENAI_CONFIGURED:
+        print("OpenAI model: %s" % LUNA_MODEL)
+    if CLIENT:
+        print("Anthropic model: %s" % MODEL)
+    if GEMINI_KEY:
+        print("Hydrogen model: %s" % GEMINI_MODEL)
+    if OPENAI_CONFIGURED or CLIENT is not None or GEMINI_KEY:
         print("Use this private session link to enable AI in this browser. Keep it private.")
     print("Press Ctrl+C to stop.")
     if "--open" in sys.argv:

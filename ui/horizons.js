@@ -17,6 +17,14 @@ const horizonsCache = (() => {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat)>90 || Math.abs(lon)>180) return null;
     return "Konum ("+Number(lat.toFixed(5))+"°, "+Number(lon.toFixed(5))+"°)";
   }
+  // A site's coordinates determine which measured observer table and skyline apply.
+  const referenceSites = new Map(names.map(name => {
+    const point = presets.get(name);
+    return [customSite(point.lat, point.lon), name];
+  }));
+  function referenceSite(site) {
+    return presets.has(site) ? site : referenceSites.get(site);
+  }
   function coordinates(site) {
     if (presets.has(site)) return {...presets.get(site)};
     const m = /^Konum \((-?\d+(?:\.\d{1,5})?)°, (-?\d+(?:\.\d{1,5})?)°\)$/.exec(site);
@@ -79,7 +87,7 @@ const horizonsCache = (() => {
     const point = coordinates(plan.site);
     if (!vectors || !point || !covers(ms,plan.days)) return null;
     const observe = observerAt(point);
-    const direct = original.sites[plan.site]?.samples;
+    const direct = original.sites[referenceSite(plan.site)]?.samples;
     const first = (ms-start)/hour;
     const samples = Array.from({length:plan.days*24}, (_,offset) => {
       const index = first+offset;
@@ -91,5 +99,5 @@ const horizonsCache = (() => {
     });
     return summarizeSamples(plan.site,ms,plan.days,plan.terrain,samples,plan.horizonMode);
   }
-  return {start,end,names,customSite,coordinates,covers,load,calculate,get ready(){return !!vectors;}};
+  return {start,end,names,customSite,coordinates,referenceSite,covers,load,calculate,get ready(){return !!vectors;}};
 })();
