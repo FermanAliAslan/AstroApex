@@ -1,41 +1,130 @@
 # AstroApex
-NASA Space Apps lunar mission planner.
 
-## Run the current website
+**Ay’a nerede ve ne zaman inmeliyiz?**
 
-From this repository, run:
+AstroApex, Ay’daki iniş sahalarını ve görev tarihlerini güneş ışığı, yerel arazi ufku ve Dünya’yla doğrudan görüş açısından karşılaştıran bir web uygulamasıdır. NASA Space Apps 2026’nın **Lunar Landing Site Navigator / CLPS Lunar Mission Browser** problemi için geliştirilmiştir.
+
+[Canlı uygulama](https://fermanaliaslan.github.io/AstroApex/) · [Türkçe sunum PDF’si](doc/AstroApex-Gorev-Gezgini-Turuncu.pdf) · [İngilizce Navigator rehberi](navigator/README.md) · [Yarışma problemi](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/)
+
+## Neyi çözüyor?
+
+Ay’ın güney kutbunda Güneş ufka yakın hareket eder. Bir krater kenarı veya sırt, güneş panellerini gölgede bırakabilir ve Dünya görüşünü kesebilir. İniş tarihi değiştiğinde aynı sahanın enerji ve iletişim koşulları da değişebilir.
+
+AstroApex iki planı aynı ekranda karşılaştırır. Kullanıcı toplam güneşlenme süresinin yanında kesintisiz karanlığın, iletişim kaybının ve eşzamanlı Güneş–Dünya görüşünün ne kadar sürdüğünü inceleyebilir. Amaç, görev ekiplerinin alternatifleri hızlı değerlendirmesini ve öğrencilerin bu kararların nedenlerini anlamasını sağlamaktır.
+
+## Uygulamada neler var?
+
+| Alan | Yapabilecekleriniz |
+|---|---|
+| **Saha ve tarih karşılaştırması** | 27 hazır sahadan seçin veya özel koordinat girin. Aynı sahayı farklı tarihlerde, farklı sahaları aynı tarihte karşılaştırın. |
+| **Gökyüzü ve zaman çizelgesi** | Güneş ve Dünya’nın yerel ufka göre konumunu, görünürlük pencerelerini ve bir sonraki doğuş veya batışa kalan süreyi izleyin. |
+| **Güç ve batarya** | Panel alanı, güç tüketimi ve batarya kapasitesini değiştirerek karanlık dönemlerinin etkisini değerlendirin. |
+| **3B Ay haritası** | Rölyef, eğim, kalıcı gölge, tahmini sıcaklık ve Dünya görünürlüğü katmanlarını inceleyin. |
+| **Saha taraması ve gezgin rotası** | NASA çalışma bölgelerindeki aday noktaları değerlendirin ve kalıcı gölge alanlarına erişimi araştırın. |
+| **Asistan ve paylaşım** | Tarih veya saha alternatiflerini yeniden hesaplatın. İki sayfalık görev raporu, CSV ve senaryo bağlantısı oluşturun. |
+
+Arayüz Türkçe ve İngilizce kullanılabilir. Saha seçicilerinde arama ve koordinat bilgisi, açılır menülerde klavye desteği, görev zaman çizelgesinde sürüklenebilir bir işaretçi bulunur.
+
+## Hızlı başlangıç
+
+### Tarayıcıdan
+
+[Canlı uygulamayı açın](https://fermanaliaslan.github.io/AstroApex/). Sağ üstteki **TR / EN** düğmeleriyle dili değiştirebilirsiniz.
+
+Örnek karşılaştırma için iki senaryoda da **Malapert Massif**, görev süresinde **14 gün** seçin. A’yı **8 Ocak 2027 00.00 UTC**, B’yi **15 Ocak 2027 00.00 UTC** tarihinde başlatın. Toplam ortak görüş ile en uzun iletişim kesintisini birlikte inceleyin.
+
+### Bilgisayarınızda
+
+Aşağıdaki komutları Git ve Python 3 yüklü bir bilgisayarda çalıştırın.
 
 ```sh
-python3 -m http.server 8000 --bind 127.0.0.1 --directory ui
+git clone https://github.com/FermanAliAslan/AstroApex.git
+cd AstroApex
+python3 -m http.server 8000 --bind 127.0.0.1 --directory navigator
 ```
 
-Open http://127.0.0.1:8000/ in your browser. The complete static frontend is in `ui/`, including its scripts, styles, fonts, 3D Moon and science data.
+Ardından [http://127.0.0.1:8000](http://127.0.0.1:8000) adresini açın.
 
-The planner compares landing sites and dates for the [NASA Space Apps Lunar Landing Site Navigator challenge](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/). Select a preset or enter lunar coordinates and choose a 7-, 14-, 21- or 28-day period within 2026–2027. The browser uses bundled hourly JPL Horizons geometry. Pin a scenario to compare sunlight, Earth visibility, joint windows and continuous darkness. The separate demo mode uses illustrative data.
+### Çevrimdışı tek dosya
 
-The atlas includes an interactive terrain globe, a six-stop geography tour, a surface-distance ruler and polar map layers. The globe uses 8K LROC imagery and LOLA elevations. The ruler reports the shortest arc on a sphere with a radius of 1,737.4 km. The archive includes illumination and visibility products from their original observation periods.
+[navigator/dist/AstroApex.html](navigator/dist/AstroApex.html) dosyasını indirip tarayıcıda açın. Görev hesabı için gereken veri ve kod bu dosyaya gömülüdür. Haricî yazı tipleri yüklenemezse sistem yazı tipleri kullanılır.
 
-The sidebar provides rule-based explanations using the selected plan. The AI work is paused. This release contains no Qwen weights or API credentials.
+## Nasıl çalışıyor?
 
-## Native C/Lua backend
+1. **Veri hazırlama** — Python betikleri NASA kaynaklarından konum tablolarını, arazi ızgaralarını ve görüntüleri hazırlar.
+2. **Tarayıcı hesabı** — JavaScript, seçilen koordinat ve tarih için Güneş–Dünya geometrisini yerel ufukla birleştirir. Görüş pencereleri ve güç modeli bu hesapları kullanır.
+3. **Görselleştirme** — HTML, CSS ve Canvas, sonuçları senaryo karşılaştırması, gökyüzü, zaman çizelgesi ve Ay haritasında gösterir.
+4. **Raporlama** — Yerel analitik asistan alternatif senaryoları değerlendirir. PDF ve CSV çıktıları tarayıcıda hazırlanır.
 
-The native engine is independently runnable. Install a C compiler, Make, Python 3, Lua 5.4 development files and pkg-config. Download the [NAIF CSPICE toolkit](https://naif.jpl.nasa.gov/naif/toolkit_C.html) for your platform and extract it at the repository root, providing `cspice/include/SpiceUsr.h` and `cspice/lib/cspice.a`. The Linux setup is in [.github/workflows/backend.yml](.github/workflows/backend.yml).
+Depodaki **C/Lua/SPICE motoru** ayrıca çalıştırılabilen bir hesap bileşenidir. Yayımlanan Navigator, hesaplarını tarayıcıda kendi paketlenmiş verileriyle yürütür.
+
+## Veriler ve kaynaklar
+
+| Veri | Kullanım |
+|---|---|
+| **NASA NAIF SPICE / JPL DE440** | Güneş ve Dünya konumları. `IAU_MOON` çerçevesinde `LT+S` düzeltmeleriyle hazırlanmış iki saatlik 2024–2040 tablosu. |
+| **LRO / LOLA** | Yerel ufuk, yükselti ve eğim. Üç referans merkezinde 80 m kaynaklı ufuk profilleri; diğer kapsanan güney kutbu noktalarında 480 m ızgara. |
+| **NASA Goddard kalıcı gölge verisi** | Gölge alanlarının gösterimi ve olası soğuk tuzaklarına erişimin değerlendirilmesi. |
+| **NASA Lunar Surface Data Book** | Çalışma bölgelerinin referans konumları. |
+| **LRO WAC / NASA Moon Trek** | Ay yüzeyi görüntüleri. |
+| **astronomy-engine** | Bağımsız konum karşılaştırması ve SPICE tablosunun kapsamı dışındaki tarihler için hesap. |
+
+Veri seti adları ve üretim adımları için [Navigator kaynak açıklamalarına](navigator/README.md#nasa-data-and-sources) ve [veri hazırlama betiklerine](navigator/tools/) bakın.
+
+## Sonuçları nasıl yorumlamalı?
+
+- **Dünya görüşü geometrik bir iletişim fırsatıdır.** Anten özellikleri, radyo bağlantı bütçesi ve yer istasyonlarının uygunluğu ayrıca değerlendirilmelidir.
+- **Arazi çözünürlüğü sonucu etkiler.** 480 m ızgara dar sırtları, küçük kraterleri ve kayaları kaçırabilir. Bu konumlardaki güneşlenme ve tarama sonuçları iyimser olabilir.
+- **Kalıcı gölge buzun korunabileceği koşulları gösterir.** Buzun gerçekten bulunup bulunmadığı ayrı ölçümler gerektirir.
+- **Puan, batarya, sıcaklık ve yakıt hesapları ön değerlendirme içindir.** Uygunluk puanı altı ağırlıklı bileşenden oluşur. Seçilen donanımın batarya dayanımı ve görevin iletişim gereksinimleri ayrıca incelenmelidir.
+- **Zaman çözünürlükleri farklıdır.** Ayrıntılı görev hesabının örnekleme aralığı süreye göre değişir. Yıllık görünüm iki saatlik adımlarla tarar. Tutulma düzeltmesi ayrıntılı görev simülasyonunda bulunur.
+
+## Klasör yapısı
+
+| Yol | İçerik |
+|---|---|
+| [`navigator/`](navigator/) | Canlı uygulamanın kaynakları |
+| [`navigator/js/`](navigator/js/) | Görev hesabı, harita, saha taraması, asistan, rapor ve arayüz modülleri |
+| [`navigator/data/`](navigator/data/) | Paketlenmiş konum, arazi ve görüntü verileri |
+| [`navigator/tools/`](navigator/tools/) | Veri üretimi ve tek HTML dosyasına paketleme |
+| [`navigator/dist/`](navigator/dist/) | Çevrimdışı dağıtım |
+| [`src/`](src/) ve [`lua/`](lua/) | Bağımsız yerel hesap motoru |
+| [`data/`](data/) | Yerel motorun SPICE çekirdekleri ve örnek JSON verileri |
+| [`tests/`](tests/) | Yerel motorun regresyon testleri |
+| [`ui/`](ui/) | Horizons verileri, atlas ve yüzey mesafe aracı içeren ek görev konsolu |
+| [`doc/`](doc/) | Sunum ve proje belgeleri |
+
+## Geliştirme ve dağıtım
+
+Navigator kaynaklarında değişiklik yaptıktan sonra, tek dosyalık sürüm aşağıdaki komutla yeniden oluşturulur.
+
+```sh
+python3 navigator/tools/build_single.py
+```
+
+Bu komut `navigator/dist/AstroApex.html` ve gömülü sayfa kullanımları için `navigator/dist/astroapex-web.html` üretir. Canlı site, **gh-pages** dalındaki `index.html` üzerinden yayımlanır. Kaynaklar **main** dalındadır; canlı sürümde yayımlanacak dosya, yeniden oluşturulan `AstroApex.html` paketidir.
+
+### İsteğe bağlı yerel sohbet servisi
+
+`navigator/server.py`, sayfayı yerelde sunabilir ve Anthropic bağlantısı yapılandırıldığında çevrimiçi sohbet ekler. Başlatmak için aşağıdaki komutu çalıştırın.
+
+```sh
+python3 navigator/server.py --open
+```
+
+Sunucu 5173 portundan başlayarak uygun bir yerel port seçer. Çevrimiçi sohbet için `anthropic` paketi ve `ANTHROPIC_API_KEY` ortam değişkeni kullanılır. Ayrıntılar [sunucu dosyasında](navigator/server.py) bulunur.
+
+### C/Lua motoru ve testler
+
+Gerekenler C derleyicisi, Make, Python 3, Lua 5.4 geliştirme dosyaları, pkg-config ve platformunuza uygun [NAIF CSPICE araç takımıdır](https://naif.jpl.nasa.gov/naif/toolkit_C.html). Araç takımını `cspice/include/SpiceUsr.h` ve `cspice/lib/cspice.a` yolları oluşacak şekilde depo köküne çıkarın.
 
 ```sh
 make test
 make once
 ```
 
-The three required SPICE kernels are included. `make once` reads `data/input.json` and writes `data/output.json`. The static frontend uses its bundled sample series and browser calculations. It does not call a hosted backend API.
+`make test` yerel motorun regresyon testlerini çalıştırır. `make once`, `data/input.json` girdisini işleyerek `data/output.json` çıktısını üretir. GitHub Actions aynı motoru Linux üzerinde derleyip test eder. [CI yapılandırması](.github/workflows/backend.yml)
 
-## Data and display limits
+## Geliştirme araçları
 
-Each hourly sample describes the center of the Sun and Earth as seen from the selected coordinates. The three preset sites retain their original October 18–31, 2026 Horizons observer tables. For other dates and custom coordinates, the browser projects the bundled lunar-frame positions into the observer’s local sky.
-
-In terrain mode the three preset sites use direction-dependent horizons derived from NASA’s 80 m LOLA DEM. Each profile considers terrain out to 180 km from a point 2 m above the surface. The fixed-angle model is available for comparisons and for other coordinates. Hourly sampling limits event timing. Direct-to-Earth visibility indicates a geometric opportunity. Electrical yield, battery state and radio performance require further engineering assumptions.
-
-[Horizons data and validation](ui/assets/lunar-vectors-provenance.txt) · [Terrain horizon method](ui/assets/terrain-horizon-source.txt) · [Globe credits](ui/assets/moon-attribution.txt) · [Polar-map provenance](ui/assets/resources-map-provenance.txt)
-
-## Native regression checks
-
-The backend GitHub Actions workflow runs the native regression suite on pushes to main and pull requests. Run the same suite with `make test`.
+Kodun geliştirilmesi ve incelenmesi sürecinde **Claude ve Codex** kullanıldı. Bilimsel girdilerin kaynakları yukarıdaki tabloda ve veri üretim betiklerinde belirtilmiştir. Uygulamanın hesapladığı puanlar ve mühendislik tahminleri, bu girdilerle birlikte kullanılan model varsayımlarına bağlıdır.
