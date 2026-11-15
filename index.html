@@ -614,6 +614,13 @@ html.rep-on { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .rep-modal { animation: none; } .scout-bar i { transition: none; } }
 .rep-pages:focus-visible { outline: 2px solid var(--earth); outline-offset: -2px; }
+.rep-transcript { width: 100%; max-width: 780px; background: var(--panel2); border: 1px solid var(--line2); border-radius: 12px; padding: 14px; }
+.rep-transcript > summary { cursor: pointer; font-weight: 600; }
+.rep-transcript > div { overflow-x: auto; }
+.rep-transcript th, .rep-transcript td { text-align: left; padding: 8px; vertical-align: top; }
+.rep-transcript caption { text-align: left; font-weight: 600; margin: 12px 0; }
+.rep-transcript h3, .rep-transcript h4 { margin: 14px 0 8px; }
+.rep-transcript p { margin: 8px 0; }
 .presets .chips { min-width: 0; }
 .presets .chips button { white-space: normal; text-align: left; max-width: 100%; border-radius: 16px; }
 
@@ -1344,7 +1351,9 @@ window.I18N = {
     h_time: 'Zaman içinde değişim',
     lead_time: 'Görev süresince yükselim açıları ve bir yıl boyunca günlük görüş. Bir güne tıklayarak o senaryonun başlangıç tarihini kaydırın.',
     chart_t: 'Yükselim açısı · görev süresi', solid: 'A düz çizgi', dashed: 'B kesikli çizgi',
-    year_t: 'Tarih gezgini · 365 gün', year_hint: 'Bir günün üzerine gelin; tıklayınca başlangıç o güne taşınır.',
+    year_t: 'Tarih gezgini · 365 gün', year_hint: 'İki saatlik örnekleme. Bir günü seçerek ayrıntılı görev hesabını o tarihte başlatın.',
+    end_visible: 'Görev sonundaki örnekte görünür', end_hidden: 'Görev sonundaki örnekte görünmez',
+    no_remaining_rise: 'Kalan sürede yeniden doğuş gözlenmiyor',
     year_cell: '{d} · Güneş {s} sa · Dünya {e} sa · birlikte {b} sa',
     computing: 'Hesaplanıyor…',
     h_map: 'Ay haritası',
@@ -1404,7 +1413,9 @@ window.I18N = {
     h_time: 'Change over time',
     lead_time: 'Elevation angles across the mission and daily visibility across a year. Click a day to slip that scenario’s start date.',
     chart_t: 'Elevation angle · mission duration', solid: 'A solid', dashed: 'B dashed',
-    year_t: 'Date explorer · 365 days', year_hint: 'Hover a day; click to move the start there.',
+    year_t: 'Date explorer · 365 days', year_hint: 'Two-hour sampling. Select a day to start the detailed mission calculation on that date.',
+    end_visible: 'Visible at the final mission sample', end_hidden: 'Not visible at the final mission sample',
+    no_remaining_rise: 'No further rise observed in the remaining time',
     year_cell: '{d} · Sun {s} h · Earth {e} h · both {b} h',
     computing: 'Computing…',
     h_map: 'Moon map',
@@ -1484,11 +1495,11 @@ Object.assign(I18N.tr, {
   a_fuel_how: 'Tahmin: 100 km dairesel yörüngeden motorlu iniş için 1.870 m/s taban Δv; arazi sınıfına göre tehlike önleme payı (düz mare +60, yayla +100, kutup +150 m/s); iniş anında Güneş 5°’nin altındaysa +30 m/s. Yakıt oranı roket denkleminden, Isp 320 s ile hesaplanır.',
   a_safe_how: 'Skor beş bileşenin ağırlıklı ortalamasıdır: güç %30 (Güneş görünme oranı), iletişim %25 (Dünya görünme oranı), karanlık %15 (en uzun kesintisiz gece), iniş ışığı %15 (iniş anındaki Güneş yükselimi), arazi %15 (arazi sınıfı). Bu bir ön tasarım göstergesidir, sertifikalı iniş güvenliği olasılığı değildir.',
   a_help: 'Şunları sorabilirsiniz: “A sahasını analiz et”, “B için yakıt”, “hangisi daha güvenli”, “Güneş ne zaman batıyor”, “Dünya görünüyor mu”.',
-  a_sun: '{k} · Güneş: görev süresinin %{p}’inde görünür ({h} sa), en yüksek {mx}°, en uzun karanlık {d} sa. Seçili anda: {now}.',
-  a_earth: '{k} · Dünya: görev süresinin %{p}’inde görünür ({h} sa), yükselim {lo}° … {hi}°, en uzun kesinti {d} sa. Seçili anda: {now}.',
-  pc_sun_full: 'Görev boyunca neredeyse kesintisiz Güneş (%{p})', pc_sun_low: 'Güneş yalnızca %{p} görünür; en uzun karanlık {d} sa — batarya ve ısıtıcı gerekir',
-  pc_sun_mid: 'Güneş %{p} görünür; en uzun karanlık {d} sa', pc_earth_full: 'Dünya ile kesintisiz doğrudan iletişim',
-  pc_earth_none: 'Dünya hiç görünmez; röle uydusu şart', pc_earth_part: 'Dünya %{p} görünür; en uzun iletişim kesintisi {d} sa',
+  a_sun: '{k} · Güneş: görev süresinin %{p}’inde görünür ({h}), en yüksek {mx}°, en uzun karanlık {d}. Seçili anda: {now}.',
+  a_earth: '{k} · Dünya: görev süresinin %{p}’inde görünür ({h}), yükselim {lo}° … {hi}°, en uzun kesinti {d}. Seçili anda: {now}.',
+  pc_sun_full: 'Görev boyunca neredeyse kesintisiz Güneş (%{p})', pc_sun_low: 'Güneş yalnızca %{p} görünür; en uzun karanlık {d} — batarya ve ısıtıcı gerekir',
+  pc_sun_mid: 'Güneş %{p} görünür; en uzun karanlık {d}', pc_earth_full: 'Dünya ile kesintisiz doğrudan iletişim',
+  pc_earth_none: 'Dünya hiç görünmez; röle uydusu şart', pc_earth_part: 'Dünya %{p} görünür; en uzun iletişim kesintisi {d}',
   pc_lowsun: 'Güneş ufka çok yakın (en fazla {e}°): uzun gölgeler, dikey panel gerekir', pc_highsun: 'Yüksek Güneş açısı ({e}°’ye kadar): yatay paneller verimli',
   pc_ice: 'Kalıcı gölgeli kraterlere yakın: su buzu için yüksek bilimsel değer', pc_rough: 'Engebeli kutup arazisi: tehlike önleme için ek yakıt payı',
   pc_mare: 'Görece düz mare ovası: iniş riski düşük', pc_highland: 'Yayla arazisi: orta düzeyde eğim ve kaya riski',
@@ -1515,11 +1526,11 @@ Object.assign(I18N.en, {
   a_fuel_how: 'Estimate: 1,870 m/s base Δv for a powered descent from a 100 km circular orbit; hazard-avoidance margin by terrain class (flat mare +60, highland +100, polar +150 m/s); +30 m/s if the Sun is below 5° at landing. Propellant share from the rocket equation with Isp 320 s.',
   a_safe_how: 'The score is a weighted mean of five parts: power 30% (Sun visibility), comms 25% (Earth visibility), darkness 15% (longest continuous night), landing light 15% (Sun elevation at landing), terrain 15% (terrain class). It is a preliminary-design indicator, not a certified landing-safety probability.',
   a_help: 'You can ask: “analyse site A”, “propellant for B”, “which is safer”, “when does the Sun set”, “is Earth visible”.',
-  a_sun: '{k} · Sun: visible {p}% of the mission ({h} h), peak {mx}°, longest darkness {d} h. At the selected time: {now}.',
-  a_earth: '{k} · Earth: visible {p}% of the mission ({h} h), elevation {lo}° … {hi}°, longest outage {d} h. At the selected time: {now}.',
-  pc_sun_full: 'Near-continuous sunlight through the mission ({p}%)', pc_sun_low: 'Sun visible only {p}%; longest darkness {d} h — batteries and heaters needed',
-  pc_sun_mid: 'Sun visible {p}%; longest darkness {d} h', pc_earth_full: 'Continuous direct-to-Earth communication',
-  pc_earth_none: 'Earth never visible; a relay satellite is required', pc_earth_part: 'Earth visible {p}%; longest comm outage {d} h',
+  a_sun: '{k} · Sun: visible {p}% of the mission ({h}), peak {mx}°, longest darkness {d}. At the selected time: {now}.',
+  a_earth: '{k} · Earth: visible {p}% of the mission ({h}), elevation {lo}° … {hi}°, longest outage {d}. At the selected time: {now}.',
+  pc_sun_full: 'Near-continuous sunlight through the mission ({p}%)', pc_sun_low: 'Sun visible only {p}%; longest darkness {d} — batteries and heaters needed',
+  pc_sun_mid: 'Sun visible {p}%; longest darkness {d}', pc_earth_full: 'Continuous direct-to-Earth communication',
+  pc_earth_none: 'Earth never visible; a relay satellite is required', pc_earth_part: 'Earth visible {p}%; longest comm outage {d}',
   pc_lowsun: 'Sun hugs the horizon (peak {e}°): long shadows, vertical arrays needed', pc_highsun: 'High Sun angle (up to {e}°): horizontal arrays work well',
   pc_ice: 'Close to permanently shadowed craters: high science value for water ice', pc_rough: 'Rugged polar terrain: extra propellant margin for hazard avoidance',
   pc_mare: 'Relatively flat mare plain: low landing risk', pc_highland: 'Highland terrain: moderate slope and boulder risk',
@@ -1742,7 +1753,7 @@ Object.assign(I18N.tr, {
  "leg_ice": "Kalıcı gölge",
  "leg_slope": "Eğim: ≤5° · ≤8° · ≤15° · >15°",
  "leg_heat": "Uygunluk: düşük → yüksek",
- "sct_t": "En iyi noktayı bul",
+ "sct_t": "Saha adaylarını tara",
  "sct_lead": "Seçili senaryonun tarihi ve görev süresi için 84°G–90°G arasını tarar: dik ve gölgeli yerleri eler, kalan her noktayı gerçek LOLA ufkuyla simüle eder.",
  "sct_run": "Bölgeyi tara",
  "sct_again": "Yeniden tara",
@@ -1750,7 +1761,7 @@ Object.assign(I18N.tr, {
  "sct_row": "Güneş %{s} · Dünya %{e} · eğim {sl}° · buz {km} km",
  "sct_set": "{k} senaryosuna uygula",
  "sct_sum": "{n} nokta incelendi, {r} tanesi elendi, {s} tanesi simüle edildi · {d} başlangıç, {dur} gün.",
- "sct_stale": "Tarih ya da süre değişti; yeniden tarayın.",
+ "sct_stale": "Tarih, süre veya tarama alanı değişti; yeniden tarayın.",
  "sct_nodata": "LOLA arazi verisi bu tarayıcıda açılamadı; tarama kullanılamıyor.",
  "sct_wait": "Arazi verisi açılıyor…",
  "sc_ice": "Buz erişimi",
@@ -1760,7 +1771,7 @@ Object.assign(I18N.tr, {
  "pc_slope_good": "Düz iniş alanı: ortalama eğim {s}°, alanın %{p}’i 8°’den düz",
  "pc_slope_mid": "Eğimli arazi: ortalama {s}°, alanın %{p}’i 8°’den düz",
  "pc_slope_bad": "Çok dik arazi: ortalama eğim {s}° — iniş için uygun değil",
- "pc_batt_bad": "Seçili batarya {h} sa boş kalıyor; en az {c} kWh gerekir",
+ "pc_batt_bad": "Seçili batarya {h} boş kalıyor; en az {c} kWh gerekir",
  "q_ice": "Buza ne kadar yakın?",
  "q_scout": "En iyi noktayı bul",
  "method_4": "Arazi: 82°G’nin güneyindeki her nokta için ufuk çizgisi, NASA LOLA 240 m yükseklik modelinden (480 m hücrelere indirgenmiş) tarayıcıda hesaplanır; Ay’ın eğriliği dahildir. Eğim aynı modelden, 480 m taban uzunluğunda (240 m ızgarada merkezi fark) türetilir. Kalıcı gölgeli bölgeler NASA Goddard haritasından (LOLA, Mazarico ve ark. 2011) alınır; en az 3 km² bağlantılı gölge “büyük buz tuzağı” sayılır.",
@@ -1811,7 +1822,7 @@ Object.assign(I18N.en, {
  "leg_ice": "Permanent shadow",
  "leg_slope": "Slope: ≤5° · ≤8° · ≤15° · >15°",
  "leg_heat": "Suitability: low → high",
- "sct_t": "Find the best point",
+ "sct_t": "Scan site candidates",
  "sct_lead": "Scans 84°S–90°S for the selected scenario’s date and the mission length: drops steep and shadowed ground, then simulates every remaining point with its real LOLA horizon.",
  "sct_run": "Scan the region",
  "sct_again": "Scan again",
@@ -1819,7 +1830,7 @@ Object.assign(I18N.en, {
  "sct_row": "Sun {s}% · Earth {e}% · slope {sl}° · ice {km} km",
  "sct_set": "Apply to scenario {k}",
  "sct_sum": "{n} points examined, {r} rejected, {s} simulated · start {d}, {dur} days.",
- "sct_stale": "The date or duration has changed; scan again.",
+ "sct_stale": "The date, duration or scan area has changed; scan again.",
  "sct_nodata": "The LOLA terrain pack could not be opened in this browser; the scan is unavailable.",
  "sct_wait": "Unpacking terrain data…",
  "sc_ice": "Ice access",
@@ -1829,7 +1840,7 @@ Object.assign(I18N.en, {
  "pc_slope_good": "Flat landing area: mean slope {s}°, {p}% of the ground under 8°",
  "pc_slope_mid": "Sloping ground: mean {s}°, {p}% of the ground under 8°",
  "pc_slope_bad": "Very steep ground: mean slope {s}° — not suitable for landing",
- "pc_batt_bad": "The chosen battery is empty for {h} h; at least {c} kWh is needed",
+ "pc_batt_bad": "The chosen battery is empty for {h}; at least {c} kWh is needed",
  "q_ice": "How close is the ice?",
  "q_scout": "Find the best point",
  "method_4": "Terrain: for any point south of 82°S the skyline is computed in the browser from the NASA LOLA 240 m elevation model (reduced to 480 m cells), including the curvature of the Moon. Slope comes from the same model over a 480 m baseline (central difference on the 240 m grid). Permanently shadowed regions come from the NASA Goddard map (LOLA, Mazarico et al. 2011); at least 3 km² of connected shadow counts as a “large ice trap”.",
@@ -1870,17 +1881,17 @@ Object.assign(I18N.tr, {
  "f_temp": "Seçili noktada tahmini sıcaklık",
  "route_ok": "Buza rota: {km} km, en dik yer {s}°, yaklaşık {h} sa sürüş ({v} km/sa varsayımıyla).",
  "route_relaxed": "15° altında yol yok; {s}° sınırıyla bulundu.",
- "route_none": "{s}° altında eğimle ulaşılabilen buz tuzağı bulunamadı (60 km içinde).",
+ "route_none": "Örneklenen arama alanında {s}° eğim sınırıyla ulaşılabilen kalıcı gölge bulunamadı.",
  "route_in": "Nokta zaten kalıcı gölgenin içinde.",
  "reg_t": "NASA bölgelerini puanla",
- "reg_lead": "NASA Veri Kitabı’ndaki 14 çalışma bölgesinin her birinde (yaklaşık 15 × 15 km) en iyi iniş noktasını bulur. Bölge merkezleri iniş noktası değil, referans noktasıdır.",
+ "reg_lead": "NASA Veri Kitabı’ndaki 14 bölge merkezi çevresinde örneklenen adayları puanlar. Yaklaşık 225 km² alanlı daireler kullanılır; sonuç, bu örnekler içindeki en yüksek puanlı noktadır.",
  "reg_run": "Bölgeleri puanla",
  "reg_again": "Yeniden puanla",
  "reg_busy": "Puanlanıyor… %{p}",
- "reg_none": "inilebilir nokta yok",
+ "reg_none": "Örnekler içinde koşulları sağlayan aday yok",
  "reg_a24": "Artemis III 2024",
  "reg_sum": "{d} başlangıç, {dur} gün · her bölgede 1,5 km aralıklı noktalar, gerçek LOLA ufkuyla. Kaynak: NASA M2M Lunar Surface Data Book (2025), Tablo A2.1-1.",
- "reg_row": "merkez {c} → en iyi nokta {b} · Güneş %{s} · Dünya %{e} · eğim {sl}°",
+ "reg_row": "merkez {c} → en iyi örnek {b} · Güneş %{s} · Dünya %{e} · eğim {sl}°",
  "pc_region_hint": "NASA bölge merkezi, iniş noktası değil: bölgedeki en iyi nokta için “NASA bölgelerini puanla”",
  "q_regions": "Artemis bölgelerini puanla",
  "limits_4": "NASA çalışma bölgeleri: merkezler NASA M2M Lunar Surface Data Book (Mart 2025) Tablo A2.1-1’den alınmıştır ve iniş noktası değil, bölgesel referans noktalarıdır (ör. Shackleton Rim merkezi krater iç duvarına düşer). Ekim 2024’te açıklanan dokuz Artemis III adayından beşinin merkezi bu tabloda vardır; Peak near Cabeus B, Mons Mouton, Mons Mouton Plateau ve Slater Plain için NASA merkez yayımlamadığından haritada gösterilmezler. Sıcaklık haritası bir ışınım dengesi modelidir (albedo 0,12, yayıcılık 0,95; gece 95 K, kalıcı gölge 50 K), Diviner ölçümü değildir; uzak arazinin düşürdüğü gölgeler yalnızca NASA kalıcı gölge haritasındaki yerlerde hesaba katılır. Gezici rotası 480 m’lik eğim ızgarasında en düşük maliyetli yoldur; kaya ve küçük kraterleri görmez.",
@@ -1901,17 +1912,17 @@ Object.assign(I18N.en, {
  "f_temp": "Estimated temperature at the selected point",
  "route_ok": "Route to ice: {km} km, steepest part {s}°, about {h} h of driving (assuming {v} km/h).",
  "route_relaxed": "No path under 15°; found with a {s}° limit.",
- "route_none": "No ice trap reachable on slopes under {s}° (within 60 km).",
+ "route_none": "No permanent-shadow destination within the sampled search area is reachable with the {s}° slope limit.",
  "route_in": "The point is already inside permanent shadow.",
  "reg_t": "Score the NASA regions",
- "reg_lead": "Finds the best landing point inside each of the 14 study regions of the NASA Data Book (about 15 × 15 km each). Region centres are reference points, not landing spots.",
+ "reg_lead": "Scores sampled candidates around 14 NASA Data Book region centres using circular areas of about 225 km². Each result is the highest-scoring point among those samples.",
  "reg_run": "Score the regions",
  "reg_again": "Score again",
  "reg_busy": "Scoring… {p}%",
- "reg_none": "no landable point",
+ "reg_none": "no sampled candidate meets the conditions",
  "reg_a24": "Artemis III 2024",
  "reg_sum": "Start {d}, {dur} days · points every 1.5 km in each region, with their real LOLA horizon. Source: NASA M2M Lunar Surface Data Book (2025), Table A2.1-1.",
- "reg_row": "centre {c} → best point {b} · Sun {s}% · Earth {e}% · slope {sl}°",
+ "reg_row": "centre {c} → best sample {b} · Sun {s}% · Earth {e}% · slope {sl}°",
  "pc_region_hint": "NASA region centre, not a landing spot: use “Score the NASA regions” for the best point inside",
  "q_regions": "Score the Artemis regions",
  "limits_4": "NASA study regions: centres come from the NASA M2M Lunar Surface Data Book (March 2025), Table A2.1-1, and are regional reference points, not landing spots (the Shackleton Rim centre, for example, falls on the inner crater wall). Five of the nine Artemis III candidates announced in October 2024 have a centre in that table; NASA has published none for Peak near Cabeus B, Mons Mouton, Mons Mouton Plateau and Slater Plain, so they are not drawn. The temperature map is a radiative-equilibrium model (albedo 0.12, emissivity 0.95; night 95 K, permanent shadow 50 K), not a Diviner measurement; shadows cast by distant terrain are only included where the NASA permanent-shadow map marks them. The rover route is the least-cost path on the 480 m slope grid; it cannot see boulders or small craters.",
@@ -1945,10 +1956,10 @@ Object.assign(I18N.tr, {
  "ws_eclipse": "Ay tutulması: Dünya, Güneş’i toplam {d} boyunca kısmen ya da tamamen örtüyor.",
  "hz_480": "Ufuk 480 m’lik LOLA ızgarasından hesaplandı. Bu ızgara yakındaki dar sırtları kaçırabilir; güneş süresi gerçekte daha kısa olabilir.",
  "a_note_lola480": "Ufuk, 480 m’lik LOLA ızgarasından hesaplandı; yakındaki dar sırtları kaçırabilir, güneş süresi gerçekte daha kısa olabilir.",
- "sct_caveat": "Puanlar 480 m’lik ızgaradan gelir ve üst sınırdır: ızgara yakındaki dar sırtları kaçırabilir.",
+ "sct_caveat": "Sonuçlar örneklenen noktalarla sınırlıdır. 480 m’lik ızgara dar sırtları kaçırabildiğinden güneşlenme süresi ve puanlar iyimser olabilir.",
  "ch_sun_h": "Çizgi gri bölgeye inince Güneş’in merkezi ufkun altındadır; diskin görünen kısmı kadar güç sürer, disk tümüyle batınca kesilir. Değerler yerel ufka (arazi dahil) göredir.",
  "limits_1": "Arazi ufku iki kaynaktan gelir: üç NASA çalışma bölgesi merkezi (Shackleton Rim, Connecting Ridge, Malapert Massif) için LOLA 80 m modelinden önceden hesaplanmış profil; 82°G’nin güneyindeki diğer tüm noktalar için 480 m’lik LOLA ızgarasından tarayıcıda hesaplanan profil. İki yöntem bu üç noktada ortalama 0,2°–1,3°, tek tek yönlerde 2,8°’ye kadar ayrışır; ızgara dar sırtları kaçırdığı için genellikle daha alçak ufuk verir. Kutupta Güneş ufkun en fazla 1,5° üstüne çıktığından bu fark sonucu saatlerce, sırt üstü noktalarda günlerce değiştirebilir (Connecting Ridge’de 14 günde 157 saat). 480 m’lik ızgaradan gelen güneş süreleri ve tarama puanları bu yüzden üst sınırdır. Bu alanın dışında ufuk, küresel Ay ve seçtiğiniz sabit açıyla modellenir.",
- "limits_6": "Güç modeli Ay tutulmalarını içerir (Dünya’nın Güneş diskini örttüğü pay); Dünya atmosferinden kırılan zayıf ışık hesaba katılmaz. Uygunluk skoru sahayı ve tarihi ölçer; seçtiğiniz batarya ayrı bir kısıttır: bataryası tükenen senaryo, dayanan senaryonun önüne önerilmez."
+ "limits_6": "Güç modeli Ay tutulmalarını içerir. Öneriler bataryanın tükenmesini, görev boyunca Dünya görüşünün olmamasını ve bilinen ortalama eğimin 15° üzerinde olmasını denetler. Göreve özel iletişim ve iniş koşulları ayrıca değerlendirilmelidir."
 });
 Object.assign(I18N.en, {
  "verdict_more2": "Scenario {w} has {h} more joint visibility",
@@ -1958,10 +1969,10 @@ Object.assign(I18N.en, {
  "ws_eclipse": "Lunar eclipse: the Earth covers part or all of the Sun for {d} in total.",
  "hz_480": "Horizon computed from the 480 m LOLA grid. That grid can miss narrow nearby ridges; real sunlight may be shorter.",
  "a_note_lola480": "The horizon comes from the 480 m LOLA grid; it can miss narrow nearby ridges, so real sunlight may be shorter.",
- "sct_caveat": "Scores come from the 480 m grid and are upper bounds: the grid can miss narrow nearby ridges.",
+ "sct_caveat": "Results apply to sampled points. The 480 m grid can miss narrow nearby ridges, making sunlight durations and scores optimistic.",
  "ch_sun_h": "When the line drops into the grey zone the Sun’s centre is below the horizon; power continues in proportion to the visible part of the disc and stops once the disc is fully hidden. Values are relative to the local horizon (terrain included).",
  "limits_1": "Terrain horizons come from two sources: a profile precomputed from the LOLA 80 m model for three NASA study-region centres (Shackleton Rim, Connecting Ridge, Malapert Massif), and a profile computed in the browser from the 480 m LOLA grid for every other point south of 82°S. At those three centres the two methods differ by 0.2°–1.3° on average and by up to 2.8° in single directions; the grid misses narrow ridges and usually gives the lower horizon. Because the Sun never rises more than about 1.5° at the pole, that difference can change the result by hours, and on a ridge crest by days (157 hours in 14 days at Connecting Ridge). Sunlight hours and scan scores from the 480 m grid are therefore upper bounds. Outside that area the horizon is a spherical Moon plus the fixed angle you choose.",
- "limits_6": "The power model includes lunar eclipses (the share of the solar disc covered by the Earth); the faint sunlight bent through the Earth’s atmosphere is ignored. The suitability score measures the site and the date; the battery you choose is a separate constraint: a scenario whose battery runs empty is not recommended over one that survives."
+ "limits_6": "The power model includes lunar eclipses. Recommendations check for battery depletion, no Earth visibility during the mission and known mean slopes above 15°. Mission-specific contact and landing requirements need further evaluation."
 });
 
 </script>
@@ -2156,7 +2167,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
 
   /* ---------- rover route to the ice ---------- */
-  // Least-cost path over the 480 m grid from a point to the nearest large trap (A* search, 8 neighbours).
+  // A* path over the 480 m grid to a large trap, minimizing the slope-weighted travel cost.
   // Cells steeper than maxSlope are closed; cost grows with slope, so the path prefers gentle ground.
   // If nothing is reachable under maxSlope the search is repeated with relaxSlope and flagged as relaxed.
   function route(lat, lon, opts) {
@@ -2165,10 +2176,11 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const maxKm = opts.maxKm || 60, first = opts.maxSlope || 15, relax = opts.relaxSlope || 25;
     const [x0, y0] = toXY(lat, lon), start = cellOf(x0, y0), si = start % n, sj = (start / n) | 0;
     if (start < 0) return null;
-    if ((psr[start] & 128) && cellShadow(start) >= 0.5) return { found: true, inside: true, km: 0, maxSlope: slope[start] / 4, meanSlope: slope[start] / 4, limit: first, relaxed: false, path: [[lat, lon]] };
     const reach = Math.ceil(maxKm * 1000 / cell), w = 2 * reach + 1, size = w * w;
     const local = (i, j) => (j - sj + reach) * w + (i - si + reach);
     const attempt = limit => {
+      if (slope[start] / 4 > limit) return null;
+      if ((psr[start] & 128) && cellShadow(start) >= 0.5) return { found: true, inside: true, km: 0, maxSlope: slope[start] / 4, meanSlope: slope[start] / 4, limit, relaxed: limit !== first, path: [[lat, lon]] };
       const gCost = new Float32Array(size).fill(Infinity), from = new Int32Array(size).fill(-1), closed = new Uint8Array(size);
       const heap = [], hk = []; // binary heap of local ids keyed by f = g + straight-line distance to the nearest trap
       const push = (id, f) => { let c = heap.length; heap.push(id); hk.push(f); while (c) { const p = (c - 1) >> 1; if (hk[p] <= f) break; heap[c] = heap[p]; hk[c] = hk[p]; c = p; } heap[c] = id; hk[c] = f; };
@@ -2191,6 +2203,8 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
           if (ni < 0 || nj < 0 || ni >= n || nj >= n || nli < 0 || nlj < 0 || nli >= w || nlj >= w) continue;
           const nc = nj * n + ni, s = slope[nc] / 4;
           if (s > limit) continue;
+          // A diagonal step cannot pass between impassable cells at their shared corner.
+          if (di && dj && (slope[j * n + ni] / 4 > limit || slope[nj * n + i] / 4 > limit)) continue;
           const nid = nlj * w + nli; if (closed[nid]) continue;
           const g = gCost[id] + (di && dj ? 1.41421356 : 1) * (1 + (s / 15) * (s / 15));
           if (g < gCost[nid]) { gCost[nid] = g; from[nid] = id; push(nid, g + hDist(ni, nj)); }
@@ -2199,15 +2213,15 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       if (goal < 0) return null;
       const cells = []; for (let id = goal; id >= 0; id = from[id]) cells.push(id);
       cells.reverse();
-      const k = 1 / Math.pow(Math.cos((90 + lat) * D / 2), 2);
-      let km = 0, maxS = 0, sumS = 0; const path = [];
-      cells.forEach((id, q) => {
+      let km = 0, maxS = 0, sumS = 0; const path = [[lat, lon]];
+      cells.forEach(id => {
         const i = id % w - reach + si, j = ((id / w) | 0) - reach + sj, s = slope[j * n + i] / 4;
-        maxS = Math.max(maxS, s); sumS += s; // the start cell counts too: a steep landing spot shows in the steepest value
-        if (q) { const p = cells[q - 1], pi = p % w - reach + si, pj = ((p / w) | 0) - reach + sj; km += Math.hypot(i - pi, j - pj) * cell / k / 1000; }
-        path.push(toLL((i + 0.5 - half) * cell, (half - j - 0.5) * cell));
+        maxS = Math.max(maxS, s); sumS += s;
+        const point = toLL((i + 0.5 - half) * cell, (half - j - 0.5) * cell), previous = path[path.length - 1];
+        const h = Math.sin((point[0] - previous[0]) * D / 2) ** 2 + Math.cos(previous[0] * D) * Math.cos(point[0] * D) * Math.sin((point[1] - previous[1]) * D / 2) ** 2;
+        const distance = 2 * R * Math.asin(Math.min(1, Math.sqrt(h))) / 1000;
+        if (distance > 1e-9) { km += distance; path.push(point); }
       });
-      path[0] = [lat, lon];
       return { found: true, inside: false, km, maxSlope: maxS, meanSlope: sumS / cells.length, limit, relaxed: limit !== first, path };
     };
     return attempt(first) || attempt(relax) || { found: false, km: null, path: [], limit: relax, relaxed: true };
@@ -2495,13 +2509,13 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     `${nf(Math.abs(lat), 2)}° ${lat < 0 ? t('S') : t('N')} · ${nf(Math.abs(lon), 2)}° ${lon < 0 ? t('W') : t('E')}`;
   const fmtDur = h => {
     const m = Math.round(h * 60), d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60), mm = m % 60;
-    if (d) return `${d} ${t('d')} ${hh} ${t('h')}`;
+    if (d) return `${d} ${t('d')} ${hh} ${t('h')}` + (mm ? ` ${mm} ${t('m')}` : '');
     if (hh) return `${hh} ${t('h')} ${mm} ${t('m')}`;
     return `${mm} ${t('m')}`;
   };
   const toLocal = ms => new Date(ms).toISOString().slice(0, 16);
   const fromLocal = v => Date.parse(v + (v.length === 16 ? ':00Z' : 'Z'));
-  const stepMin = () => S.dur <= 14 ? 10 : S.dur <= 30 ? 20 : S.dur <= 60 ? 30 : 60;
+  const stepMin = (duration = S.dur) => duration <= 14 ? 10 : duration <= 30 ? 20 : duration <= 60 ? 30 : 60;
   const siteName = k => {
     const s = SITES.find(x => x.id === S.sc[k].site);
     return s ? s.name : t('custom');
@@ -2603,6 +2617,12 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       - 0.5 * Math.sqrt(Math.max(0, (-sep + r + R) * (sep + r - R) * (sep - r + R) * (sep + r + R)));
     return Math.max(0, 1 - area / (Math.PI * r * r));
   }
+  // The mission and the yearly overview use the same terrain and eclipse criteria.
+  function visibleFraction(o, sunMargin) {
+    const terrainFraction = Ephem.discFrac(sunMargin / o.sun.rad);
+    const uncovered = terrainFraction > 0 ? sunUncovered(o) : 1;
+    return { fraction: terrainFraction * uncovered, eclipse: uncovered < 1 };
+  }
   // Pure simulation of one scenario: sc = {site, lat, lon, start, mask}, dur in days, sm = step in minutes.
   function simulate(sc, dur, sm) {
     const n = Math.round(dur * 1440 / sm) + 1, dtH = sm / 60;
@@ -2611,17 +2631,18 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       n, dtH, sunEl: new Float32Array(n), sunAz: new Float32Array(n), earthEl: new Float32Array(n),
       earthAz: new Float32Array(n), frac: new Float32Array(n), flux: new Float32Array(n),
       sunM: new Float32Array(n), earthM: new Float32Array(n), // elevation above the LOCAL horizon (terrain included)
-      sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), sunR: 0.27, earthR: 0.95
+      sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), fromSpice: new Uint8Array(n), sunR: 0.27, earthR: 0.95
     };
     let sunC = 0, earthC = 0, bothC = 0, elSum = 0, energy = 0, eclC = 0;
     let maxEl = -90, eMin = 90, eMax = -90, sMin = 90, nSpice = 0;
     for (let i = 0; i < n; i++) {
       const o = Ephem.observe(st, sc.start + i * sm * 60000);
-      if (o.src === 'spice') nSpice++;
+      d.fromSpice[i] = o.src === 'spice' ? 1 : 0;
+      nSpice += d.fromSpice[i];
       d.sunEl[i] = o.sun.el; d.sunAz[i] = o.sun.az; d.earthEl[i] = o.earth.el; d.earthAz[i] = o.earth.az;
       d.sunM[i] = o.sun.el - hz(o.sun.az); d.earthM[i] = o.earth.el - hz(o.earth.az);
-      const fT = Ephem.discFrac(d.sunM[i] / o.sun.rad), unc = fT > 0 ? sunUncovered(o) : 1, f = fT * unc; // terrain, then the Earth
-      if (unc < 1 && i < n - 1) eclC++;
+      const visibility = visibleFraction(o, d.sunM[i]), f = visibility.fraction;
+      if (visibility.eclipse && i < n - 1) eclC++;
       d.frac[i] = f;
       d.flux[i] = 1361 * Math.pow(Ephem.AU / o.sun.dist, 2) * f;
       d.sunUp[i] = f > 0 ? 1 : 0;
@@ -2638,11 +2659,12 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     }
     const inv = a => a.map(v => v ? 0 : 1);
     const longest = rs => rs.reduce((m, r) => Math.max(m, r[1] - r[0]), 0) * dtH;
-    d.runs = { sun: runs(d.sunUp, n), earth: runs(d.earthUp, n), both: runs(d.both, n) };
+    // The final sample marks the end time; it does not add another time interval.
+    d.runs = { sun: runs(d.sunUp, n - 1), earth: runs(d.earthUp, n - 1), both: runs(d.both, n - 1) };
     const total = (n - 1) * dtH;
     d.stats = {
       total, sun: sunC * dtH, earth: earthC * dtH, both: bothC * dtH,
-      dark: Math.min(total, longest(runs(inv(d.sunUp), n))), nocomm: Math.min(total, longest(runs(inv(d.earthUp), n))),
+      dark: Math.min(total, longest(runs(inv(d.sunUp), n - 1))), nocomm: Math.min(total, longest(runs(inv(d.earthUp), n - 1))),
       maxEl, sMin, meanEl: sunC ? elSum / sunC : null, energy, eMin, eMax, eclipse: eclC * dtH
     };
     d.hz = horizonSrc(sc);
@@ -2790,10 +2812,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     $('#verdict-chips').innerHTML = KEYS.map(k => {
       const s = S.data[k].stats, ps = s.sun / s.total, pe = s.earth / s.total;
       const pc = ps > 0.8 ? 'good' : ps > 0.4 ? 'mid' : 'bad', pl = { good: 'p_good', mid: 'p_mid', bad: 'p_bad' }[pc];
-      const cc = pe > 0.995 ? 'good' : pe > 0 ? 'mid' : 'bad', cl = { good: 'c_full', mid: 'c_part', bad: 'c_none' }[cc];
+      const cc = s.nocomm <= 0 ? 'good' : pe > 0 ? 'mid' : 'bad', cl = { good: 'c_full', mid: 'c_part', bad: 'c_none' }[cc];
       return `<div class="vchip"><span class="badge ${k.toLowerCase()}">${k}</span>
         <span class="pill ${pc}">${t('power')} <b>${t(pl)}</b> · ${nf(ps * 100)}%</span>
-        <span class="pill ${cc}">${t('comm')} <b>${t(cl)}</b> · ${nf(pe * 100)}%</span></div>`;
+        <span class="pill ${cc}">${t('comm')} <b>${t(cl)}</b> · ${pe < 1 && Math.round(pe * 100) === 100 ? '&lt;100' : nf(pe * 100)}%</span></div>`;
     }).join('');
   }
   // One plain sentence per scenario, so the bars can be understood without reading them.
@@ -2939,14 +2961,18 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
   function countdown(k, body) {
     const d = S.data[k], i = idxAt(k), rs = d.runs[body === 'sun' ? 'sun' : 'earth'];
-    const up = (body === 'sun' ? d.sunUp : d.earthUp)[i];
+    const visibility = body === 'sun' ? d.sunUp : d.earthUp;
+    const up = visibility[i], lastIndex = d.n - 1;
     const keyUp = body === 'sun' ? 'sets_in' : 'earthset_in', keyDn = body === 'sun' ? 'rises_in' : 'earthrise_in';
+    if (i >= lastIndex) return t(up ? 'end_visible' : 'end_hidden');
     if (up) {
-      const r = rs.find(r => i >= r[0] && i < r[1]) || rs[rs.length - 1];
-      return r[1] >= d.n ? t('until_end') : t(keyUp, { t: fmtDur((r[1] - i) * d.dtH) });
+      const r = rs.find(r => i >= r[0] && i < r[1]);
+      return !r || (r[1] === lastIndex && visibility[lastIndex])
+        ? t('until_end') : t(keyUp, { t: fmtDur((r[1] - i) * d.dtH) });
     }
     const nx = rs.find(r => r[0] > i);
-    return nx ? t(keyDn, { t: fmtDur((nx[0] - i) * d.dtH) }) : t('never');
+    const rise = nx ? nx[0] : visibility[lastIndex] ? lastIndex : null;
+    return rise !== null ? t(keyDn, { t: fmtDur((rise - i) * d.dtH) }) : t('no_remaining_rise');
   }
   function renderNow(k) {
     const d = S.data[k], sc = S.sc[k], i = idxAt(k), el = $('#sky-' + k), hz = horizonFn(sc);
@@ -3096,11 +3122,13 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const sc = S.sc[k], st = Ephem.site(sc.lat, sc.lon), day0 = Math.floor(sc.start / DAY) * DAY, hz = horizonFn(sc);
     const key = [sc.lat, sc.lon, sc.mask, sc.site, day0].join('|');
     if (S.year[k] && S.year[k].key === key) return;
-    const y = { key, day0, sun: new Float32Array(365), earth: new Float32Array(365), both: new Float32Array(365) };
+    const y = { key, day0, sun: new Float32Array(365), earth: new Float32Array(365), both: new Float32Array(365), eclipse: new Float32Array(365) };
     for (let dI = 0; dI < 365; dI++) for (let s = 0; s < 12; s++) {
       const o = Ephem.observe(st, day0 + dI * DAY + s * 2 * H);
-      const su = o.sun.el > hz(o.sun.az) - o.sun.rad, eu = o.earth.el > hz(o.earth.az);
+      const visibility = visibleFraction(o, Math.fround(o.sun.el - hz(o.sun.az)));
+      const su = visibility.fraction > 0, eu = o.earth.el > hz(o.earth.az);
       if (su) y.sun[dI] += 2; if (eu) y.earth[dI] += 2; if (su && eu) y.both[dI] += 2;
+      if (visibility.eclipse) y.eclipse[dI] += 2;
     }
     S.year[k] = y;
   }
@@ -3576,10 +3604,14 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
   function csv(k) {
     const d = S.data[k], sc = S.sc[k], rows = ['utc,sun_elevation_deg,sun_azimuth_deg,sun_disc_fraction,earth_elevation_deg,earth_azimuth_deg,earth_visible'];
-    for (let i = 0; i < d.n; i++) rows.push([new Date(sc.start + i * d.dtH * H).toISOString(), d.sunEl[i].toFixed(3), d.sunAz[i].toFixed(2), d.frac[i].toFixed(3), d.earthEl[i].toFixed(3), d.earthAz[i].toFixed(2), d.earthUp[i]].join(','));
+    rows[0] += ',ephemeris,horizon_model,horizon_data,terrain_grid_m,latitude_deg,longitude_deg,step_minutes';
+    const gridMetres = d.hz === 'lola80' ? 80 : d.hz === 'lola480' ? 480 : '';
+    const provenance = [sc.mask, d.hz, gridMetres, sc.lat, sc.lon, d.dtH * 60];
+    for (let i = 0; i < d.n; i++) rows.push([new Date(sc.start + i * d.dtH * H).toISOString(), d.sunEl[i].toFixed(3), d.sunAz[i].toFixed(2), d.frac[i].toFixed(3), d.earthEl[i].toFixed(3), d.earthAz[i].toFixed(2), d.earthUp[i], d.fromSpice[i] ? 'spice' : 'ae', ...provenance].join(','));
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
-    a.download = `astroapex_${k}_${sc.lat}_${sc.lon}.csv`; a.click();
+    const stamp = new Date(sc.start).toISOString().slice(0, 16).replace(/[-:]/g, '') + 'Z';
+    a.download = `astroapex_${k}_${sc.lat}_${sc.lon}_${stamp}_${S.dur}d_${d.hz}.csv`; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
   const hooks = [];
@@ -3738,8 +3770,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   const H = 3600000, DAY = 86400000;
   const L = (tr, en) => S.lang === 'tr' ? tr : en;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const hrs = v => nf(v) + ' ' + t('h');
-  const pct = v => nf(v) + '%';
+  const hrs = v => AA.fmtDur(v);
+  const percentNumber = v => v > 0 && v < 0.5 ? '<1' : v >= 99.5 && v < 100 ? '<100' : nf(v);
+  const pct = v => percentNumber(v) + '%';
   const date = (ms, time) => AA.fmtDate(ms, time !== false);
 
   /* ================= analysis (pure) ================= */
@@ -3786,12 +3819,12 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const { parts, score } = scoreParts(pSun, pEarth, s.dark, d.sunUp[0], d.sunEl[0], tc, f, sc.lat);
     const dv = descentDv(tc, parts.light, f), frac = propFrac(dv);
     const pros = [], cons = [], P = pSun * 100, E = pEarth * 100;
-    if (P >= 95) pros.push(t('pc_sun_full', { p: nf(P) }));
-    else if (P < 50) cons.push(t('pc_sun_low', { p: nf(P), d: nf(s.dark) }));
-    else cons.push(t('pc_sun_mid', { p: nf(P), d: nf(s.dark) }));
-    if (E >= 99.5) pros.push(t('pc_earth_full'));
-    else if (E < 0.5) cons.push(t('pc_earth_none'));
-    else (E >= 60 ? pros : cons).push(t('pc_earth_part', { p: nf(E), d: nf(s.nocomm) }));
+    if (P >= 95) pros.push(t('pc_sun_full', { p: percentNumber(P) }));
+    else if (P < 50) cons.push(t('pc_sun_low', { p: percentNumber(P), d: hrs(s.dark) }));
+    else cons.push(t('pc_sun_mid', { p: percentNumber(P), d: hrs(s.dark) }));
+    if (s.nocomm <= 0) pros.push(t('pc_earth_full'));
+    else if (s.earth <= 0) cons.push(t('pc_earth_none'));
+    else (E >= 60 ? pros : cons).push(t('pc_earth_part', { p: percentNumber(E), d: hrs(s.nocomm) }));
     if (s.both / s.total > 0.5) pros.push(t('pc_both', { h: nf(s.both) }));
     if (!d.sunUp[0]) cons.push(t('pc_darkland'));
     if (s.maxEl < 5) cons.push(t('pc_lowsun', { e: nf(Math.max(0, s.maxEl), 1) }));
@@ -3813,18 +3846,49 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     else if (tc === 'mare') pros.push(t('pc_mare'));
     else if (tc === 'highland') cons.push(t('pc_highland'));
     else cons.push(t('pc_unknown'));
-    if (d.pw && d.pw.state === 'bad') cons.unshift(t('pc_batt_bad', { h: nf(d.pw.emptyH, d.pw.emptyH < 100 ? 1 : 0), c: nf(d.pw.need, 1) }));
+    const pw = d.pw || AA.powerSim(d, S.pwr);
+    if (pw.state === 'bad') cons.unshift(t('pc_batt_bad', { h: hrs(pw.emptyH), c: nf(pw.need, 1) }));
     if (site && site.her) pros.push(t('pc_heritage'));
-    return { k: null, name: site ? site.name : t('custom'), score, parts, dv, frac, tc, pros, cons, lola: AA.hasTerrain(sc), hz: d.hz || AA.horizonSrc(sc), sc, stats: s, src: d.src, f, pw: d.pw || null };
+    return { k: null, name: site ? site.name : t('custom'), score, parts, dv, frac, tc, pros, cons, lola: AA.hasTerrain(sc), hz: d.hz || AA.horizonSrc(sc), sc, stats: s, src: d.src, f, pw };
   }
   const analyze = k => Object.assign(evaluate(S.sc[k], S.data[k]), { k });
-  // Which scenario to recommend. The score describes the place and the date; the chosen battery is a hard
-  // constraint on top of it: a scenario whose battery runs empty is not recommended over one that survives.
+  // Eligibility is a preliminary screen for this direct-to-Earth mission model.
+  // Passing it still requires finer terrain and communications engineering.
+  function eligibility(a) {
+    const reasons = [];
+    const slope = a.f && (a.f.slope || a.f.coarse);
+    if (a.pw && a.pw.emptyH > 0) reasons.push({
+      code: 'battery_empty',
+      text: L('Batarya ' + hrs(a.pw.emptyH) + ' boş kalıyor.', 'The battery is empty for ' + hrs(a.pw.emptyH) + '.')
+    });
+    if (a.stats.earth <= 0) reasons.push({
+      code: 'no_earth_contact',
+      text: L('Görev boyunca doğrudan Dünya görüşü yok.', 'No direct Earth visibility during the mission.')
+    });
+    if (slope && Number.isFinite(slope.mean) && slope.mean > 15) reasons.push({
+      code: 'steep_slope',
+      text: L('Ortalama eğim ' + nf(slope.mean, 1) + '°; 15° ön değerlendirme sınırını aşıyor.',
+        'Mean slope is ' + nf(slope.mean, 1) + '°, above the 15° preliminary screening limit.')
+    });
+    const qualification = L(
+      'Bu kontrol seçili batarya, en az bir Dünya görüş penceresi ve bilinen eğime dayanır. Arazi çözünürlüğü, yerel engeller ve radyo bağlantısı ayrıca doğrulanmalıdır.',
+      'This screen uses the selected battery, at least one Earth-visibility window and known slope. Terrain resolution, local hazards and the radio link need further verification.'
+    );
+    return { eligible: reasons.length === 0, reasons, qualification };
+  }
+
   function recommend(a, b) {
-    const bad = x => !!(x.pw && x.pw.state === 'bad');
-    let lead = a.score === b.score ? null : a.score > b.score ? a : b, forced = false;
-    if (bad(a) !== bad(b)) { const ok = bad(a) ? b : a; forced = lead !== ok && lead !== null; lead = ok; }
-    return { lead, other: lead === a ? b : a, forced, bothBad: bad(a) && bad(b) };
+    const assessments = [a, b].map(item => ({ k: item.k, name: item.name, ...eligibility(item) }));
+    const valid = [a, b].filter((item, i) => assessments[i].eligible);
+    const scoreLead = a.score === b.score ? null : a.score > b.score ? a : b;
+    const lead = valid.length === 1 ? valid[0] : valid.length === 2 ? scoreLead : null;
+    return {
+      lead, other: lead === a ? b : a,
+      forced: !!lead && lead !== scoreLead,
+      bothBad: !!(a.pw && b.pw && a.pw.emptyH > 0 && b.pw.emptyH > 0),
+      status: valid.length === 0 ? 'none' : lead ? 'eligible' : 'tie',
+      qualified: valid.length > 0, assessments
+    };
   }
   const scoreClass = v => v >= 65 ? 'good' : v >= 40 ? 'mid' : 'bad';
 
@@ -3867,11 +3931,15 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   };
 
   function parse(q) {
-    const x = norm(q), e = { x, scen: [], site: null, days: null, shift: null, date: null, mass: null, watts: null, isp: null, body: null };
+    const x = norm(q), e = { x, scen: [], site: null, days: null, shift: null, date: null, invalidDate: false, mass: null, watts: null, isp: null, body: null };
     // scenarios A / B
     // In English "a" is also the article, so there the scenario needs a cue word or a capital A before a non-noun.
     const hasA = S.lang === 'en'
-      ? /\b(site|scenario|for|of|and|vs|to|is|compare|analy[sz]e|with)\s+a\b(?!\s+(?!(?:and|or|vs|versus|with)\b)[a-z]{3,})/i.test(q) || /\bA\b(?!\s+(?!(?:and|or|vs|versus|with)\b)[a-z])/.test(q)
+      ? /\b(?:site|scenario|plan)\s+a\b/i.test(q)
+        || Array.from(q.matchAll(/\b(?:for|of|and|vs|to|compare|analy[sz]e|with|delay|postpone|move|shift|reschedule|start|extend|shorten)\s+(a)\b/gi)).some(match => match[1] === 'A')
+        || /\ba\s+(?:and|or|vs|versus|with)\s+b\b/i.test(q)
+        || /\bA['’]s\b/.test(q)
+        || /^\s*A\s*(?:[?.,:]|$)/.test(q)
       : /(^|[^a-z0-9])a($|[^a-z0-9])|senaryo a|scenario a/.test(x);
     if (hasA) e.scen.push('A');
     if (/(^|[^a-z0-9])b($|[^a-z0-9])|senaryo b|scenario b/.test(x)) e.scen.push('B');
@@ -3887,20 +3955,28 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     // duration
     const WORDS = Object.assign({ two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fourteen: 14, twenty: 20, thirty: 30,
       iki: 2, uc: 3, dort: 4, bes: 5, alti: 6, yedi: 7, sekiz: 8, dokuz: 9, yirmi: 20, otuz: 30 }, S.lang === 'en' ? { one: 1, a: 1, an: 1 } : { bir: 1, on: 10 });
-    const xd = x.replace(new RegExp('(^|[^a-z0-9])(' + Object.keys(WORDS).join('|') + ')\\s+(?=gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)', 'g'), (s, p, w) => p + WORDS[w] + ' ');
+    const durationText = x.replace(/[-‐‑–](?=day|week|month|gun|hafta|aylik)/g, ' ');
+    const xd = durationText.replace(new RegExp('(^|[^a-z0-9])(' + Object.keys(WORDS).join('|') + ')\\s+(?=gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)', 'g'), (s, p, w) => p + WORDS[w] + ' ');
     let m = xd.match(/(\d+(?:[.,]\d+)?)\s*(gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)/);
     if (m) { const v = num(m[1]); e.days = /^(hafta|week)/.test(m[2]) ? v * 7 : /^(ay|month)/.test(m[2]) ? v * 29.5 : v; }
     // "delay / postpone / ertele ... N days" moves the start and keeps the mission length
     const later = /ertele|otele|gecik|kaydir|sonraya|\bdelay|postpone|\bslip|push(ed)? back|\blater\b/.test(x), sooner = /one al|one cek|erkene|\bearlier\b|bring forward|move up/.test(x);
     if ((later || sooner) && e.days != null) { e.shift = (sooner ? -1 : 1) * e.days; e.days = null; }
-    // date: 2027-03-15, 15.03.2027, "15 mart 2027", "march 15 2027", "mart 2027"
-    if ((m = x.match(/(20\d\d)-(\d{1,2})-(\d{1,2})/))) e.date = Date.UTC(+m[1], +m[2] - 1, +m[3]);
-    else if ((m = x.match(/(\d{1,2})[./](\d{1,2})[./](20\d\d)/))) e.date = Date.UTC(+m[3], +m[2] - 1, +m[1]);
+    // Round-trip date fields so impossible dates never silently roll into another month.
+    const setDate = (year, month, day) => {
+      const value = Date.UTC(year, month - 1, day);
+      const date = new Date(value);
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+        e.invalidDate = true;
+      } else e.date = value;
+    };
+    if ((m = x.match(/(20\d\d)-(\d{1,2})-(\d{1,2})/))) setDate(+m[1], +m[2], +m[3]);
+    else if ((m = x.match(/(\d{1,2})[./](\d{1,2})[./](20\d\d)/))) setDate(+m[3], +m[2], +m[1]);
     else MONTHS.forEach((names, mi) => {
-      if (e.date) return;
+      if (e.date !== null || e.invalidDate) return;
       const r = new RegExp('(?:(\\d{1,2})\\s+)?(?:' + names + ')[a-z]*(?:\\s+(\\d{1,2}))?,?\\s+(20\\d\\d)');
       const mm = x.match(r);
-      if (mm) e.date = Date.UTC(+mm[3], mi, +(mm[1] || mm[2] || 1));
+      if (mm) setDate(+mm[3], mi + 1, +(mm[1] || mm[2] || 1));
     });
     if ((m = x.match(/(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(kg|ton)\b/))) e.mass = num(m[1]) * (m[2] === 'ton' ? 1000 : 1);
     if ((m = x.match(/(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(kw|w|watt)\b/))) e.watts = num(m[1]) * (m[2] === 'kw' ? 1000 : 1);
@@ -3949,19 +4025,21 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   }
   const scenarioFor = (site, start) => { const sc = { site: site.id, lat: site.lat, lon: site.lon, start, mask: 0 }; if (AA.terrainOK(sc)) sc.mask = 'lola'; return sc; };
 
-  // Slide a dur-day mission over the next 365 days (1-day steps, hourly samples) and score every start date.
+  // Slide a dur-day mission over the next 365 days using the scenario's sample interval.
   function scanDates(sc, dur) {
-    const span = 365, n = Math.round(dur * 24), d = sim(sc, span + dur, 60), tc = terrainClass(sc), f = AA.facts(sc);
+    const span = 365, step = AA.stepMin(dur), samplesPerDay = 1440 / step;
+    const n = Math.round(dur * samplesPerDay), dtH = step / 60;
+    const d = sim(sc, span + dur, step), tc = terrainClass(sc), f = AA.facts(sc);
     const pS = new Int32Array(d.n + 1), pE = new Int32Array(d.n + 1), pB = new Int32Array(d.n + 1);
     for (let i = 0; i < d.n; i++) { pS[i + 1] = pS[i] + d.sunUp[i]; pE[i + 1] = pE[i] + d.earthUp[i]; pB[i + 1] = pB[i] + d.both[i]; }
     const out = [];
     for (let day = 0; day < span; day++) {
-      const i0 = day * 24, i1 = i0 + n;
+      const i0 = day * samplesPerDay, i1 = i0 + n;
       let dark = 0, run = 0;
       for (let i = i0; i < i1; i++) { if (d.sunUp[i]) run = 0; else if (++run > dark) dark = run; }
       const sun = pS[i1] - pS[i0], earth = pE[i1] - pE[i0], both = pB[i1] - pB[i0];
-      const { score } = scoreParts(sun / n, earth / n, dark, d.sunUp[i0], d.sunEl[i0], tc, f, sc.lat);
-      out.push({ day, start: sc.start + day * DAY, sun, earth, both, dark, score, n });
+      const { score } = scoreParts(sun / n, earth / n, dark * dtH, d.sunUp[i0], d.sunEl[i0], tc, f, sc.lat);
+      out.push({ day, start: sc.start + day * DAY, sun: sun * dtH, earth: earth * dtH, both: both * dtH, dark: dark * dtH, score, n: n * dtH });
     }
     return out;
   }
@@ -3976,7 +4054,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   function rankSites(start, dur) {
     return SITES.map(site => {
       const sc = scenarioFor(site, start);
-      return Object.assign(evaluate(sc, sim(sc, dur, 60)), { site });
+      return Object.assign(evaluate(sc, sim(sc, dur, AA.stepMin(dur))), { site });
     }).sort((a, b) => b.score - a.score || b.stats.both - a.stats.both);
   }
 
@@ -4008,7 +4086,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
   function compareAnswer() {
     const a = analyze('A'), b = analyze('B'), sa = a.stats, sb = b.stats;
-    const win = (x, y, lowerBetter) => Math.abs(x - y) < 0.5 ? '=' : ((x > y) !== !!lowerBetter ? 'A' : 'B');
+    const win = (x, y, lowerBetter) => Math.abs(x - y) < 1e-8 ? '=' : ((x > y) !== !!lowerBetter ? 'A' : 'B');
     let rows = [
       [t('score'), a.score, b.score, win(a.score, b.score)],
       [t('m_both'), hrs(sa.both), hrs(sb.both), win(sa.both, sb.both)],
@@ -4022,37 +4100,48 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     if (a.f.slope && b.f.slope) rows.push([t('m_slope'), nf(a.f.slope.mean, 1), nf(b.f.slope.mean, 1), win(a.f.slope.mean, b.f.slope.mean, true)]);
     if (a.f.trap && b.f.trap) rows.push([t('m_ice'), nf(a.f.trap.km, 1), nf(b.f.trap.km, 1), win(a.f.trap.km, b.f.trap.km, true)]);
     rows = rows.map(r => [esc(r[0]), r[1], r[2], r[3] === '=' ? '=' : `<b>${r[3]}</b>`]);
-    const wins = { A: 0, B: 0 }; rows.forEach(r => { const w = r[3].replace(/<[^>]+>/g, ''); if (wins[w] != null) wins[w]++; });
-    const pick = recommend(a, b), lead = pick.lead, other = pick.other;
+    const pick = recommend(a, b), lead = pick.lead;
     let verdict;
-    if (pick.forced) verdict = L(`Öneri: ${lead.k} · ${lead.name}. Skoru daha düşük (${lead.score}/100, diğeri ${other.score}/100), ama seçili batarya yalnızca burada dayanıyor: ${other.k} senaryosunda batarya ${nf(other.pw.emptyH, 1)} saat boş kalıyor. ${other.k} için en az ${nf(other.pw.need, 1)} kWh gerekir.`,
-      `Recommendation: ${lead.k} · ${lead.name}. It scores lower (${lead.score}/100 vs ${other.score}/100), but the chosen battery only survives here: in scenario ${other.k} it is empty for ${nf(other.pw.emptyH, 1)} h. ${other.k} would need at least ${nf(other.pw.need, 1)} kWh.`);
-    else if (!lead) verdict = L('İki senaryo aynı skoru alıyor; karar görev önceliğine bağlı.', 'Both scenarios score the same; the choice depends on mission priority.');
-    else {
-      const why = [];
-      if (lead.parts.power - other.parts.power > 8) why.push(L('daha fazla güneş (güç)', 'more sunlight (power)'));
-      if (lead.parts.comm - other.parts.comm > 8) why.push(L('daha uzun Dünya görüşü (iletişim)', 'longer Earth visibility (comms)'));
-      if (lead.parts.thermal - other.parts.thermal > 8) why.push(L('daha kısa karanlık', 'shorter darkness'));
-      if (lead.parts.light - other.parts.light > 8) why.push(L('inişte daha iyi ışık', 'better light at landing'));
-      if (lead.parts.terrain - other.parts.terrain > 8) why.push(L('daha düz, daha güvenli arazi', 'flatter, safer ground'));
-      if (lead.parts.ice - other.parts.ice > 8) why.push(L('buz tuzağına daha yakın', 'closer to an ice trap'));
-      verdict = L(`Öneri: ${lead.k} · ${lead.name} (${lead.score}/100, diğeri ${other.score}/100)`, `Recommendation: ${lead.k} · ${lead.name} (${lead.score}/100 vs ${other.score}/100)`) +
-        (why.length ? L(' — başlıca nedenler: ', ' — main reasons: ') + why.join(', ') + '.' : '.');
-      const weak = PARTS.filter(p => other.parts[p] - lead.parts[p] > 8).map(p => t('sc_' + p));
-      if (weak.length) verdict += ' ' + L(`Ancak ${other.k} şu konularda daha iyi: ${weak.join(', ')}.`, `However ${other.k} is better on: ${weak.join(', ')}.`);
+    if (pick.status === 'none') {
+      verdict = L('İki senaryo da bu görev için ön değerlendirme koşullarını karşılamıyor. ',
+        'Neither scenario meets the preliminary mission requirements. ');
+    } else if (!lead) {
+      verdict = L('İki senaryo ön değerlendirmeyi geçiyor ve aynı skoru alıyor. ',
+        'Both scenarios pass the preliminary screen and have the same score. ');
+    } else {
+      verdict = L('Ön değerlendirmede tercih edilen plan ' + lead.k + ' · ' + lead.name + ' (' + lead.score + '/100). ',
+        'Preferred plan after preliminary screening: ' + lead.k + ' · ' + lead.name + ' (' + lead.score + '/100). ');
     }
-    if (pick.bothBad) verdict += ' ' + L('Uyarı: seçili batarya iki senaryoda da tükeniyor; bu öneri yalnızca saha ve tarih uygunluğuna dayanır.', 'Warning: the chosen battery runs empty in both scenarios; this recommendation rests on site and date suitability only.');
+    const failures = pick.assessments.filter(item => !item.eligible)
+      .map(item => item.k + ' · ' + item.name + ': ' + item.reasons.map(reason => reason.text).join(' '));
+    verdict += failures.join(' ');
+    verdict += ' ' + pick.assessments[0].qualification;
     return `<b>${esc(a.name)}</b> (A) · <b>${esc(b.name)}</b> (B) — ${nf(S.dur, S.dur % 1 ? 1 : 0)} ${t('days')}` +
       table([t('metric'), 'A', 'B', L('Üstün', 'Better')], rows) + `<p>${esc(verdict)}</p>`;
   }
 
+  const rankingCaveat = () => L(
+    'Sıralama saha puanına göredir. Seçili batarya, Dünya görüşü ve bilinen eğim için ön değerlendirme her adayda ayrıca gösterilir.',
+    'Ranking is by site score. Each candidate also lists its preliminary battery, Earth visibility and known-slope checks.'
+  );
+  function screenNote(a) {
+    const screen = eligibility(a);
+    return '<br>' + note(screen.eligible ? L('Bilinen ön koşullar sağlanıyor; ayrıntılı değerlendirme gerekir.', 'Known preliminary conditions met; detailed review required.')
+      : screen.reasons.map(reason => reason.text).join(' '));
+  }
+  function pointCheck(p, start, dur) {
+    const sc = { site: p.site || 'custom', lat: p.lat, lon: p.lon, mask: p.mask, start };
+    return screenNote(evaluate(sc, sim(sc, dur, AA.stepMin(dur))));
+  }
+
   function bestDateAnswer(k) {
     const sc = S.sc[k], a = analyze(k), all = scanDates(sc, S.dur), top = topWindows(all, 3, 7), worst = [...all].sort((x, y) => x.score - y.score)[0];
-    const rows = top.map(w => [`<b>${esc(date(w.start, false))}</b><br>` + act(L(`${k}’ya uygula`, `Apply to ${k}`), { type: 'start', k, ms: w.start }),
+    const rows = top.map(w => [`<b>${esc(date(w.start, false))}</b><br>` + act(L(`${k}’ya uygula`, `Apply to ${k}`), { type: 'start', k, ms: w.start }) + pointCheck(sc, w.start, S.dur),
       `<b>${w.score}</b>`, hrs(w.both), hrs(w.sun), hrs(w.dark)]);
     const gain = top[0].score - all[0].score;
-    return `${tag(k)}<b>${esc(a.name)}</b> — ${L(`önümüzdeki 365 gün içinde ${nf(S.dur, S.dur % 1 ? 1 : 0)} günlük görev için en iyi başlangıç tarihleri (365 tarih, saatlik örnekleme ile tarandı):`,
-      `best start dates for a ${nf(S.dur, S.dur % 1 ? 1 : 0)}-day mission in the next 365 days (365 dates scanned, hourly sampling):`)}` +
+    return `${tag(k)}<b>${esc(a.name)}</b> — ${L(`önümüzdeki 365 gün içinde ${nf(S.dur, S.dur % 1 ? 1 : 0)} günlük görev için en iyi başlangıç tarihleri (365 tarih, ${AA.stepMin(S.dur)} dakikalık örnekleme ile tarandı):`,
+      `best start dates for a ${nf(S.dur, S.dur % 1 ? 1 : 0)}-day mission in the next 365 days (365 dates scanned, ${AA.stepMin(S.dur)}-minute sampling):`)}` +
+      '<p>' + note(rankingCaveat()) + '</p>' +
       table([L('Başlangıç', 'Start'), L('Skor', 'Score'), t('both'), t('sun'), L('Karanlık', 'Dark')], rows) +
       `<p>${esc(L(`Şu anki tarih (${date(sc.start, false)}) skoru ${all[0].score}. ${gain > 0 ? `En iyi tarihe geçmek skoru ${gain} puan artırır.` : 'Seçili tarih zaten en iyiler arasında.'} En kötü tarih ${date(worst.start, false)} (skor ${worst.score}).`,
         `The current date (${date(sc.start, false)}) scores ${all[0].score}. ${gain > 0 ? `Moving to the best date gains ${gain} points.` : 'The selected date is already among the best.'} The worst date is ${date(worst.start, false)} (score ${worst.score}).`))}</p>` + srcNote(a);
@@ -4060,12 +4149,13 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
   function bestSiteAnswer(k, onlyPole) {
     const sc = S.sc[k], ranked = rankSites(sc.start, S.dur).filter(r => !onlyPole || r.site.g === 'pole');
-    const rows = ranked.slice(0, 6).map((r, i) => [`<b>${i + 1}. ${esc(r.name)}</b>${r.lola ? ' · LOLA' : ''}<br>` + act(L(`${k} yap`, `Set as ${k}`), { type: 'site', k, id: r.site.id }),
+    const rows = ranked.slice(0, 6).map((r, i) => [`<b>${i + 1}. ${esc(r.name)}</b>${r.lola ? ' · LOLA' : ''}<br>` + act(L(`${k} yap`, `Set as ${k}`), { type: 'site', k, id: r.site.id }) + screenNote(r),
       `<b>${r.score}</b>`, pct(r.parts.power), pct(r.parts.comm), hrs(r.stats.dark)]);
     const pos = id => ranked.findIndex(r => r.site.id === id) + 1;
     const mine = KEYS.map(x => S.sc[x].site !== 'custom' && pos(S.sc[x].site) ? `${x}: ${pos(S.sc[x].site)}.` : null).filter(Boolean).join(' · ');
     return `${L(`${date(sc.start, false)} başlangıçlı ${nf(S.dur, S.dur % 1 ? 1 : 0)} günlük görev için ${ranked.length} sahanın sıralaması:`,
       `Ranking of ${ranked.length} sites for a ${nf(S.dur, S.dur % 1 ? 1 : 0)}-day mission starting ${date(sc.start, false)}:`)}` +
+      '<p>' + note(rankingCaveat()) + '</p>' +
       table([L('Saha', 'Site'), L('Skor', 'Score'), t('sun'), t('earth'), L('Karanlık', 'Dark')], rows) +
       (mine ? `<p>${esc(L('Mevcut senaryoların sırası — ', 'Current scenarios rank — ') + mine)}</p>` : '') +
       note(L('Gerçek LOLA arazi ufku yalnızca “LOLA” işaretli sahalarda kullanılır; diğerlerinde düz ufuk varsayılır, bu yüzden kutup dışı sahalar olduğundan iyimser görünebilir.',
@@ -4101,7 +4191,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       [L('Gereken batarya (%80 deşarj ile)', 'Battery needed (at 80% depth of discharge)'), `<b>${nf(pw.need, 1)} kWh</b> · ≈ ${nf(pw.massKg)} kg`],
       [L('Üretim / tüketim', 'Generated / used'), `${nf(pw.gen)} / ${nf(pw.used)} kWh`]
     ]) + `<p>${act(L('Batarya grafiğini aç', 'Open the battery chart'), { type: 'tab', id: 'time' })}${e.watts ? ' ' + act(L(`${nf(p.load)} W yükü uygula`, `Apply the ${nf(p.load)} W load`), { type: 'pwr', load: p.load }) : ''}</p>` +
-      `<p>${esc(pw.gen < pw.used ? L('Panel, görev boyunca tüketilenden az üretiyor: daha büyük panel ya da daha düşük yük gerekir. ', 'The array generates less than the mission uses: a larger array or a lower load is needed. ') : '')}${esc(pw.state === 'bad' ? L(`Bu ayarlarla batarya ${nf(pw.emptyH)} saat boş kalır; karanlığı çıkarmak için en az ${nf(pw.need, 1)} kWh gerekir.`, `With these settings the battery is empty for ${nf(pw.emptyH)} h; at least ${nf(pw.need, 1)} kWh is needed to ride out the dark.`) : s.dark < 1 ? L('Bu pencerede Güneş hiç batmıyor; batarya yalnızca tutulma ve manevralar için gerekir.', 'The Sun never sets in this window; a battery is only needed for eclipses and manoeuvres.')
+      `<p>${esc(pw.gen < pw.used ? L('Panel, görev boyunca tüketilenden az üretiyor: daha büyük panel ya da daha düşük yük gerekir. ', 'The array generates less than the mission uses: a larger array or a lower load is needed. ') : '')}${esc(pw.state === 'bad' ? L(`Bu ayarlarla batarya ${hrs(pw.emptyH)} boş kalır; karanlığı çıkarmak için en az ${nf(pw.need, 1)} kWh gerekir.`, `With these settings the battery is empty for ${hrs(pw.emptyH)}; at least ${nf(pw.need, 1)} kWh is needed to ride out the dark.`) : s.dark <= 0 ? L('Bu pencerede Güneş hiç batmıyor; batarya yalnızca tutulma ve manevralar için gerekir.', 'The Sun never sets in this window; a battery is only needed for eclipses and manoeuvres.')
       : s.dark > 150 ? L('Karanlık çok uzun: yalnızca bataryayla hayatta kalmak ağır olur; radyoizotop ısıtıcı (RHU) veya uyku modu düşünülmeli.', 'Darkness is very long: surviving on batteries alone is heavy; consider radioisotope heaters (RHU) or hibernation.')
         : L('Bu karanlık süresi batarya ve ısıtıcıyla yönetilebilir düzeyde.', 'This darkness is manageable with a battery and heaters.'))}</p>` +
       note(L('Model: batarya dolu başlar, şarj verimi %95, panel güneşi izler. Farklı bir yük için yazın: “500 W için batarya”.', 'Model: the battery starts full, 95% charge efficiency, the array tracks the Sun. For another load, ask: “battery for 500 W”.'));
@@ -4170,13 +4260,14 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const sct = window.AAScout, r = sct ? await sct.run(k, mode) : null;
     if (!r) return esc(!sct || AA.Polar.failed ? L('Bölge taraması için LOLA güney kutbu verisi gerekli; bu tarayıcıda açılamadı.', 'The region scan needs the LOLA south-pole pack, which could not be opened in this browser.')
       : L('Tarama tamamlanamadı; lütfen tekrar deneyin.', 'The scan did not finish; please try again.'));
-    const rows = r.top.map((p, i) => [`<b>${i + 1}.</b> ${esc(AA.fmtCoord(p.lat, p.lon))}<br>` + act(L(`${k} yap`, `Set as ${k}`), { type: 'point', k, lat: p.lat, lon: p.lon }),
+    const rows = r.top.map((p, i) => [`<b>${i + 1}.</b> ${esc(AA.fmtCoord(p.lat, p.lon))}<br>` + act(L(`${k} yap`, `Set as ${k}`), { type: 'point', k, lat: p.lat, lon: p.lon, mask: p.mask }) + pointCheck(p, r.start, r.dur),
       `<b>${p.score}</b>`, pct(p.sun * 100), pct(p.earth * 100), p.slope == null ? '—' : nf(p.slope, 1) + '°', p.trapKm == null ? '—' : nf(p.trapKm, 1) + ' km']);
     const where = r.mode === 'moon' ? L('Tüm Ay yüzeyinde (kaba tarama)', 'Best points over the whole Moon (coarse scan)') : L('Güney kutbu çevresinde (84°G–90°G)', 'Best points around the south pole (84°S–90°S)');
     return `${L(`${where} ${date(r.start, false)} başlangıçlı ${nf(r.dur, r.dur % 1 ? 1 : 0)} günlük görev için en iyi noktalar:`,
       `${where} for a ${nf(r.dur, r.dur % 1 ? 1 : 0)}-day mission starting ${date(r.start, false)}:`)}` +
+      '<p>' + note(rankingCaveat()) + '</p>' +
       table([L('Nokta', 'Point'), L('Skor', 'Score'), t('sun'), t('earth'), L('Eğim', 'Slope'), L('Buz', 'Ice')], rows) +
-      `<p>${esc(L(`${nf(r.scanned)} nokta incelendi; ${nf(r.rejected)} tanesi dik ya da kalıcı gölgede olduğu için elendi, ${nf(r.scored)} nokta gerçek LOLA ufkuyla simüle edildi.`,
+      `<p>${esc(L(`${nf(r.scanned)} nokta incelendi; ${nf(r.rejected)} tanesi dik ya da kalıcı gölgede olduğu için elendi, ${nf(r.scored)} nokta seçilen ufuk modeliyle simüle edildi.`,
         `${nf(r.scanned)} points examined; ${nf(r.rejected)} rejected as too steep or permanently shadowed, ${nf(r.scored)} simulated${r.mode === 'moon' ? ' (flat horizon outside the south pole)' : ' with their real LOLA horizon'}.`))}</p>` +
       `<p>${act(L('Haritada göster', 'Show on the map'), { type: 'layer', id: 'heat', k: null })}</p>`;
   }
@@ -4184,10 +4275,11 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const sct = window.AAScout, r = sct && sct.runRegions ? await sct.runRegions(k) : null;
     if (!r) return esc(!sct || AA.Polar.failed ? L('Bölge puanlaması için LOLA güney kutbu verisi gerekli; bu tarayıcıda açılamadı.', 'Scoring the regions needs the LOLA south-pole pack, which could not be opened in this browser.')
       : L('Puanlama tamamlanamadı; lütfen tekrar deneyin.', 'The scoring did not finish; please try again.'));
-    const rows = r.rows.map(row => { const b = row.best; return [`<b>${esc(row.name)}</b>${row.a24 ? ' ★' : ''}` + (b ? '<br>' + act(L(`${k} yap`, `Set as ${k}`), { type: 'point', k, lat: b.lat, lon: b.lon }) : ''),
+    const rows = r.rows.map(row => { const b = row.best; return [`<b>${esc(row.name)}</b>${row.a24 ? ' ★' : ''}` + (b ? '<br>' + act(L(`${k} yap`, `Set as ${k}`), { type: 'point', k, lat: b.lat, lon: b.lon, mask: b.mask }) + pointCheck(b, r.start, r.dur) : ''),
       b ? `<b>${b.score}</b>` : '—', b ? pct(b.sun * 100) : '—', b ? pct(b.earth * 100) : '—', b ? nf(b.slope, 1) + '°' : '—', b && b.trapKm != null ? nf(b.trapKm, 1) + ' km' : '—']; });
     return `${L(`NASA çalışma bölgelerinin her birindeki en iyi iniş noktası — ${date(r.start, false)} başlangıçlı ${nf(r.dur, r.dur % 1 ? 1 : 0)} günlük görev:`,
       `Best landing point inside each NASA study region — ${nf(r.dur, r.dur % 1 ? 1 : 0)}-day mission starting ${date(r.start, false)}:`)}` +
+      '<p>' + note(rankingCaveat()) + '</p>' +
       table([L('Bölge', 'Region'), L('Skor', 'Score'), t('sun'), t('earth'), L('Eğim', 'Slope'), L('Buz', 'Ice')], rows) +
       `<p>${act(L('Bölgeleri haritada göster', 'Show the regions on the map'), { type: 'layer', id: 'regions', k: null })}</p>` +
       note(L('★ = NASA’nın Ekim 2024 Artemis III aday listesinde. Bölge merkezleri: NASA M2M Lunar Surface Data Book (2025), Tablo A2.1-1; her bölge yaklaşık 15 × 15 km. “—” = bölgede inilebilir (12°’den düz, gölgesiz) nokta bulunamadı.',
@@ -4219,7 +4311,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       html += `<h4>${t(kind)} · ${rs.length} ${L('pencere', rs.length === 1 ? 'window' : 'windows')}</h4>`;
       if (!rs.length) { html += `<p>${L('Bu görev süresinde pencere yok.', 'No window in this mission.')}</p>`; continue; }
       html += table([L('Başlangıç', 'Start'), L('Bitiş', 'End'), L('Süre', 'Length')], rs.slice(0, 6).map(r => [
-        esc(date(sc.start + r[0] * d.dtH * H)), esc(r[1] >= d.n ? L('görev sonu', 'mission end') : date(sc.start + r[1] * d.dtH * H)), esc(AA.fmtDur((Math.min(r[1], d.n - 1) - r[0]) * d.dtH))]));
+        esc(date(sc.start + r[0] * d.dtH * H)), esc(r[1] >= d.n - 1 ? L('görev sonu', 'mission end') : date(sc.start + r[1] * d.dtH * H)), esc(AA.fmtDur((Math.min(r[1], d.n - 1) - r[0]) * d.dtH))]));
       if (rs.length > 6) html += note(L(`…ve ${rs.length - 6} pencere daha (CSV dışa aktarımında tamamı var).`, `…and ${rs.length - 6} more (the CSV export has all of them).`));
     }
     return html;
@@ -4238,8 +4330,8 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   function bodyAnswer(k, body) {
     const s = S.data[k].stats, now = AA.countdown(k, body);
     return esc(body === 'sun'
-      ? t('a_sun', { k, p: nf(s.sun / s.total * 100), h: nf(s.sun), mx: nf(s.maxEl, 1), d: nf(s.dark), now })
-      : t('a_earth', { k, p: nf(s.earth / s.total * 100), h: nf(s.earth), lo: nf(s.eMin, 1), hi: nf(s.eMax, 1), d: nf(s.nocomm), now }));
+      ? t('a_sun', { k, p: percentNumber(s.sun / s.total * 100), h: hrs(s.sun), mx: nf(s.maxEl, 1), d: hrs(s.dark), now })
+      : t('a_earth', { k, p: percentNumber(s.earth / s.total * 100), h: hrs(s.earth), lo: nf(s.eMin, 1), hi: nf(s.eMax, 1), d: hrs(s.nocomm), now }));
   }
 
   function recommendAnswer(k) {
@@ -4247,7 +4339,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const add = (sev, risk, fix) => risks.push([sev, risk, fix]);
     if (s.dark > 150) add(3, L(`${nf(s.dark)} saat kesintisiz karanlık`, `${nf(s.dark)} h of continuous darkness`), L('Radyoizotop ısıtıcı veya uyku modu; görev tarihini kaydırın (“en iyi tarih” sorun).', 'Radioisotope heaters or hibernation; shift the mission date (ask “best date”).'));
     else if (s.dark > 24) add(2, L(`${nf(s.dark)} saat karanlık`, `${nf(s.dark)} h of darkness`), L('Batarya ve ısıtıcı boyutlandırması (“batarya” sorun).', 'Size the battery and heaters (ask “battery”).'));
-    if (s.earth / s.total < 0.005) add(3, L('Dünya hiç görünmüyor', 'Earth is never visible'), L('Röle uydusu şart (ör. ay yörüngesinde iletişim rölesi); doğrudan iletişim yok.', 'A relay satellite is mandatory (e.g. a lunar-orbit comms relay); no direct link.'));
+    if (s.earth <= 0) add(3, L('Dünya hiç görünmüyor', 'Earth is never visible'), L('Röle uydusu şart (ör. ay yörüngesinde iletişim rölesi); doğrudan iletişim yok.', 'A relay satellite is mandatory (e.g. a lunar-orbit comms relay); no direct link.'));
     else if (s.nocomm > 48) add(2, L(`${nf(s.nocomm)} saat iletişim kesintisi`, `${nf(s.nocomm)} h communication outage`), L('Kritik operasyonları iletişim pencerelerine planlayın; veri depolayıp sonra gönderin veya röle kullanın.', 'Schedule critical operations inside comm windows; store-and-forward or use a relay.'));
     if (!S.data[k].sunUp[0]) add(3, L('İniş anı karanlıkta', 'Touchdown happens in darkness'), L('İniş saatini Güneş’in doğduğu ana kaydırın; optik seyrüsefer karanlıkta çalışmaz.', 'Move touchdown to after sunrise; optical navigation does not work in the dark.'));
     else if (a.parts.light < 100) add(2, L(`İnişte Güneş çok alçak (${nf(S.data[k].sunEl[0], 1)}°)`, `Sun very low at landing (${nf(S.data[k].sunEl[0], 1)}°)`), L('Uzun gölgeler tehlike algılamayı zorlaştırır: lidar tabanlı tehlike önleme ve arazi-bağıl seyrüsefer.', 'Long shadows hinder hazard detection: lidar hazard avoidance and terrain-relative navigation.'));
@@ -4258,14 +4350,15 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     else if (!f.slope && a.tc === 'polar') add(2, L('Engebeli kutup arazisi', 'Rough polar terrain'), L('İniş elipsini küçültün; yüksek çözünürlüklü LOLA/LROC verisiyle eğim ve kaya haritası çıkarın.', 'Shrink the landing ellipse; map slopes and boulders with high-resolution LOLA/LROC data.'));
     if (f.data && f.shadow >= 0.5) add(3, L('İniş noktası kalıcı gölgede', 'The landing point is in permanent shadow'), L('Güneş paneli çalışmaz; aydınlık bir kenara inip gölgeye gezici gönderin.', 'Solar arrays cannot work; land on a sunlit rim and send a rover into the shadow.'));
     else if (f.trap && f.trap.km > 30) add(1, L(`En yakın büyük buz tuzağı ${nf(f.trap.km)} km uzakta`, `The nearest large ice trap is ${nf(f.trap.km)} km away`), L('Buz bilimi hedefse daha yakın bir nokta seçin (“buza ne kadar yakın?” sorun).', 'If ice science is the goal, pick a closer point (ask “how close is the ice?”).'));
-    if (pw && pw.state === 'bad') add(3, L(`Batarya ${nf(pw.emptyH)} saat boş kalıyor`, `The battery is empty for ${nf(pw.emptyH)} h`), L(`En az ${nf(pw.need, 1)} kWh batarya gerekir (şu an ${nf(S.pwr.cap, 1)} kWh) ya da yükü düşürün.`, `At least ${nf(pw.need, 1)} kWh is needed (now ${nf(S.pwr.cap, 1)} kWh), or lower the load.`));
+    if (pw && pw.state === 'bad') add(3, L(`Batarya ${hrs(pw.emptyH)} boş kalıyor`, `The battery is empty for ${hrs(pw.emptyH)}`), L(`En az ${nf(pw.need, 1)} kWh batarya gerekir (şu an ${nf(S.pwr.cap, 1)} kWh) ya da yükü düşürün.`, `At least ${nf(pw.need, 1)} kWh is needed (now ${nf(S.pwr.cap, 1)} kWh), or lower the load.`));
     else if (pw && pw.state === 'mid') add(1, L(`Batarya %${nf(pw.min * 100)}’e kadar iniyor`, `The battery drops to ${nf(pw.min * 100)}%`), L(`%20 yedek için ${nf(pw.need, 1)} kWh önerilir.`, `${nf(pw.need, 1)} kWh is recommended to keep a 20% reserve.`));
     if (!a.lola) add(1, L('Gerçek arazi ufku kullanılmıyor', 'No real terrain horizon in use'), L('Sonuçlar düz ufuk varsayar; QuickMap aydınlatma katmanlarıyla doğrulayın.', 'Results assume a flat horizon; verify against QuickMap illumination layers.'));
     risks.sort((x, y) => y[0] - x[0]);
     const sevLabel = v => ['', L('Düşük', 'Low'), L('Orta', 'Medium'), L('Yüksek', 'High')][v];
-    const verdict = (pw && pw.state === 'bad' ? L('Seçili batarya bu senaryoda tükeniyor; güç sistemi büyütülmeden uygulanamaz. ', 'The chosen battery runs empty in this scenario; it is not workable without a larger power system. ') : '') + (a.score >= 65 ? L('Bu senaryo görev için uygun görünüyor.', 'This scenario looks suitable for the mission.')
-      : a.score >= 40 ? L('Bu senaryo ancak aşağıdaki önlemlerle uygulanabilir.', 'This scenario is workable only with the mitigations below.')
-        : L('Bu senaryo riskli; tarih veya saha değiştirmeyi düşünün.', 'This scenario is risky; consider another date or site.'));
+    const screen = eligibility(a);
+    const verdict = screen.eligible
+      ? L('Bu senaryo ön değerlendirme koşullarını karşılıyor. ', 'This scenario passes the preliminary screen. ') + screen.qualification
+      : L('Bu senaryo ön değerlendirme koşullarını karşılamıyor. ', 'This scenario fails the preliminary screen. ') + screen.reasons.map(reason => reason.text).join(' ');
     const other = k === 'A' ? 'B' : 'A', o = analyze(other);
     return `${tag(k)}<b>${esc(a.name)}</b> — <span class="score-inline ${scoreClass(a.score)}">${a.score}/100</span><p>${esc(verdict)}</p>` +
       (risks.length ? table([L('Önem', 'Severity'), 'Risk', L('Önlem', 'Mitigation')], risks.map(r => [`<span class="sev s${r[0]}">${sevLabel(r[0])}</span>`, esc(r[1]), esc(r[2])])) : `<p>${L('Belirgin bir risk yok.', 'No significant risk found.')}</p>`) +
@@ -4277,7 +4370,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const base = S.sc[k], sc = Object.assign({}, base, e.site ? scenarioFor(e.site, base.start) : {}, e.date ? { start: e.date } : {});
     if (e.shift) sc.start += Math.round(e.shift * DAY);
     const dur = e.days ? Math.max(1, Math.min(180, e.days)) : S.dur;
-    const a = evaluate(sc, sim(sc, dur, dur <= 30 ? 20 : 60)), cur = analyze(k), s = a.stats;
+    const a = evaluate(sc, sim(sc, dur, AA.stepMin(dur))), cur = analyze(k), s = a.stats;
     const acts = [];
     if (e.site) acts.push(act(L(`${k} sahasını değiştir`, `Change site ${k}`), { type: 'site', k, id: e.site.id }));
     if (e.date || e.shift) acts.push(act(L(`Tarihi ${k}’ya uygula`, `Apply date to ${k}`), { type: 'start', k, ms: sc.start }));
@@ -4353,6 +4446,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   const mem = { k: null, intent: null, history: [] };
   async function localAnswer(q) {
     const e = parse(q), x = e.x;
+    if (e.invalidDate) return esc(L('Bu tarih takvimde yok. Lütfen geçerli bir tarih girin (YYYY-AA-GG).', 'That date does not exist. Please enter a valid date (YYYY-MM-DD).'));
     let intents = detect(x);
     // a site named without a letter refers to the scenario that already uses it (“Malapert’te eğim nasıl?”)
     const named = !e.scen.length && e.site ? KEYS.find(x => S.sc[x].site === e.site.id) : null;
@@ -4414,7 +4508,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   function buildContext() {
     const out = {
       language: S.lang, missionDays: S.dur, cursorHours: S.cur, activeScenario: S.globe.target,
-      ephemeris: Ephem.meta ? `${Ephem.meta.source}, ${Ephem.meta.ephemeris}, ${Ephem.meta.frame}, ${Ephem.meta.abcorr}` : 'astronomy-engine',
+      ephemeris: 'Effective source is specified for each scenario in ephemerisSource.',
       scenarios: {}
     };
     for (const k of KEYS) {
@@ -4430,7 +4524,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
         solarEnergyKWhPerM2: s.energy, suitabilityScore: a.score, scoreParts: a.parts,
         descentDeltaVms: a.dv, propellantFraction: a.frac, terrainClass: a.tc, pros: a.pros, cons: a.cons,
         ground: a.f.data ? {
-          source: 'NASA LOLA 240 m DEM (slope) and NASA GSFC permanently-shadowed-region map',
+          source: 'NASA LOLA 480 m working grid derived from the 240 m DEM, and NASA GSFC permanent-shadow map',
           meanSlopeDegWithin1km: a.f.slope && +a.f.slope.mean.toFixed(1), shareOfGroundUnder8deg: a.f.slope && +a.f.slope.safe.toFixed(2),
           nearestLargeIceTrapKm: a.f.trap && +a.f.trap.km.toFixed(1), nearestLargeIceTrapCrater: a.f.trap && a.f.trap.name, pointInPermanentShadow: a.f.shadow >= 0.5
         } : AA.Polar.ready ? 'outside the LOLA south-pole pack (80.2S-90S): no measured slope or shadow data' : 'LOLA south-pole pack not loaded: no measured slope or shadow data',
@@ -4462,25 +4556,51 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     }
     return local;
   }
-  // When served by server.py, ask it whether a model is configured.
-  if (!window.AstroApexAI && /^https?:$/.test(location.protocol)) {
-    fetch('api/status').then(r => r.ok ? r.json() : null).then(st => {
+  // The local server's private launch URL provisions this token for the current browser tab.
+  // Public/static pages never fetch a provider status without that local capability.
+  let localToken = null;
+  try { localToken = sessionStorage.getItem('astroapex-local-token'); } catch (e) { /* storage may be unavailable */ }
+  if (!window.AstroApexAI && localToken && /^https?:$/.test(location.protocol)) {
+    const headers = { 'X-AstroApex-Token': localToken };
+    fetch('api/status', { headers, credentials: 'same-origin' }).then(r => r.ok ? r.json() : null).then(st => {
       if (!st || !st.ai || window.AstroApexAI) return;
-      window.AstroApexAI = {
+      const bridge = {
         name: L('Yapay zekâ bağlı · ', 'AI connected · ') + st.model,
         async ask(question, context) {
-          const r = await fetch('api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, context }) });
-          if (!r.ok) throw new Error('chat ' + r.status);
-          return (await r.json()).answer;
+          try {
+            const r = await fetch('api/chat', {
+              method: 'POST', credentials: 'same-origin',
+              headers: { ...headers, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ question, context })
+            });
+            if (!r.ok) {
+              if ((r.status === 401 || r.status === 403) && window.AstroApexAI === bridge) window.AstroApexAI = null;
+              throw new Error('chat ' + r.status);
+            }
+            const answer = (await r.json()).answer;
+            bridge.temporarilyUnavailable = false;
+            setModelLabel();
+            return answer;
+          } catch (error) {
+            bridge.temporarilyUnavailable = true;
+            setModelLabel();
+            throw error;
+          }
         }
       };
+      window.AstroApexAI = bridge;
       setModelLabel();
-    }).catch(() => { /* static hosting or file://: local engine only */ });
+    }).catch(() => { /* the local analysis remains available if the service is unreachable */ });
   }
 
   /* ================= chat panel ================= */
   const panel = $('#assist'), log = $('#assist-log'), input = $('#assist-input'), opener = $('#assist-open');
-  function setModelLabel() { $('#assist-model').textContent = window.AstroApexAI ? (window.AstroApexAI.name || t('a_model_on')) : t('a_model'); }
+  function setModelLabel() {
+    const ai = window.AstroApexAI;
+    $('#assist-model').textContent = ai && ai.temporarilyUnavailable
+      ? L('Yerel analiz · sonraki soruda bağlantı tekrar denenecek', 'Local analysis · connection will retry on the next question')
+      : ai ? (ai.name || t('a_model_on')) : t('a_model');
+  }
   function addMsg(role, html) {
     const el = document.createElement('div');
     el.className = 'msg ' + role;
@@ -4515,7 +4635,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     else if (a.type === 'site' && KEYS.includes(a.k)) { AA.setSite(a.k, a.id); AA.refresh(); addMsg('note', esc(L(`${a.k} sahası ${AA.siteName(a.k)} olarak değiştirildi.`, `Site ${a.k} changed to ${AA.siteName(a.k)}.`))); }
     else if (a.type === 'dur' && AA.DURS.includes(a.d)) { S.dur = a.d; AA.refresh(true); addMsg('note', esc(L(`Görev süresi ${nf(a.d, a.d % 1 ? 1 : 0)} gün olarak ayarlandı.`, `Mission duration set to ${nf(a.d, a.d % 1 ? 1 : 0)} days.`))); }
     else if (a.type === 'tab') AA.showTab(a.id);
-    else if (a.type === 'point' && KEYS.includes(a.k) && isFinite(a.lat) && isFinite(a.lon)) { AA.setPoint(a.k, +a.lat, +a.lon); AA.refresh(); addMsg('note', esc(L(`${a.k} noktası ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)} olarak ayarlandı.`, `Point ${a.k} set to ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)}.`))); }
+    else if (a.type === 'point' && KEYS.includes(a.k) && isFinite(a.lat) && isFinite(a.lon)) { AA.setPoint(a.k, +a.lat, +a.lon); if (a.mask === 'lola' || a.mask === 0) S.sc[a.k].mask = a.mask; AA.refresh(); addMsg('note', esc(L(`${a.k} noktası ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)} olarak ayarlandı.`, `Point ${a.k} set to ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)}.`))); }
     else if (a.type === 'layer' && ['ice', 'slope', 'heat', 'temp', 'regions', 'route'].includes(a.id)) {
       S.globe[a.id] = true;
       if (a.id === 'route') S.globe.ice = true;        // the route ends at an ice trap, so show them
@@ -4547,7 +4667,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   });
 
   window.AAssist = {
-    analyze, evaluate, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
+    analyze, evaluate, eligibility, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
     onRefresh() { renderReports(); input.placeholder = t('a_place'); if (!panel.hidden) setModelLabel(); },
     onPick(k) { // a point was chosen on the 3D map
       open(false);
@@ -4569,11 +4689,10 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
      1. lays an 8 km grid over everything south of 84 S (about 1,600 points);
      2. drops points that cannot be landing sites: mean slope above 12 deg, less than half of the 1 km
         footprint under 8 deg, or ground in permanent shadow;
-     3. for every point left, computes its real LOLA skyline, simulates the whole mission hour by hour
-        and gives it the same suitability score the scenario cards use;
-     4. repeats step 2-3 on a 2 km grid around the eight best areas;
-     5. keeps the five best points that are at least 6 km apart and re-scores them with the exact settings
-        of a scenario card, so the number in the list is the number the card will show.
+     3. rounds every candidate to the coordinates accepted by the scenario cards, then uses the card's
+        skyline and time sampling to compare all eligible points on the same basis;
+     4. repeats step 2-3 on a 2 km grid around the eight best sampled areas;
+     5. keeps the five best sampled points that are at least 6 km apart.
    The work is cut into short slices so the page stays responsive, and the result is drawn on the 3D map. */
 (function () {
   'use strict';
@@ -4591,15 +4710,14 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const st = Polar.slopeStats(lat, lon, 1);
     return !!st && st.mean <= MAX_SLOPE && st.safe >= MIN_SAFE && Polar.psr(lat, lon) < MAX_SHADOW;
   };
-  // Simulate one point with its own skyline and score it exactly like a scenario.
-  // exact = the settings a scenario card uses (1 deg skyline, the card's time step), so that the listed score
-  // is the score the card shows once the point is applied.
-  function scorePoint(lat, lon, start, dur, step, km, exact) {
+  // Evaluate the exact coordinates and sampling a scenario card uses after selection.
+  function scorePoint(lat, lon, start, dur, km) {
+    lat = +lat.toFixed(3); lon = +lon.toFixed(3);
+    if (!landable(lat, lon)) return null;
     const sc = { site: 'custom', lat, lon, start, mask: 'lola' };
-    if (!exact) { sc.sky = Polar.skyline(lat, lon, km > FINE_KM ? 120 : 240); if (!sc.sky) return null; }
-    const d = AA.simulate(sc, dur, exact ? AA.stepMin() : step), a = AS.evaluate(sc, d), s = d.stats;
+    const d = AA.simulate(sc, dur, AA.stepMin(dur)), a = AS.evaluate(sc, d), s = d.stats;
     return {
-      lat, lon, km, score: a.score, sun: s.sun / s.total, earth: s.earth / s.total, both: s.both, dark: s.dark,
+      lat, lon, km, mask: sc.mask, score: a.score, sun: s.sun / s.total, earth: s.earth / s.total, both: s.both, dark: s.dark,
       slope: a.f.slope ? a.f.slope.mean : null, safe: a.f.slope ? a.f.slope.safe : null, trapKm: a.f.trap ? a.f.trap.km : null, trap: a.f.trap ? a.f.trap.name : null
     };
   }
@@ -4612,11 +4730,12 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   // Whole-Moon scan: 2,600 points spread evenly over the sphere (about 120 km apart). South of 82 S a point gets its
   // real skyline and measured ground; everywhere else the horizon is flat and the slope comes from the coarse world map.
   const MOON_POINTS = 2600, MOON_KM = 120, MOON_MAX_SLOPE = 8;
-  function scoreCoarse(lat, lon, start, dur, step) {
+  function scoreCoarse(lat, lon, start, dur) {
+    lat = +lat.toFixed(3); lon = +lon.toFixed(3);
     const sc = { site: 'custom', lat, lon, start, mask: 0 }, cs = Polar.coarseSlope ? Polar.coarseSlope(lat, lon) : null;
     if (cs && cs.mean > MOON_MAX_SLOPE) return null;
-    const d = AA.simulate(sc, dur, step), a = AS.evaluate(sc, d), s = d.stats;
-    return { lat, lon, km: MOON_KM, score: a.score, sun: s.sun / s.total, earth: s.earth / s.total, both: s.both, dark: s.dark, slope: cs ? cs.mean : null, safe: cs ? cs.safe : null, trapKm: null, trap: null };
+    const d = AA.simulate(sc, dur, AA.stepMin(dur)), a = AS.evaluate(sc, d), s = d.stats;
+    return { lat, lon, km: MOON_KM, mask: sc.mask, score: a.score, sun: s.sun / s.total, earth: s.earth / s.total, both: s.both, dark: s.dark, slope: cs ? cs.mean : null, safe: cs ? cs.safe : null, trapKm: null, trap: null };
   }
   function pickTop(list, count, gapKm) {
     const sorted = [...list].sort((a, b) => b.score - a.score || b.both - a.both || (a.slope || 0) - (b.slope || 0)), pick = [];
@@ -4639,9 +4758,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     mode = mode === 'moon' || mode === 'pole' ? mode : S.scanMode;
     S.scanMode = mode; syncMode();
     const start = S.sc[k].start, dur = S.dur, key = start + '|' + dur + '|' + mode;
-    if (S.scout && S.scout.key === key) { S.scout.k = k; render(); return Promise.resolve(S.scout); }
+    if (S.scout && S.scout.key === key) { token++; running = null; S.scout.k = k; render(); return Promise.resolve(S.scout); }
     if (running && running.key === key) return running.promise;
-    const my = ++token, step = dur > 30 ? 120 : 60;
+    const my = ++token;
     const promise = (async () => {
       const rMax = 2 * Polar.R * Math.tan((90 + LAT_LIMIT) * Math.PI / 360), pts = [], seen = new Set();
       let scanned = 0, rejected = 0, slice = performance.now();
@@ -4650,9 +4769,8 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
         if (seen.has(id) || Math.hypot(x, y) > rMax) return;
         seen.add(id); scanned++;
         const [lat, lon] = Polar.toLL(x, y);
-        if (!landable(lat, lon)) { rejected++; return; }
-        const p = scorePoint(lat, lon, start, dur, step, km);
-        if (p) pts.push(p);
+        const p = scorePoint(lat, lon, start, dur, km);
+        if (p) pts.push(p); else rejected++;
         if (performance.now() - slice > 28) { await pause(); slice = performance.now(); }
       };
       progress(0);
@@ -4661,15 +4779,12 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
         for (let i = 0; i < MOON_POINTS; i++) {
           const lat = Math.asin(1 - 2 * (i + 0.5) / MOON_POINTS) / RAD, lon = ((i * golden / RAD) % 360 + 540) % 360 - 180;
           scanned++;
-          const p = Polar.covered(lat, lon) ? (landable(lat, lon) ? scorePoint(lat, lon, start, dur, step, MOON_KM) : null) : scoreCoarse(lat, lon, start, dur, step);
+          const p = Polar.covered(lat, lon) ? scorePoint(lat, lon, start, dur, MOON_KM) : scoreCoarse(lat, lon, start, dur);
           if (p) { p.km = MOON_KM; pts.push(p); } else rejected++;
           if (performance.now() - slice > 28) { progress(i / MOON_POINTS); await pause(); slice = performance.now(); if (my !== token) return null; }
         }
-        const top = pickTop(pts, 5, 300).map(p => (Polar.covered(p.lat, p.lon) ? scorePoint(+p.lat.toFixed(3), +p.lon.toFixed(3), start, dur, step, MOON_KM, true)
-          : scoreCoarse(+p.lat.toFixed(3), +p.lon.toFixed(3), start, dur, AA.stepMin())) || p).sort((a, b) => b.score - a.score || b.both - a.both);
-        top.forEach(p => { p.km = MOON_KM; });
-        S.scout = { key, k, start, dur, mode, pts, top, scanned, rejected, scored: pts.length };
-        return S.scout;
+        const top = pickTop(pts, 5, 300);
+        return { key, k, start, dur, mode, pts, top, scanned, rejected, scored: pts.length };
       }
       const g = COARSE_KM * 1000, m = Math.floor(rMax / g);
       for (let j = -m; j <= m; j++) {
@@ -4683,13 +4798,13 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
         progress(0.75 + 0.25 * (n + 1) / seeds.length);
       }
       pts.sort((a, b) => b.km - a.km); // coarse dots first, so the fine ones are drawn on top
-      // re-score the winners exactly as a scenario card would (coordinates rounded the way setPoint stores them)
-      const top = pickTop(pts, 5, 6).map(p => scorePoint(+p.lat.toFixed(3), +p.lon.toFixed(3), start, dur, step, p.km, true) || p).sort((a, b) => b.score - a.score || b.both - a.both);
-      S.scout = { key, k, start, dur, mode, pts, top, scanned, rejected, scored: pts.length };
-      return S.scout;
+      const top = pickTop(pts, 5, 6);
+      return { key, k, start, dur, mode, pts, top, scanned, rejected, scored: pts.length };
     })().then(r => {
-      if (my === token) { running = null; progress(null); if (r) { S.globe.heat = true; AA.syncForms(); AA.queueGlobe(); render(); } }
-      return r || S.scout;
+      if (my !== token) return null;
+      running = null; progress(null);
+      if (r) { S.scout = r; S.globe.heat = true; AA.syncForms(); AA.queueGlobe(); render(); }
+      return r;
     }, () => { if (my === token) { running = null; progress(null); } return null; });
     running = { key, promise };
     return promise;
@@ -4701,7 +4816,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     if (!running) progress(null);
     if (!r) { out.innerHTML = ''; return; }
     // stale = the scenario this scan was made for has moved to another date, or the duration changed
-    const k = KEYS.includes(r.k) ? r.k : S.globe.target, stale = r.key !== S.sc[k].start + '|' + S.dur + '|' + r.mode;
+    const k = KEYS.includes(r.k) ? r.k : S.globe.target, stale = r.key !== S.sc[k].start + '|' + S.dur + '|' + S.scanMode;
     const fa = out.contains(document.activeElement) ? document.activeElement : null, keep = fa && fa.dataset.i != null ? `[data-i="${fa.dataset.i}"][data-k="${fa.dataset.k}"]` : null;
     out.innerHTML = `<ol class="scout-list">${r.top.map((p, i) => `<li>
         <span class="sc-n">${i + 1}</span>
@@ -4715,7 +4830,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
   const modeBox = $('#scan-mode');
   const syncMode = () => { [...modeBox.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.mode === S.scanMode)); $('#scan-lead').textContent = t(S.scanMode === 'moon' ? 'sct_lead_moon' : 'sct_lead') + (S.scanMode === 'moon' ? '' : ' ' + t('sct_caveat')); };
-  modeBox.addEventListener('click', e => { if (e.target.dataset.mode) { S.scanMode = e.target.dataset.mode; syncMode(); } });
+  modeBox.addEventListener('click', e => { if (e.target.dataset.mode) { S.scanMode = e.target.dataset.mode; syncMode(); render(); } });
   AA.onChange(syncMode);
   syncMode();
   btn.addEventListener('click', () => {
@@ -4725,11 +4840,11 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   out.addEventListener('click', e => {
     const b = e.target.closest('[data-i]'); if (!b || !S.scout) return;
     const p = S.scout.top[+b.dataset.i]; if (!p) return;
-    AA.setPoint(b.dataset.k, p.lat, p.lon); AA.refresh();
+    AA.setPoint(b.dataset.k, p.lat, p.lon); S.sc[b.dataset.k].mask = p.mask; AA.refresh();
   });
   /* ---- NASA study regions: the best landable point inside each one ---- */
-  // Every region is a circle with the area of NASA's 15 x 15 km box around the published centre; points are
-  // tried every 1.5 km, filtered and scored exactly like the polar scan, and the winner is re-scored exactly.
+  // Approximate each NASA 15 x 15 km study box by an equal-area circle around the published centre.
+  // Compare candidates every 1.5 km using the same sampling as the scenario cards.
   const REG_R = 8460, REG_STEP = 1500, rbox = $('#regions-out'), rbtn = $('#regions-run');
   let rToken = 0, rRunning = null;
   function rProgress(v) { rbtn.disabled = v != null || !Polar.ready; rbtn.textContent = v != null ? t('reg_busy', { p: Math.round(v * 100) }) : t(S.regions ? 'reg_again' : 'reg_run'); }
@@ -4740,9 +4855,9 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     }
     k = KEYS.includes(k) ? k : S.globe.target;
     const start = S.sc[k].start, dur = S.dur, key = start + '|' + dur;
-    if (S.regions && S.regions.key === key) { S.regions.k = k; renderRegions(); return Promise.resolve(S.regions); }
+    if (S.regions && S.regions.key === key) { rToken++; rRunning = null; S.regions.k = k; renderRegions(); return Promise.resolve(S.regions); }
     if (rRunning && rRunning.key === key) return rRunning.promise;
-    const my = ++rToken, step = dur > 30 ? 120 : 60, list = AA.REGIONS;
+    const my = ++rToken, list = AA.REGIONS;
     const promise = (async () => {
       const rows = []; let slice = performance.now();
       rProgress(0);
@@ -4754,22 +4869,22 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
           if (dx * dx + dy * dy > REG_R * REG_R) continue;
           const [lat, lon] = Polar.toLL(x0 + dx, y0 + dy);
           tried++;
-          if (!Polar.covered(lat, lon) || !landable(lat, lon)) continue;
-          const p = scorePoint(lat, lon, start, dur, step, FINE_KM);
+          if (!Polar.covered(lat, lon)) continue;
+          const p = scorePoint(lat, lon, start, dur, FINE_KM);
           if (p) { ok++; if (!best || p.score > best.score || (p.score === best.score && p.both > best.both)) best = p; }
           if (performance.now() - slice > 28) { await pause(); slice = performance.now(); if (my !== rToken) return null; }
         }
-        if (best) best = scorePoint(+best.lat.toFixed(3), +best.lon.toFixed(3), start, dur, step, FINE_KM, true) || best;
         rows.push({ id: r.id, name: r.name, a24: !!r.a24, lat: r.lat, lon: r.lon, best, tried, ok });
         rProgress((q + 1) / list.length);
         await pause(); if (my !== rToken) return null;
       }
       rows.sort((a, b) => (b.best ? b.best.score : -1) - (a.best ? a.best.score : -1) || (b.best ? b.best.both : 0) - (a.best ? a.best.both : 0));
-      S.regions = { key, k, start, dur, rows };
-      return S.regions;
+      return { key, k, start, dur, rows };
     })().then(r => {
-      if (my === rToken) { rRunning = null; rProgress(null); if (r) { S.globe.regions = true; AA.syncForms(); AA.queueGlobe(); renderRegions(); } }
-      return r || S.regions;
+      if (my !== rToken) return null;
+      rRunning = null; rProgress(null);
+      if (r) { S.regions = r; S.globe.regions = true; AA.syncForms(); AA.queueGlobe(); renderRegions(); }
+      return r;
     }, () => { if (my === rToken) { rRunning = null; rProgress(null); } return null; });
     rRunning = { key, promise };
     return promise;
@@ -4794,7 +4909,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   rbox.addEventListener('click', e => {
     const b = e.target.closest('[data-r]'); if (!b || !S.regions) return;
     const row = S.regions.rows[+b.dataset.r]; if (!row || !row.best) return;
-    AA.setPoint(b.dataset.k, row.best.lat, row.best.lon); AA.refresh();
+    AA.setPoint(b.dataset.k, row.best.lat, row.best.lon); S.sc[b.dataset.k].mask = row.best.mask; AA.refresh();
   });
   AA.onChange(renderRegions);
   Polar.onSettled(renderRegions);
@@ -4807,11 +4922,17 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
 
 </script>
 <script>
+/* data/report_font.js */
+/* IBM Plex Mono Regular, decoded from the repository WOFF2. SIL OFL 1.1; see report-font-license.txt. */
+window.REPORT_FONT = {"name":"IBMPlexMono-Regular","unitsPerEm":1000,"ascent":1025,"descent":-275,"bbox":[-260,-350,648,1119],"glyphs":{"32":[395,600],"33":[89,600],"34":[77,600],"35":[117,600],"36":[134,600],"37":[101,600],"38":[64,600],"39":[76,600],"40":[92,600],"41":[93,600],"42":[114,600],"43":[120,600],"44":[74,600],"45":[66,600],"46":[71,600],"47":[98,600],"48":[54,600],"49":[55,600],"50":[56,600],"51":[57,600],"52":[58,600],"53":[59,600],"54":[60,600],"55":[61,600],"56":[62,600],"57":[63,600],"58":[73,600],"59":[75,600],"60":[126,600],"61":[125,600],"62":[127,600],"63":[91,600],"64":[65,600],"65":[28,600],"66":[29,600],"67":[30,600],"68":[31,600],"69":[32,600],"70":[33,600],"71":[34,600],"72":[35,600],"73":[36,600],"74":[37,600],"75":[38,600],"76":[39,600],"77":[40,600],"78":[41,600],"79":[42,600],"80":[43,600],"81":[44,600],"82":[45,600],"83":[46,600],"84":[47,600],"85":[48,600],"86":[49,600],"87":[50,600],"88":[51,600],"89":[52,600],"90":[53,600],"91":[94,600],"92":[99,600],"93":[95,600],"94":[118,600],"95":[70,600],"96":[375,600],"97":[1,600],"98":[2,600],"99":[3,600],"100":[4,600],"101":[5,600],"102":[6,600],"103":[7,600],"104":[9,600],"105":[10,600],"106":[11,600],"107":[12,600],"108":[13,600],"109":[14,600],"110":[15,600],"111":[16,600],"112":[17,600],"113":[18,600],"114":[19,600],"115":[20,600],"116":[21,600],"117":[22,600],"118":[23,600],"119":[24,600],"120":[25,600],"121":[26,600],"122":[27,600],"123":[96,600],"124":[103,600],"125":[97,600],"126":[119,600],"160":[396,600],"161":[88,600],"162":[132,600],"163":[133,600],"164":[131,600],"165":[135,600],"166":[104,600],"167":[105,600],"168":[372,600],"169":[107,600],"170":[109,600],"171":[86,600],"172":[130,600],"173":[67,600],"174":[108,600],"175":[370,600],"176":[111,600],"177":[122,600],"178":[330,600],"179":[331,600],"180":[374,600],"181":[328,600],"182":[106,600],"183":[128,600],"184":[382,600],"185":[329,600],"186":[110,600],"187":[87,600],"188":[355,600],"189":[352,600],"190":[356,600],"191":[90,600],"192":[239,600],"193":[235,600],"194":[237,600],"195":[243,600],"196":[238,600],"197":[242,600],"198":[244,600],"199":[247,600],"200":[259,600],"201":[253,600],"202":[256,600],"203":[257,600],"204":[273,600],"205":[268,600],"206":[270,600],"207":[271,600],"208":[252,600],"209":[288,600],"210":[294,600],"211":[290,600],"212":[292,600],"213":[298,600],"214":[293,600],"215":[123,600],"216":[297,600],"217":[315,600],"218":[311,600],"219":[313,600],"220":[314,600],"221":[322,600],"222":[310,600],"223":[213,600],"224":[141,600],"225":[137,600],"226":[139,600],"227":[145,600],"228":[140,600],"229":[144,600],"230":[146,600],"231":[149,600],"232":[161,600],"233":[155,600],"234":[158,600],"235":[159,600],"236":[175,600],"237":[171,600],"238":[173,600],"239":[174,600],"240":[154,600],"241":[192,600],"242":[199,600],"243":[195,600],"244":[197,600],"245":[203,600],"246":[198,600],"247":[124,600],"248":[202,600],"249":[222,600],"250":[218,600],"251":[220,600],"252":[221,600],"253":[229,600],"254":[217,600],"255":[231,600],"256":[240,600],"257":[142,600],"258":[236,600],"259":[138,600],"260":[241,600],"261":[143,600],"262":[245,600],"263":[147,600],"264":[248,600],"265":[150,600],"266":[249,600],"267":[151,600],"268":[246,600],"269":[148,600],"270":[250,600],"271":[152,600],"272":[251,600],"273":[153,600],"274":[260,600],"275":[162,600],"276":[254,600],"277":[156,600],"278":[258,600],"279":[160,600],"280":[261,600],"281":[163,600],"282":[255,600],"283":[157,600],"284":[263,600],"285":[165,600],"286":[262,600],"287":[164,600],"288":[265,600],"289":[167,600],"290":[264,600],"291":[166,600],"292":[267,600],"293":[169,600],"294":[266,600],"295":[168,600],"296":[276,600],"297":[178,600],"298":[274,600],"299":[176,600],"300":[269,600],"301":[172,600],"302":[275,600],"303":[177,600],"304":[272,600],"305":[170,600],"306":[277,600],"307":[179,600],"308":[278,600],"309":[181,600],"310":[279,600],"311":[182,600],"312":[183,600],"313":[280,600],"314":[184,600],"315":[282,600],"316":[186,600],"317":[281,600],"318":[185,600],"319":[283,600],"320":[187,600],"321":[284,600],"322":[188,600],"323":[285,600],"324":[189,600],"325":[287,600],"326":[191,600],"327":[286,600],"328":[190,600],"329":[193,600],"330":[289,600],"331":[194,600],"332":[296,600],"333":[201,600],"334":[291,600],"335":[196,600],"336":[295,600],"337":[200,600],"338":[299,600],"339":[204,600],"340":[300,600],"341":[205,600],"342":[302,600],"343":[207,600],"344":[301,600],"345":[206,600],"346":[303,600],"347":[208,600],"348":[306,600],"349":[211,600],"350":[305,600],"351":[210,600],"352":[304,600],"353":[209,600],"354":[309,600],"355":[216,600],"356":[308,600],"357":[215,600],"358":[307,600],"359":[214,600],"360":[320,600],"361":[227,600],"362":[317,600],"363":[224,600],"364":[312,600],"365":[219,600],"366":[319,600],"367":[226,600],"368":[316,600],"369":[223,600],"370":[318,600],"371":[225,600],"372":[321,600],"373":[228,600],"374":[323,600],"375":[230,600],"376":[324,600],"377":[325,600],"378":[232,600],"379":[327,600],"380":[234,600],"381":[326,600],"382":[233,600],"383":[212,600],"8211":[68,600],"8212":[69,600],"8216":[78,600],"8217":[79,600],"8218":[82,600],"8220":[80,600],"8221":[81,600],"8222":[83,600],"8224":[115,600],"8225":[116,600],"8226":[129,600],"8230":[72,600],"8240":[102,600],"8242":[112,600],"8243":[113,600],"8249":[84,600],"8250":[85,600],"8260":[100,600],"8378":[136,600],"8722":[121,600]},"bytes":"AAEAAAARAQAABAAQR0RFRgRNBHQAALkYAAAAQEdQT1NEdkx1AAC5WAAAACBHU1VCk1KH/wAAuXgAAAIMT1MvMmf+CcgAAAGYAAAAYGNtYXBB9G/BAAAIFAAAAuZjdnQgDjYCogAADiQAAABAZnBnbQZZnDcAAAr8AAABc2dhc3AAGAAhAAC5CAAAABBnbHlmf9aS9QAAEYAAAKXqaGVhZCz9nYYAAAEcAAAANmhoZWEFiAHDAAABVAAAACRobXR4h02DOQAAAfgAAAYcbG9jYftKJR4AAA5kAAADHG1heHADywYKAAABeAAAACBuYW1lHQ015QAAt2wAAAF6cG9zdP93AD0AALjoAAAAIHByZXDsJ0bHAAAMcAAAAbQAAQAAAAIAxHW0C+pfDzz1CAkD6AAAAADdPAP/AAAAAOcfVNz+/P6iAogEXwAAAAkAAgAAAAAAAAABAAAEAf7tAAACWP78/vwCiAABAAAAAAAAAAAAAAAAAAABgQABAAABjQH4ACoAaQAGAAEAAAAAAAoAAAIAA6cAAwABAAQCWAGQAAUAAAKKAlgAAABLAooCWAAAAV4APAE1CAkCCwUJBQIDAAIDgAAABwAAAAIAAAAAAAAAAElCTSABwAAgIhIEAf7tAAAEAQETAAAAkwAAAAACBAK6AAAAIAADAlgAIAJYAEICWABfAlgAVAJYADwCWABDAlgASQJYAEMCWABDAlgAYgJYAGoCWABdAlgAaQJYAFACWAA2AlgAYgJYAEICWABfAlgAPAJYAE0CWABDAlgAJwJYAFwCWABAAlgAHgJYAD0CWAA1AlgAVQJYAB8CWABYAlgARgJYAF8CWABaAlgAWgJYADgCWABQAlgAVAJYAEoCWABVAlgAeAJYAEQCWABQAlgAOAJYAFoCWAA4AlgAWgJYAC0CWAAZAlgAUAJYACQCWAAjAlgAGgJYABECWAAwAlgAOAJYADUCWABBAlgAMAJYACICWABJAlgAQAJYAEECWAA3AlgAQAJYABkCWAA+AlgAmwJYAJsCWAA8AlgAAAJYADwCWADiAlgALAJYAOICWADMAlgAzAJYAQYCWACuAlgAwwJYAN8CWABSAlgAbgJYAMwCWABuAlgAqgJYAMcCWABKAlgAQwJYAOICWADiAlgAWgJYAE0CWADNAlgAagJYAOECWABfAlgAaQJYAGkCWABaAlgAWgJYABICWAASAlgAAAJYAQkCWAEJAlgAUQJYAC0CWAAAAlgAdQJYAIoCWACMAlgAgQJYAOsCWACTAlgAKwJYAEYCWABGAlgAEAJYAC0CWAA0AlgAPgJYAD4CWAA+AlgAWAJYAD4CWAA+AlgAVQJYAFUCWADiAlgAsgJYAD4CWABMAlgAVAJYADQCWAAyAlgAFgJYADgCWABCAlgAQgJYAEICWABCAlgAQgJYAEICWABCAlgAQgJYAEICWAAKAlgAVAJYAFQCWABUAlgAVAJYAFQCWAAtAlgAPAJYAEICWABDAlgAQwJYAEMCWABDAlgAQwJYAEMCWABDAlgAQwJYAEMCWABDAlgAQwJYAEMCWABDAlgAIQJY/+oCWABqAlgAagJYAGoCWABqAlgAagJYAGoCWABqAlgAagJYAGoCWABSAlgAXQJYAF0CWABpAlgAagJYAFACWABQAlgAUAJYAFACWABQAlgAYgJYAGICWABiAlgAYgJYAAACWABiAlgAQgJYAEICWABCAlgAQgJYAEICWABCAlgAQgJYAC8CWABCAlgADgJYAE0CWABNAlgATQJYAEMCWABDAlgAQwJYAEMCWABJAlgAZgJYACcCWAAnAlgAJwJYAF8CWABcAlgAXAJYAFwCWABcAlgAXAJYAFwCWABcAlgAXAJYAFwCWABcAlgAHgJYADUCWAA1AlgANQJYAFUCWABVAlgAVQJYAB8CWAAfAlgAHwJYAB8CWAAfAlgAHwJYAB8CWAAfAlgAHwJYABQCWABGAlgARgJYAEYCWABGAlgARgJYAF8CWAAWAlgAFgJYAFoCWABaAlgAWgJYAFoCWABaAlgAWgJYAFoCWABaAlgAWgJYADgCWAA4AlgAOAJYADgCWAAKAlgAUAJYAFQCWABUAlgAVAJYAFQCWABUAlgAVAJYAFQCWABUAlgAVAJYAFUCWABKAlgAVQJYAHYCWAB4AlgAeAJYAHgCWAAoAlgAUAJYAFACWABQAlgAUAJYAFACWAA4AlgAOAJYADgCWAA4AlgAOAJYADgCWAA4AlgALwJYADgCWAAlAlgAWgJYAFoCWABaAlgALQJYAC0CWAAtAlgALQJYABkCWAAZAlgAGQJYAFoCWABQAlgAUAJYAFACWABQAlgAUAJYAFACWABQAlgAUAJYAFACWABQAlgAIwJYABECWAAR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"};
+
+</script>
+<script>
 /* js/report.js */
 /* Mission report: a two-page A4 summary of both scenarios, previewed on screen and saved as a PDF.
 
    The pages are drawn on canvases (so Turkish characters and the charts look the same everywhere), shown in a
-   dialog, and written into a PDF by hand: one JPEG image per page, no library. Everything runs in the browser. */
+   dialog, and written into a PDF with a Unicode text layer for search and selection. Everything runs in the browser. */
 (function () {
   'use strict';
   const AA = window.AA, AS = window.AAssist;
@@ -4859,11 +4980,32 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     c.fillStyle = COL[k]; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
     c.font = mono(r * 1.05); c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(k, x, y + 1);
   }
+  function slopeDescription(f) {
+    const slope = f.slope || f.coarse;
+    if (!slope) return L('Veri yok', 'No data');
+    const area = f.slope ? L('1 km yarıçap', '1 km radius') : L('kaba 3×3 hücre', 'coarse 3×3 cells');
+    return nf(slope.mean, 1) + '° · ' + area;
+  }
   const scoreColor = v => v >= 65 ? BOTH : v >= 40 ? SUN : BAD;
 
   function newPage() {
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const c = cv.getContext('2d');
+    cv.reportLanguage = S.lang;
+    const runs = cv.reportTextRuns = [];
+    const fillText = c.fillText.bind(c);
+    c.fillText = function (value, x, y, maxWidth) {
+      const valueText = String(value), metrics = c.measureText(valueText);
+      const baseline = c.textBaseline;
+      c.textBaseline = 'alphabetic';
+      const alphabetic = c.measureText(valueText);
+      c.textBaseline = baseline;
+      const width = maxWidth == null ? metrics.width : Math.min(metrics.width, maxWidth);
+      const left = c.textAlign === 'center' ? x - width / 2 : c.textAlign === 'right' || c.textAlign === 'end' ? x - width : x;
+      const size = parseFloat((c.font.match(/([\d.]+)px/) || [0, 16])[1]);
+      runs.push({ text: valueText, x: left, y: y + alphabetic.actualBoundingBoxAscent - metrics.actualBoundingBoxAscent, width, size });
+      if (maxWidth == null) fillText(valueText, x, y); else fillText(valueText, x, y, maxWidth);
+    };
     c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
     return { cv, c };
   }
@@ -4914,12 +5056,17 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
       text(c, String(v), x + w - 22, by + 5, mono(13), INK, 'right');
     });
     // facts
-    const pctOf = v => `${nf(v)} ${t('h')} · ${nf(v / s.total * 100)}%`;
+    const pctOf = v => {
+      const percent = v / s.total * 100;
+      const label = percent > 99.9 && percent < 100 ? '>' + nf(99.9, 1)
+        : percent > 0 && percent < 0.1 ? '<' + nf(0.1, 1) : nf(percent, percent % 1 ? 1 : 0);
+      return `${AA.fmtDur(v)} · ${label}%`;
+    };
     const rows = [
       [L('Güneş görünür', 'Sun visible'), pctOf(s.sun)], [L('Dünya görünür', 'Earth visible'), pctOf(s.earth)],
       [L('İkisi birlikte', 'Both together'), pctOf(s.both)],
-      [L('En uzun karanlık', 'Longest darkness'), `${nf(s.dark)} ${t('h')}`], [L('En uzun iletişim kesintisi', 'Longest comm outage'), `${nf(s.nocomm)} ${t('h')}`],
-      [L('Ortalama eğim (1 km)', 'Mean slope (1 km)'), f.slope ? `${nf(f.slope.mean, 1)}° · ${nf(f.slope.safe * 100)}% < 8°` : L('veri yok', 'no data')],
+      [L('En uzun karanlık', 'Longest darkness'), AA.fmtDur(s.dark)], [L('En uzun iletişim kesintisi', 'Longest comm outage'), AA.fmtDur(s.nocomm)],
+      [f.slope ? L('Eğim (1 km yarıçap)', 'Slope (1 km radius)') : L('Ortalama eğim', 'Mean slope'), f.slope ? `${nf(f.slope.mean, 1)}° · ${nf(f.slope.safe * 100)}% < 8°` : slopeDescription(f)],
       [L('En yakın buz tuzağı', 'Nearest ice trap'), !f.data ? L('veri yok', 'no data') : !f.trap ? '—' : f.trap.inside ? L('içinde', 'inside') : `${nf(f.trap.km, 1)} km${f.trap.name ? ' · ' + f.trap.name : ''}`],
       [L('İniş yakıtı', 'Landing propellant'), `${nf(a.frac * 100)}% · Δv ${nf(a.dv)} m/s`],
       [L('Batarya', 'Battery'), pw ? `${t('b_' + pw.state)} · min ${nf(pw.min * 100)}%` : '—'],
@@ -4953,12 +5100,15 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     const { cv, c } = newPage();
     header(c, 1, total, 136);
     let y = section(c, L('Özet', 'Summary'), 190);
-    const pick = AS.recommend(a, b), lead = pick.lead, other = pick.other;
-    const verdict = pick.forced ? L(`Öneri: ${lead.k} · ${lead.name}. Skoru daha düşük (${lead.score}/100, diğeri ${other.score}/100), ama seçili batarya yalnızca burada dayanıyor; ${other.k} senaryosunda batarya ${nf(other.pw.emptyH, 1)} saat boş kalıyor.`,
-      `Recommendation: ${lead.k} · ${lead.name}. It scores lower (${lead.score}/100 vs ${other.score}/100), but the chosen battery only survives here; in scenario ${other.k} it is empty for ${nf(other.pw.emptyH, 1)} h.`)
-      : lead ? (pick.bothBad ? L('Uyarı: seçili batarya iki senaryoda da tükeniyor. ', 'Warning: the chosen battery runs empty in both scenarios. ') : '') + L(`Öneri: ${lead.k} · ${lead.name} — uygunluk skoru ${lead.score}/100 (diğer senaryo ${other.score}/100).`, `Recommendation: ${lead.k} · ${lead.name} — suitability score ${lead.score}/100 (the other scenario scores ${other.score}/100).`)
-      : L(`İki senaryo aynı uygunluk skorunu alıyor (${a.score}/100); seçim görev önceliğine bağlı.`, `Both scenarios reach the same suitability score (${a.score}/100); the choice depends on mission priority.`);
+    const pick = AS.recommend(a, b), lead = pick.lead;
+    const verdict = pick.status === 'none'
+      ? L('Hiçbir senaryo ön değerlendirme koşullarını birlikte karşılamıyor.', 'Neither scenario meets the preliminary conditions together.')
+      : lead ? L(`Ön değerlendirmede öne çıkan: ${lead.k} · ${lead.name}, ${lead.score}/100.`, `Preliminary preference: ${lead.k} · ${lead.name}, ${lead.score}/100.`)
+        : L(`İki uygun senaryo aynı skoru alıyor (${a.score}/100); seçim görev önceliğine bağlı.`, `Both eligible scenarios score the same (${a.score}/100); choose according to mission priorities.`);
+    const reasons = (pick.assessments || []).filter(item => item.reasons.length).map(item =>
+      item.k + ' · ' + item.reasons.map(reason => reason.text).join(' ')).join(' ');
     y = wrap(c, verdict, M, y + 4, W - 2 * M, 32, sans(700, 24), INK);
+    if (reasons) y = wrap(c, reasons, M, y + 2, W - 2 * M, 22, sans(400, 15), BAD, 3);
     y = wrap(c, $('#verdict-h').textContent + '. ' + L(`Görev süresi ${days(S.dur)} gün. Yük ${nf(S.pwr.load)} W, batarya ${nf(S.pwr.cap, 1)} kWh, güneş paneli ${nf(S.pwr.area, 1)} m².`,
       `Mission length ${days(S.dur)} days. Load ${nf(S.pwr.load)} W, battery ${nf(S.pwr.cap, 1)} kWh, solar array ${nf(S.pwr.area, 1)} m².`), M, y + 2, W - 2 * M, 25, sans(400, 17), MUTED);
     y = section(c, L('Senaryolar', 'Scenarios'), y + 22);
@@ -5068,29 +5218,88 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
   function build() { const a = AS.analyze('A'), b = AS.analyze('B'); return [pageOne(a, b, 2), pageTwo(a, b, 2)]; }
 
   /* ---------- PDF ---------- */
-  // A minimal PDF 1.4 file: every page is one full-page JPEG. Returns a Blob.
+  function decodeBase64(value) {
+    const bin = atob(value), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  function unicodeHex(value) {
+    let hex = '';
+    for (let i = 0; i < value.length; i++) hex += value.charCodeAt(i).toString(16).padStart(4, '0');
+    return hex;
+  }
+
+  // Preserve the page artwork and add exact Unicode text at the original drawing positions.
+  // The embedded OFL font and ToUnicode map make selection independent of installed fonts.
   function toPDF(pages) {
+    const font = window.REPORT_FONT;
+    if (!font) throw new Error('Report text font is unavailable.');
+    const chars = [...new Set(pages.flatMap(page => (page.reportTextRuns || []).flatMap(run => [...run.text])))];
+    const codes = new Map(chars.map((char, i) => [char, i + 1]));
+    const widths = chars.map(char => {
+      const glyph = font.glyphs[char.codePointAt(0)];
+      return Math.round((glyph ? glyph[1] : font.unitsPerEm * 0.6) * 1000 / font.unitsPerEm);
+    });
+    const glyphMap = new Uint8Array((chars.length + 1) * 2);
+    chars.forEach((char, i) => {
+      const glyph = font.glyphs[char.codePointAt(0)], id = glyph ? glyph[0] : 0;
+      glyphMap[(i + 1) * 2] = id >> 8;
+      glyphMap[(i + 1) * 2 + 1] = id & 255;
+    });
+    let cmap = '/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /AstroApexUnicode def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n';
+    for (let i = 0; i < chars.length; i += 100) {
+      const group = chars.slice(i, i + 100);
+      cmap += group.length + ' beginbfchar\n';
+      group.forEach((char, j) => { cmap += '<' + (i + j + 1).toString(16).padStart(4, '0') + '> <' + unicodeHex(char) + '>\n'; });
+      cmap += 'endbfchar\n';
+    }
+    cmap += 'endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend';
+
     const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
     const push = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
     const open = n => { offs[n] = len; push(n + ' 0 obj\n'); }, close = () => push('\nendobj\n');
+    const stream = (id, data, extra) => {
+      const bytes = typeof data === 'string' ? enc.encode(data) : data;
+      open(id); push('<< /Length ' + bytes.length + (extra || '') + ' >>\nstream\n'); push(bytes); push('\nendstream'); close();
+    };
     const PW = 595.28, PH = 841.89, count = pages.length, kids = pages.map((_, i) => (3 + i * 3) + ' 0 R').join(' ');
-    push('%PDF-1.4\n'); push(new Uint8Array([37, 226, 227, 207, 211, 10])); // binary marker line
-    open(1); push('<< /Type /Catalog /Pages 2 0 R >>'); close();
-    open(2); push(`<< /Type /Pages /Kids [${kids}] /Count ${count} >>`); close();
+    const fontId = 3 + count * 3, cidId = fontId + 1, descId = fontId + 2, fileId = fontId + 3, cmapId = fontId + 4, glyphId = fontId + 5, info = fontId + 6;
+    push('%PDF-1.4\n'); push(new Uint8Array([37, 226, 227, 207, 211, 10]));
+    open(1); push('<< /Type /Catalog /Pages 2 0 R /Lang (' + (pages[0].reportLanguage === 'tr' ? 'tr-TR' : 'en-US') + ') >>'); close();
+    open(2); push('<< /Type /Pages /Kids [' + kids + '] /Count ' + count + ' >>'); close();
     pages.forEach((cv, i) => {
-      const pg = 3 + i * 3, bin = atob(cv.toDataURL('image/jpeg', 0.9).split(',')[1]), jpg = new Uint8Array(bin.length);
-      for (let j = 0; j < bin.length; j++) jpg[j] = bin.charCodeAt(j);
-      const content = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
-      open(pg); push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${pg + 2} 0 R >> >> /Contents ${pg + 1} 0 R >>`); close();
-      open(pg + 1); push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`); close();
-      open(pg + 2); push(`<< /Type /XObject /Subtype /Image /Width ${cv.width} /Height ${cv.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`); push(jpg); push('\nendstream'); close();
+      const pg = 3 + i * 3, jpg = decodeBase64(cv.toDataURL('image/jpeg', 0.9).split(',')[1]);
+      let content = 'q ' + PW + ' 0 0 ' + PH + ' 0 0 cm /Im0 Do Q\n';
+      for (const run of cv.reportTextRuns || []) {
+        if (!run.text || !run.width) continue;
+        const ids = [...run.text].map(char => codes.get(char));
+        const advance = ids.reduce((sum, id) => sum + widths[id - 1], 0) / 1000;
+        const size = run.size * PW / W, x = run.x * PW / W, y = PH - run.y * PH / H;
+        const stretch = run.width / (advance * run.size) * 100;
+        const hex = ids.map(id => id.toString(16).padStart(4, '0')).join('');
+        content += 'BT /F0 ' + size.toFixed(4) + ' Tf 3 Tr ' + stretch.toFixed(4) + ' Tz 1 0 0 1 ' + x.toFixed(4) + ' ' + y.toFixed(4) + ' Tm <' + hex + '> Tj ET\n';
+      }
+      open(pg); push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /XObject << /Im0 ' + (pg + 2) + ' 0 R >> /Font << /F0 ' + fontId + ' 0 R >> >> /Contents ' + (pg + 1) + ' 0 R >>'); close();
+      stream(pg + 1, content);
+      stream(pg + 2, jpg, ' /Type /XObject /Subtype /Image /Width ' + cv.width + ' /Height ' + cv.height + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode');
     });
-    const info = 3 + count * 3, xref = (open(info), push('<< /Title (AstroApex Mission Report) /Creator (AstroApex) >>'), close(), len);
-    push(`xref\n0 ${info + 1}\n0000000000 65535 f \n`);
+    open(fontId); push('<< /Type /Font /Subtype /Type0 /BaseFont /' + font.name + ' /Encoding /Identity-H /DescendantFonts [' + cidId + ' 0 R] /ToUnicode ' + cmapId + ' 0 R >>'); close();
+    open(cidId); push('<< /Type /Font /Subtype /CIDFontType2 /BaseFont /' + font.name + ' /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ' + descId + ' 0 R /DW 600 /W [1 [' + widths.join(' ') + ']] /CIDToGIDMap ' + glyphId + ' 0 R >>'); close();
+    const scale = n => Math.round(n * 1000 / font.unitsPerEm);
+    open(descId); push('<< /Type /FontDescriptor /FontName /' + font.name + ' /Flags 33 /FontBBox [' + font.bbox.map(scale).join(' ') + '] /ItalicAngle 0 /Ascent ' + scale(font.ascent) + ' /Descent ' + scale(font.descent) + ' /CapHeight 700 /StemV 80 /FontFile2 ' + fileId + ' 0 R >>'); close();
+    const fontBytes = decodeBase64(font.bytes);
+    stream(fileId, fontBytes, ' /Length1 ' + fontBytes.length);
+    stream(cmapId, cmap);
+    stream(glyphId, glyphMap);
+    open(info); push('<< /Title (AstroApex Mission Report) /Creator (AstroApex) >>'); close();
+    const xref = len;
+    push('xref\n0 ' + (info + 1) + '\n0000000000 65535 f \n');
     for (let n = 1; n <= info; n++) push(String(offs[n]).padStart(10, '0') + ' 00000 n \n');
-    push(`trailer\n<< /Size ${info + 1} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    push('trailer\n<< /Size ' + (info + 1) + ' /Root 1 0 R /Info ' + info + ' 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
     return new Blob(parts, { type: 'application/pdf' });
   }
+
   function download(pages) {
     const a = document.createElement('a'), d = new Date().toISOString().slice(0, 10);
     a.href = URL.createObjectURL(toPDF(pages)); a.download = `AstroApex_${L('gorev_raporu', 'mission_report')}_${d}.pdf`;
@@ -5098,13 +5307,86 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
+  function transcript(a, b) {
+    const details = document.createElement('details');
+    details.className = 'rep-transcript';
+    const summary = document.createElement('summary');
+    summary.textContent = L('Raporu metin ve tablo olarak oku', 'Read the report as text and table');
+    details.appendChild(summary);
+    const body = document.createElement('div');
+    const add = (tag, content, parent) => {
+      const node = document.createElement(tag);
+      node.textContent = content;
+      (parent || body).appendChild(node);
+      return node;
+    };
+    const pick = AS.recommend(a, b);
+    add('h3', L('Görev karşılaştırması', 'Mission comparison'));
+    add('p', pick.status === 'none'
+      ? L('Hiçbir senaryo ön değerlendirme koşullarını birlikte karşılamıyor.', 'Neither scenario meets the preliminary conditions together.')
+      : pick.lead ? L('Ön değerlendirmede öne çıkan: ', 'Preliminary preference: ') + pick.lead.k + ' · ' + pick.lead.name
+        : L('İki uygun senaryo aynı skoru alıyor.', 'Both eligible scenarios have the same score.'));
+    const table = document.createElement('table');
+    const caption = document.createElement('caption');
+    caption.textContent = L('İki senaryonun sayısal özeti', 'Numerical summary of both scenarios');
+    table.appendChild(caption);
+    const head = table.createTHead().insertRow();
+    [L('Ölçüm', 'Measure'), a.k + ' · ' + a.name, b.k + ' · ' + b.name].forEach(value => {
+      const th = add('th', value, head); th.scope = 'col';
+    });
+    const rows = [
+      [L('Koordinatlar', 'Coordinates'), x => AA.fmtCoord(x.sc.lat, x.sc.lon)],
+      [L('Başlangıç (UTC)', 'Start (UTC)'), x => AA.fmtDate(x.sc.start)],
+      [L('Görev süresi', 'Mission duration'), () => days(S.dur) + ' ' + t('days')],
+      [L('Ufuk kaynağı', 'Horizon source'), x => x.hz === 'lola80' ? 'LOLA 80 m' : x.hz === 'lola480' ? 'LOLA 480 m' : L('Sabit açı ', 'Fixed angle ') + x.sc.mask + '°'],
+      [L('Konum hesabı', 'Ephemeris'), x => x.src === 'spice' ? 'NASA SPICE / DE440' : x.src === 'ae' ? 'astronomy-engine' : 'NASA SPICE / astronomy-engine'],
+      [t('score'), x => x.score + ' / 100'],
+      [L('Güneş görünür', 'Sun visible'), x => AA.fmtDur(x.stats.sun)],
+      [L('Dünya görünür', 'Earth visible'), x => AA.fmtDur(x.stats.earth)],
+      [L('Ortak görüş', 'Joint visibility'), x => AA.fmtDur(x.stats.both)],
+      [L('En uzun karanlık', 'Longest darkness'), x => AA.fmtDur(x.stats.dark)],
+      [L('En uzun iletişim kesintisi', 'Longest communication outage'), x => AA.fmtDur(x.stats.nocomm)],
+      [L('Ortalama eğim', 'Mean slope'), x => slopeDescription(x.f)],
+      [L('Batarya boş kalma süresi', 'Time with an empty battery'), x => x.pw ? AA.fmtDur(x.pw.emptyH) : '—'],
+      [L('En düşük batarya doluluğu', 'Minimum battery charge'), x => x.pw ? nf(x.pw.min * 100, 1) + '%' : '—'],
+      [L('Gereken batarya', 'Required battery capacity'), x => x.pw ? nf(Math.ceil(x.pw.need * 10) / 10, 1) + ' kWh' : '—']
+    ];
+    const tbody = table.createTBody();
+    rows.forEach(([label, value]) => {
+      const tr = tbody.insertRow(), th = add('th', label, tr); th.scope = 'row';
+      add('td', value(a), tr); add('td', value(b), tr);
+    });
+    body.appendChild(table);
+    add('p', L('Donanım varsayımları: ', 'Hardware assumptions: ') + nf(S.pwr.load) + ' W · ' + nf(S.pwr.cap, 1) + ' kWh · ' + nf(S.pwr.area, 1) + ' m²');
+    [a, b].forEach(item => {
+      add('h4', item.k + ' · ' + item.name);
+      const assessment = (pick.assessments || []).find(x => x.k === item.k);
+      if (assessment) {
+        assessment.reasons.forEach(reason => add('p', reason.text));
+        if (assessment.qualification) add('p', assessment.qualification);
+      }
+      const list = document.createElement('ul');
+      [...item.pros, ...item.cons].forEach(value => add('li', value, list));
+      body.appendChild(list);
+    });
+    add('h4', L('Grafikler ve yöntem', 'Charts and method'));
+    add('p', L('İkinci sayfa Güneş ve Dünya merkezlerinin yerel ufka göre yüksekliğini ve batarya doluluğunu görev boyunca gösterir. Negatif Güneş merkezi yüksekliğinde diskin bir kısmı hâlâ görünebilir.',
+      'Page two shows Sun and Earth centre elevations relative to the local horizon and battery charge throughout the mission. Part of the solar disc may remain visible at a negative centre elevation.'));
+    add('p', L('480 m arazi ızgarası dar sırtları ve küçük kraterleri kaçırabilir. Kaba küresel eğim, 3×3 hücrenin ortalamasıdır (ekvatorda hücre başına yaklaşık 7,6 km). Doğrudan Dünya görüşü geometrik bir fırsattır; bağlantı bütçesi ayrıca incelenmelidir. Puan, sıcaklık ve yakıt sonuçları ön tasarım tahminleridir.',
+      'The 480 m terrain grid can miss narrow ridges and small craters. Coarse global slope is a 3×3-cell mean (about 7.6 km per cell at the equator). Direct Earth visibility is a geometric opportunity; the radio link budget needs a separate assessment. Score, temperature and fuel results are preliminary design estimates.'));
+    details.appendChild(body);
+    return details;
+  }
+
+
+
   /* ---------- dialog ---------- */
   let modal = null, pages = null, prevFocus = null;
   function keys(e) {
     if (!modal) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
     if (e.key === 'Tab') {
-      const f = [...modal.querySelectorAll('button, .rep-pages')].filter(b => !b.disabled && b.getClientRects().length), first = f[0], last = f[f.length - 1];
+      const f = [...modal.querySelectorAll('button, .rep-pages, summary')].filter(b => !b.disabled && b.getClientRects().length), first = f[0], last = f[f.length - 1];
       if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
       else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
@@ -5135,6 +5417,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     try {
       pages = build(); holder.innerHTML = '';
       pages.forEach((cv, i) => { cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', t('rep_page', { n: i + 1 })); holder.appendChild(cv); });
+      holder.appendChild(transcript(AS.analyze('A'), AS.analyze('B')));
     } catch (err) { pages = null; holder.innerHTML = `<p class="hint">${t('rep_err')}</p>`; modal.querySelector('#pdf-dl').disabled = true; }
   }
   function close() {
@@ -5171,21 +5454,55 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     tex: null, spin: 0, speed: 0, target: 0, last: 0, lastShift: -1 };
   const SPIN = 4096 / 170; // texture columns per second at full speed: one turn in about 170 s
 
+  function downsample(source, next) {
+    for (let y = 0; y < next.h; y++) for (let x = 0; x < next.w; x++) {
+      const top = 2 * (y * source.w + x), bottom = top + source.w;
+      next.g[y * next.w + x] = (source.g[top] + source.g[top + 1] + source.g[bottom] + source.g[bottom + 1]) * 0.25;
+    }
+  }
+
   function buildMipLevels(tex) {
     const levels = [tex];
     let source = tex;
-    // The embedded map and NASA fallback tiles have power-of-two dimensions.
-    // Stop at one row so longitude wraps while latitude always clamps at the poles.
+    // Embedded and fallback NASA maps have power-of-two dimensions.
     while (source.w > 1 && source.h > 1) {
-      const w = Math.max(1, source.w >> 1), h = Math.max(1, source.h >> 1);
-      const g = new Float32Array(w * h);
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const top = y * 2 * source.w + x * 2, bottom = top + source.w;
-        g[y * w + x] = (source.g[top] + source.g[top + 1] + source.g[bottom] + source.g[bottom + 1]) * 0.25;
-      }
-      source = { g, w, h };
-      levels.push(source);
+      const w = source.w >> 1, h = source.h >> 1;
+      const next = { w, h, g: new Float32Array(w * h) };
+      downsample(source, next);
+      levels.push(next);
+      source = next;
     }
+    if (levels.length <= 5) return levels;
+    // Strengthen the 4..32-source-pixel band of photographed crater detail.
+    // Fine-scale noise falls outside this band.
+    const fine = levels[2], broad = levels[5], band = new Float32Array(fine.g.length);
+    for (let y = 0; y < fine.h; y++) for (let x = 0; x < fine.w; x++) {
+      const i = y * fine.w + x;
+      const delta = fine.g[i] - sampleMip(broad, (x + 0.5) / fine.w, (y + 0.5) / fine.h);
+      band[i] = Math.max(-22, Math.min(22, delta * 0.70));
+    }
+    // Expand the signed detail field bilinearly, using one interpolated scanline.
+    // The extra endpoint repeats the first column at the longitude seam.
+    const rows = new Float32Array(fine.w + 1), column = new Uint16Array(tex.w), weight = new Float32Array(tex.w);
+    for (let x = 0; x < tex.w; x++) {
+      const u = (x + 0.5) / 4 - 0.5, i = Math.floor(u);
+      column[x] = (i + fine.w) % fine.w; weight[x] = u - i;
+    }
+    const enhanced = new Uint8ClampedArray(tex.g.length);
+    for (let y = 0; y < tex.h; y++) {
+      const v = Math.min(fine.h - 1, Math.max(0, (y + 0.5) / 4 - 0.5)), j = Math.floor(v);
+      const top = j * fine.w, bottom = Math.min(j + 1, fine.h - 1) * fine.w, t = v - j;
+      for (let x = 0; x < fine.w; x++) rows[x] = band[top + x] * (1 - t) + band[bottom + x] * t;
+      rows[fine.w] = rows[0];
+      const start = y * tex.w;
+      for (let x = 0; x < tex.w; x++) {
+        const i = column[x], a = rows[i];
+        enhanced[start + x] = tex.g[start + x] + a + (rows[i + 1] - a) * weight[x];
+      }
+    }
+    // Keep the source map unchanged; every decorative mip derives from the same image.
+    levels[0] = { ...tex, g: enhanced };
+    for (let l = 1; l < levels.length; l++) downsample(levels[l - 1], levels[l]);
     return levels;
   }
 
@@ -5202,7 +5519,7 @@ window.GLOBAL_DATA = {"source":"NASA LOLA GDR LDEM_16 and LDEM_75N_240M \u00b7 N
     // Axis tilt: roll about the view axis, then pitch toward the viewer.
     const roll = -0.36, pitch = 0.3, cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
     const uScale = tw / (2 * Math.PI * rad), vScale = th / (Math.PI * rad);
-    let lx = -0.62, ly = 0.42, lz = 0.66; const ll = Math.hypot(lx, ly, lz); lx /= ll; ly /= ll; lz /= ll;
+    let lx = -0.73, ly = 0.40, lz = 0.55; const ll = Math.hypot(lx, ly, lz); lx /= ll; ly /= ll; lz /= ll;
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const x = (i + 0.5 - half) / rad, y = (half - j - 0.5) / rad, s2 = x * x + y * y;
       if (s2 >= 1) continue;
