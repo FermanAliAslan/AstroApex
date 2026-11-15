@@ -1,8 +1,10 @@
 """Exercise the compiled C/Lua planner without reading or replacing a saved result."""
 import json
 import os
+import socket
 import subprocess
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -100,6 +102,15 @@ class BackendCLI(unittest.TestCase):
         self.calculate(success=False)
         self.assertEqual(self.output.read_bytes(), previous)
 
+    def test_escaped_json_keys(self):
+        # The decoder must interpret keys normally after removing its persistent cache.
+        self.input.write_text(json.dumps(self.request).replace('"site"', '"si\\u0074e"'))
+        proc = self.invoke()
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        response = json.loads(self.output.read_text())
+        self.assertEqual(response["status"], "SUCCESS")
+        self.assertEqual(len(response["samples"]), 336)
+
     @unittest.skipIf(os.geteuid() == 0, "directory permissions require an unprivileged account")
     def test_save_failure_preserves_previous_output(self):
         self.calculate()
@@ -115,6 +126,110 @@ class BackendCLI(unittest.TestCase):
             self.assertEqual(self.output.read_bytes(), previous)
         finally:
             self.data.chmod(0o755)
+
+
+class BackendHTTP(unittest.TestCase):
+    """Bounded local fixtures for HTTP framing and connection deadlines."""
+
+    @classmethod
+    def setUpClass(cls):
+        with socket.socket() as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                probe.bind(("127.0.0.1", 8080))
+            except OSError:
+                raise unittest.SkipTest("port 8080 is already in use")
+        cls.proc = subprocess.Popen(
+            [str(BINARY)], cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        cls.addClassCleanup(cls.stop_server)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if cls.proc.poll() is not None:
+                stdout, stderr = cls.proc.communicate()
+                raise RuntimeError((stdout + stderr).decode(errors="replace"))
+            try:
+                with socket.create_connection(("127.0.0.1", 8080), timeout=0.2):
+                    return
+            except OSError:
+                time.sleep(0.05)
+        raise RuntimeError("native HTTP server did not start")
+
+    @classmethod
+    def stop_server(cls):
+        cls.proc.terminate()
+        try:
+            cls.proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            cls.proc.kill()
+            cls.proc.communicate()
+
+    def receive(self, connection):
+        chunks = []
+        while True:
+            chunk = connection.recv(65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks)
+
+    def request(self, parts):
+        with socket.create_connection(("127.0.0.1", 8080), timeout=10) as connection:
+            for part in parts:
+                connection.sendall(part)
+            return self.receive(connection)
+
+    def assert_server_available(self):
+        response = self.request([b"OPTIONS /api/calculate HTTP/1.1\r\nHost: localhost\r\n\r\n"])
+        self.assertTrue(response.startswith(b"HTTP/1.1 204"), response[:100])
+
+    def test_complete_json_request(self):
+        data = (ROOT / "data/input.json").read_bytes()
+        header = (f"POST /api/calculate HTTP/1.1\r\nHost: localhost\r\n"
+                  f"Content-Length: {len(data)}\r\n\r\n").encode()
+        response = self.request([header, data[:12], data[12:]])
+        header, body = response.split(b"\r\n\r\n", 1)
+        self.assertTrue(header.startswith(b"HTTP/1.1 200"), header)
+        self.assertEqual(json.loads(body)["status"], "SUCCESS")
+
+    def test_incomplete_header_deadline(self):
+        started = time.monotonic()
+        response = self.request([b"POST /api/calculate HTTP/1.1\r\n"])
+        self.assertTrue(response.startswith(b"HTTP/1.1 408"), response[:100])
+        self.assertLess(time.monotonic() - started, 8)
+        self.assert_server_available()
+
+    def test_body_uses_same_absolute_deadline(self):
+        with socket.create_connection(("127.0.0.1", 8080), timeout=10) as connection:
+            started = time.monotonic()
+            connection.sendall(b"POST /api/calculate HTTP/1.1\r\nHost: localhost\r\n")
+            time.sleep(2)
+            connection.sendall(b"Content-Length: 2\r\n\r\n{")
+            response = self.receive(connection)
+        self.assertTrue(response.startswith(b"HTTP/1.1 408"), response[:100])
+        self.assertLess(time.monotonic() - started, 6.5)
+        self.assert_server_available()
+
+    def test_response_deadline_allows_next_request(self):
+        # A legitimate fine-step result can exceed the socket's output buffer.
+        # Stop consuming that response and check the next request still completes.
+        request = json.loads((ROOT / "data/input.json").read_text())
+        request["time_range"].update(start_utc="2026-06-01T00:00:00Z",
+                                     end_utc="2026-06-14T00:00:00Z", step_seconds=60)
+        data = json.dumps(request).encode()
+        header = (f"POST /api/calculate HTTP/1.1\r\nHost: localhost\r\n"
+                  f"Content-Length: {len(data)}\r\n\r\n").encode()
+        with socket.socket() as unread:
+            unread.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
+            unread.settimeout(10)
+            unread.connect(("127.0.0.1", 8080))
+            unread.sendall(header + data)
+            self.assertTrue(unread.recv(256).startswith(b"HTTP/1.1 200"))
+            # Receiving the header establishes that calculation has finished.
+            time.sleep(5.5)
+            started = time.monotonic()
+            self.assert_server_available()
+            self.assertLess(time.monotonic() - started, 2)
 
 
 if __name__ == "__main__":

@@ -23,8 +23,9 @@
   const H = 3600000, DAY = 86400000;
   const L = (tr, en) => S.lang === 'tr' ? tr : en;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const hrs = v => nf(v) + ' ' + t('h');
-  const pct = v => nf(v) + '%';
+  const hrs = v => AA.fmtDur(v);
+  const percentNumber = v => v > 0 && v < 0.5 ? '<1' : v >= 99.5 && v < 100 ? '<100' : nf(v);
+  const pct = v => percentNumber(v) + '%';
   const date = (ms, time) => AA.fmtDate(ms, time !== false);
 
   /* ================= analysis (pure) ================= */
@@ -71,12 +72,12 @@
     const { parts, score } = scoreParts(pSun, pEarth, s.dark, d.sunUp[0], d.sunEl[0], tc, f, sc.lat);
     const dv = descentDv(tc, parts.light, f), frac = propFrac(dv);
     const pros = [], cons = [], P = pSun * 100, E = pEarth * 100;
-    if (P >= 95) pros.push(t('pc_sun_full', { p: nf(P) }));
-    else if (P < 50) cons.push(t('pc_sun_low', { p: nf(P), d: nf(s.dark) }));
-    else cons.push(t('pc_sun_mid', { p: nf(P), d: nf(s.dark) }));
-    if (E >= 99.5) pros.push(t('pc_earth_full'));
-    else if (E < 0.5) cons.push(t('pc_earth_none'));
-    else (E >= 60 ? pros : cons).push(t('pc_earth_part', { p: nf(E), d: nf(s.nocomm) }));
+    if (P >= 95) pros.push(t('pc_sun_full', { p: percentNumber(P) }));
+    else if (P < 50) cons.push(t('pc_sun_low', { p: percentNumber(P), d: hrs(s.dark) }));
+    else cons.push(t('pc_sun_mid', { p: percentNumber(P), d: hrs(s.dark) }));
+    if (s.nocomm <= 0) pros.push(t('pc_earth_full'));
+    else if (s.earth <= 0) cons.push(t('pc_earth_none'));
+    else (E >= 60 ? pros : cons).push(t('pc_earth_part', { p: percentNumber(E), d: hrs(s.nocomm) }));
     if (s.both / s.total > 0.5) pros.push(t('pc_both', { h: nf(s.both) }));
     if (!d.sunUp[0]) cons.push(t('pc_darkland'));
     if (s.maxEl < 5) cons.push(t('pc_lowsun', { e: nf(Math.max(0, s.maxEl), 1) }));
@@ -98,18 +99,49 @@
     else if (tc === 'mare') pros.push(t('pc_mare'));
     else if (tc === 'highland') cons.push(t('pc_highland'));
     else cons.push(t('pc_unknown'));
-    if (d.pw && d.pw.state === 'bad') cons.unshift(t('pc_batt_bad', { h: nf(d.pw.emptyH, d.pw.emptyH < 100 ? 1 : 0), c: nf(d.pw.need, 1) }));
+    const pw = d.pw || AA.powerSim(d, S.pwr);
+    if (pw.state === 'bad') cons.unshift(t('pc_batt_bad', { h: hrs(pw.emptyH), c: nf(pw.need, 1) }));
     if (site && site.her) pros.push(t('pc_heritage'));
-    return { k: null, name: site ? site.name : t('custom'), score, parts, dv, frac, tc, pros, cons, lola: AA.hasTerrain(sc), hz: d.hz || AA.horizonSrc(sc), sc, stats: s, src: d.src, f, pw: d.pw || null };
+    return { k: null, name: site ? site.name : t('custom'), score, parts, dv, frac, tc, pros, cons, lola: AA.hasTerrain(sc), hz: d.hz || AA.horizonSrc(sc), sc, stats: s, src: d.src, f, pw };
   }
   const analyze = k => Object.assign(evaluate(S.sc[k], S.data[k]), { k });
-  // Which scenario to recommend. The score describes the place and the date; the chosen battery is a hard
-  // constraint on top of it: a scenario whose battery runs empty is not recommended over one that survives.
+  // Eligibility is a preliminary screen for this direct-to-Earth mission model.
+  // Passing it still requires finer terrain and communications engineering.
+  function eligibility(a) {
+    const reasons = [];
+    const slope = a.f && (a.f.slope || a.f.coarse);
+    if (a.pw && a.pw.emptyH > 0) reasons.push({
+      code: 'battery_empty',
+      text: L('Batarya ' + hrs(a.pw.emptyH) + ' boş kalıyor.', 'The battery is empty for ' + hrs(a.pw.emptyH) + '.')
+    });
+    if (a.stats.earth <= 0) reasons.push({
+      code: 'no_earth_contact',
+      text: L('Görev boyunca doğrudan Dünya görüşü yok.', 'No direct Earth visibility during the mission.')
+    });
+    if (slope && Number.isFinite(slope.mean) && slope.mean > 15) reasons.push({
+      code: 'steep_slope',
+      text: L('Ortalama eğim ' + nf(slope.mean, 1) + '°; 15° ön değerlendirme sınırını aşıyor.',
+        'Mean slope is ' + nf(slope.mean, 1) + '°, above the 15° preliminary screening limit.')
+    });
+    const qualification = L(
+      'Bu kontrol seçili batarya, en az bir Dünya görüş penceresi ve bilinen eğime dayanır. Arazi çözünürlüğü, yerel engeller ve radyo bağlantısı ayrıca doğrulanmalıdır.',
+      'This screen uses the selected battery, at least one Earth-visibility window and known slope. Terrain resolution, local hazards and the radio link need further verification.'
+    );
+    return { eligible: reasons.length === 0, reasons, qualification };
+  }
+
   function recommend(a, b) {
-    const bad = x => !!(x.pw && x.pw.state === 'bad');
-    let lead = a.score === b.score ? null : a.score > b.score ? a : b, forced = false;
-    if (bad(a) !== bad(b)) { const ok = bad(a) ? b : a; forced = lead !== ok && lead !== null; lead = ok; }
-    return { lead, other: lead === a ? b : a, forced, bothBad: bad(a) && bad(b) };
+    const assessments = [a, b].map(item => ({ k: item.k, name: item.name, ...eligibility(item) }));
+    const valid = [a, b].filter((item, i) => assessments[i].eligible);
+    const scoreLead = a.score === b.score ? null : a.score > b.score ? a : b;
+    const lead = valid.length === 1 ? valid[0] : valid.length === 2 ? scoreLead : null;
+    return {
+      lead, other: lead === a ? b : a,
+      forced: !!lead && lead !== scoreLead,
+      bothBad: !!(a.pw && b.pw && a.pw.emptyH > 0 && b.pw.emptyH > 0),
+      status: valid.length === 0 ? 'none' : lead ? 'eligible' : 'tie',
+      qualified: valid.length > 0, assessments
+    };
   }
   const scoreClass = v => v >= 65 ? 'good' : v >= 40 ? 'mid' : 'bad';
 
@@ -152,11 +184,15 @@
   };
 
   function parse(q) {
-    const x = norm(q), e = { x, scen: [], site: null, days: null, shift: null, date: null, mass: null, watts: null, isp: null, body: null };
+    const x = norm(q), e = { x, scen: [], site: null, days: null, shift: null, date: null, invalidDate: false, mass: null, watts: null, isp: null, body: null };
     // scenarios A / B
     // In English "a" is also the article, so there the scenario needs a cue word or a capital A before a non-noun.
     const hasA = S.lang === 'en'
-      ? /\b(site|scenario|for|of|and|vs|to|is|compare|analy[sz]e|with)\s+a\b(?!\s+(?!(?:and|or|vs|versus|with)\b)[a-z]{3,})/i.test(q) || /\bA\b(?!\s+(?!(?:and|or|vs|versus|with)\b)[a-z])/.test(q)
+      ? /\b(?:site|scenario|plan)\s+a\b/i.test(q)
+        || Array.from(q.matchAll(/\b(?:for|of|and|vs|to|compare|analy[sz]e|with|delay|postpone|move|shift|reschedule|start|extend|shorten)\s+(a)\b/gi)).some(match => match[1] === 'A')
+        || /\ba\s+(?:and|or|vs|versus|with)\s+b\b/i.test(q)
+        || /\bA['’]s\b/.test(q)
+        || /^\s*A\s*(?:[?.,:]|$)/.test(q)
       : /(^|[^a-z0-9])a($|[^a-z0-9])|senaryo a|scenario a/.test(x);
     if (hasA) e.scen.push('A');
     if (/(^|[^a-z0-9])b($|[^a-z0-9])|senaryo b|scenario b/.test(x)) e.scen.push('B');
@@ -172,20 +208,28 @@
     // duration
     const WORDS = Object.assign({ two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, fourteen: 14, twenty: 20, thirty: 30,
       iki: 2, uc: 3, dort: 4, bes: 5, alti: 6, yedi: 7, sekiz: 8, dokuz: 9, yirmi: 20, otuz: 30 }, S.lang === 'en' ? { one: 1, a: 1, an: 1 } : { bir: 1, on: 10 });
-    const xd = x.replace(new RegExp('(^|[^a-z0-9])(' + Object.keys(WORDS).join('|') + ')\\s+(?=gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)', 'g'), (s, p, w) => p + WORDS[w] + ' ');
+    const durationText = x.replace(/[-‐‑–](?=day|week|month|gun|hafta|aylik)/g, ' ');
+    const xd = durationText.replace(new RegExp('(^|[^a-z0-9])(' + Object.keys(WORDS).join('|') + ')\\s+(?=gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)', 'g'), (s, p, w) => p + WORDS[w] + ' ');
     let m = xd.match(/(\d+(?:[.,]\d+)?)\s*(gunluk|gun|day|hafta|week|aylik|ay(?![a-z])|month)/);
     if (m) { const v = num(m[1]); e.days = /^(hafta|week)/.test(m[2]) ? v * 7 : /^(ay|month)/.test(m[2]) ? v * 29.5 : v; }
     // "delay / postpone / ertele ... N days" moves the start and keeps the mission length
     const later = /ertele|otele|gecik|kaydir|sonraya|\bdelay|postpone|\bslip|push(ed)? back|\blater\b/.test(x), sooner = /one al|one cek|erkene|\bearlier\b|bring forward|move up/.test(x);
     if ((later || sooner) && e.days != null) { e.shift = (sooner ? -1 : 1) * e.days; e.days = null; }
-    // date: 2027-03-15, 15.03.2027, "15 mart 2027", "march 15 2027", "mart 2027"
-    if ((m = x.match(/(20\d\d)-(\d{1,2})-(\d{1,2})/))) e.date = Date.UTC(+m[1], +m[2] - 1, +m[3]);
-    else if ((m = x.match(/(\d{1,2})[./](\d{1,2})[./](20\d\d)/))) e.date = Date.UTC(+m[3], +m[2] - 1, +m[1]);
+    // Round-trip date fields so impossible dates never silently roll into another month.
+    const setDate = (year, month, day) => {
+      const value = Date.UTC(year, month - 1, day);
+      const date = new Date(value);
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+        e.invalidDate = true;
+      } else e.date = value;
+    };
+    if ((m = x.match(/(20\d\d)-(\d{1,2})-(\d{1,2})/))) setDate(+m[1], +m[2], +m[3]);
+    else if ((m = x.match(/(\d{1,2})[./](\d{1,2})[./](20\d\d)/))) setDate(+m[3], +m[2], +m[1]);
     else MONTHS.forEach((names, mi) => {
-      if (e.date) return;
+      if (e.date !== null || e.invalidDate) return;
       const r = new RegExp('(?:(\\d{1,2})\\s+)?(?:' + names + ')[a-z]*(?:\\s+(\\d{1,2}))?,?\\s+(20\\d\\d)');
       const mm = x.match(r);
-      if (mm) e.date = Date.UTC(+mm[3], mi, +(mm[1] || mm[2] || 1));
+      if (mm) setDate(+mm[3], mi + 1, +(mm[1] || mm[2] || 1));
     });
     if ((m = x.match(/(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(kg|ton)\b/))) e.mass = num(m[1]) * (m[2] === 'ton' ? 1000 : 1);
     if ((m = x.match(/(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(kw|w|watt)\b/))) e.watts = num(m[1]) * (m[2] === 'kw' ? 1000 : 1);
@@ -234,19 +278,21 @@
   }
   const scenarioFor = (site, start) => { const sc = { site: site.id, lat: site.lat, lon: site.lon, start, mask: 0 }; if (AA.terrainOK(sc)) sc.mask = 'lola'; return sc; };
 
-  // Slide a dur-day mission over the next 365 days (1-day steps, hourly samples) and score every start date.
+  // Slide a dur-day mission over the next 365 days using the scenario's sample interval.
   function scanDates(sc, dur) {
-    const span = 365, n = Math.round(dur * 24), d = sim(sc, span + dur, 60), tc = terrainClass(sc), f = AA.facts(sc);
+    const span = 365, step = AA.stepMin(dur), samplesPerDay = 1440 / step;
+    const n = Math.round(dur * samplesPerDay), dtH = step / 60;
+    const d = sim(sc, span + dur, step), tc = terrainClass(sc), f = AA.facts(sc);
     const pS = new Int32Array(d.n + 1), pE = new Int32Array(d.n + 1), pB = new Int32Array(d.n + 1);
     for (let i = 0; i < d.n; i++) { pS[i + 1] = pS[i] + d.sunUp[i]; pE[i + 1] = pE[i] + d.earthUp[i]; pB[i + 1] = pB[i] + d.both[i]; }
     const out = [];
     for (let day = 0; day < span; day++) {
-      const i0 = day * 24, i1 = i0 + n;
+      const i0 = day * samplesPerDay, i1 = i0 + n;
       let dark = 0, run = 0;
       for (let i = i0; i < i1; i++) { if (d.sunUp[i]) run = 0; else if (++run > dark) dark = run; }
       const sun = pS[i1] - pS[i0], earth = pE[i1] - pE[i0], both = pB[i1] - pB[i0];
-      const { score } = scoreParts(sun / n, earth / n, dark, d.sunUp[i0], d.sunEl[i0], tc, f, sc.lat);
-      out.push({ day, start: sc.start + day * DAY, sun, earth, both, dark, score, n });
+      const { score } = scoreParts(sun / n, earth / n, dark * dtH, d.sunUp[i0], d.sunEl[i0], tc, f, sc.lat);
+      out.push({ day, start: sc.start + day * DAY, sun: sun * dtH, earth: earth * dtH, both: both * dtH, dark: dark * dtH, score, n: n * dtH });
     }
     return out;
   }
@@ -261,7 +307,7 @@
   function rankSites(start, dur) {
     return SITES.map(site => {
       const sc = scenarioFor(site, start);
-      return Object.assign(evaluate(sc, sim(sc, dur, 60)), { site });
+      return Object.assign(evaluate(sc, sim(sc, dur, AA.stepMin(dur))), { site });
     }).sort((a, b) => b.score - a.score || b.stats.both - a.stats.both);
   }
 
@@ -293,7 +339,7 @@
 
   function compareAnswer() {
     const a = analyze('A'), b = analyze('B'), sa = a.stats, sb = b.stats;
-    const win = (x, y, lowerBetter) => Math.abs(x - y) < 0.5 ? '=' : ((x > y) !== !!lowerBetter ? 'A' : 'B');
+    const win = (x, y, lowerBetter) => Math.abs(x - y) < 1e-8 ? '=' : ((x > y) !== !!lowerBetter ? 'A' : 'B');
     let rows = [
       [t('score'), a.score, b.score, win(a.score, b.score)],
       [t('m_both'), hrs(sa.both), hrs(sb.both), win(sa.both, sb.both)],
@@ -307,37 +353,48 @@
     if (a.f.slope && b.f.slope) rows.push([t('m_slope'), nf(a.f.slope.mean, 1), nf(b.f.slope.mean, 1), win(a.f.slope.mean, b.f.slope.mean, true)]);
     if (a.f.trap && b.f.trap) rows.push([t('m_ice'), nf(a.f.trap.km, 1), nf(b.f.trap.km, 1), win(a.f.trap.km, b.f.trap.km, true)]);
     rows = rows.map(r => [esc(r[0]), r[1], r[2], r[3] === '=' ? '=' : `<b>${r[3]}</b>`]);
-    const wins = { A: 0, B: 0 }; rows.forEach(r => { const w = r[3].replace(/<[^>]+>/g, ''); if (wins[w] != null) wins[w]++; });
-    const pick = recommend(a, b), lead = pick.lead, other = pick.other;
+    const pick = recommend(a, b), lead = pick.lead;
     let verdict;
-    if (pick.forced) verdict = L(`Öneri: ${lead.k} · ${lead.name}. Skoru daha düşük (${lead.score}/100, diğeri ${other.score}/100), ama seçili batarya yalnızca burada dayanıyor: ${other.k} senaryosunda batarya ${nf(other.pw.emptyH, 1)} saat boş kalıyor. ${other.k} için en az ${nf(other.pw.need, 1)} kWh gerekir.`,
-      `Recommendation: ${lead.k} · ${lead.name}. It scores lower (${lead.score}/100 vs ${other.score}/100), but the chosen battery only survives here: in scenario ${other.k} it is empty for ${nf(other.pw.emptyH, 1)} h. ${other.k} would need at least ${nf(other.pw.need, 1)} kWh.`);
-    else if (!lead) verdict = L('İki senaryo aynı skoru alıyor; karar görev önceliğine bağlı.', 'Both scenarios score the same; the choice depends on mission priority.');
-    else {
-      const why = [];
-      if (lead.parts.power - other.parts.power > 8) why.push(L('daha fazla güneş (güç)', 'more sunlight (power)'));
-      if (lead.parts.comm - other.parts.comm > 8) why.push(L('daha uzun Dünya görüşü (iletişim)', 'longer Earth visibility (comms)'));
-      if (lead.parts.thermal - other.parts.thermal > 8) why.push(L('daha kısa karanlık', 'shorter darkness'));
-      if (lead.parts.light - other.parts.light > 8) why.push(L('inişte daha iyi ışık', 'better light at landing'));
-      if (lead.parts.terrain - other.parts.terrain > 8) why.push(L('daha düz, daha güvenli arazi', 'flatter, safer ground'));
-      if (lead.parts.ice - other.parts.ice > 8) why.push(L('buz tuzağına daha yakın', 'closer to an ice trap'));
-      verdict = L(`Öneri: ${lead.k} · ${lead.name} (${lead.score}/100, diğeri ${other.score}/100)`, `Recommendation: ${lead.k} · ${lead.name} (${lead.score}/100 vs ${other.score}/100)`) +
-        (why.length ? L(' — başlıca nedenler: ', ' — main reasons: ') + why.join(', ') + '.' : '.');
-      const weak = PARTS.filter(p => other.parts[p] - lead.parts[p] > 8).map(p => t('sc_' + p));
-      if (weak.length) verdict += ' ' + L(`Ancak ${other.k} şu konularda daha iyi: ${weak.join(', ')}.`, `However ${other.k} is better on: ${weak.join(', ')}.`);
+    if (pick.status === 'none') {
+      verdict = L('İki senaryo da bu görev için ön değerlendirme koşullarını karşılamıyor. ',
+        'Neither scenario meets the preliminary mission requirements. ');
+    } else if (!lead) {
+      verdict = L('İki senaryo ön değerlendirmeyi geçiyor ve aynı skoru alıyor. ',
+        'Both scenarios pass the preliminary screen and have the same score. ');
+    } else {
+      verdict = L('Ön değerlendirmede tercih edilen plan ' + lead.k + ' · ' + lead.name + ' (' + lead.score + '/100). ',
+        'Preferred plan after preliminary screening: ' + lead.k + ' · ' + lead.name + ' (' + lead.score + '/100). ');
     }
-    if (pick.bothBad) verdict += ' ' + L('Uyarı: seçili batarya iki senaryoda da tükeniyor; bu öneri yalnızca saha ve tarih uygunluğuna dayanır.', 'Warning: the chosen battery runs empty in both scenarios; this recommendation rests on site and date suitability only.');
+    const failures = pick.assessments.filter(item => !item.eligible)
+      .map(item => item.k + ' · ' + item.name + ': ' + item.reasons.map(reason => reason.text).join(' '));
+    verdict += failures.join(' ');
+    verdict += ' ' + pick.assessments[0].qualification;
     return `<b>${esc(a.name)}</b> (A) · <b>${esc(b.name)}</b> (B) — ${nf(S.dur, S.dur % 1 ? 1 : 0)} ${t('days')}` +
       table([t('metric'), 'A', 'B', L('Üstün', 'Better')], rows) + `<p>${esc(verdict)}</p>`;
   }
 
+  const rankingCaveat = () => L(
+    'Sıralama saha puanına göredir. Seçili batarya, Dünya görüşü ve bilinen eğim için ön değerlendirme her adayda ayrıca gösterilir.',
+    'Ranking is by site score. Each candidate also lists its preliminary battery, Earth visibility and known-slope checks.'
+  );
+  function screenNote(a) {
+    const screen = eligibility(a);
+    return '<br>' + note(screen.eligible ? L('Bilinen ön koşullar sağlanıyor; ayrıntılı değerlendirme gerekir.', 'Known preliminary conditions met; detailed review required.')
+      : screen.reasons.map(reason => reason.text).join(' '));
+  }
+  function pointCheck(p, start, dur) {
+    const sc = { site: p.site || 'custom', lat: p.lat, lon: p.lon, mask: p.mask, start };
+    return screenNote(evaluate(sc, sim(sc, dur, AA.stepMin(dur))));
+  }
+
   function bestDateAnswer(k) {
     const sc = S.sc[k], a = analyze(k), all = scanDates(sc, S.dur), top = topWindows(all, 3, 7), worst = [...all].sort((x, y) => x.score - y.score)[0];
-    const rows = top.map(w => [`<b>${esc(date(w.start, false))}</b><br>` + act(L(`${k}’ya uygula`, `Apply to ${k}`), { type: 'start', k, ms: w.start }),
+    const rows = top.map(w => [`<b>${esc(date(w.start, false))}</b><br>` + act(L(`${k}’ya uygula`, `Apply to ${k}`), { type: 'start', k, ms: w.start }) + pointCheck(sc, w.start, S.dur),
       `<b>${w.score}</b>`, hrs(w.both), hrs(w.sun), hrs(w.dark)]);
     const gain = top[0].score - all[0].score;
-    return `${tag(k)}<b>${esc(a.name)}</b> — ${L(`önümüzdeki 365 gün içinde ${nf(S.dur, S.dur % 1 ? 1 : 0)} günlük görev için en iyi başlangıç tarihleri (365 tarih, saatlik örnekleme ile tarandı):`,
-      `best start dates for a ${nf(S.dur, S.dur % 1 ? 1 : 0)}-day mission in the next 365 days (365 dates scanned, hourly sampling):`)}` +
+    return `${tag(k)}<b>${esc(a.name)}</b> — ${L(`önümüzdeki 365 gün içinde ${nf(S.dur, S.dur % 1 ? 1 : 0)} günlük görev için en iyi başlangıç tarihleri (365 tarih, ${AA.stepMin(S.dur)} dakikalık örnekleme ile tarandı):`,
+      `best start dates for a ${nf(S.dur, S.dur % 1 ? 1 : 0)}-day mission in the next 365 days (365 dates scanned, ${AA.stepMin(S.dur)}-minute sampling):`)}` +
+      '<p>' + note(rankingCaveat()) + '</p>' +
       table([L('Başlangıç', 'Start'), L('Skor', 'Score'), t('both'), t('sun'), L('Karanlık', 'Dark')], rows) +
       `<p>${esc(L(`Şu anki tarih (${date(sc.start, false)}) skoru ${all[0].score}. ${gain > 0 ? `En iyi tarihe geçmek skoru ${gain} puan artırır.` : 'Seçili tarih zaten en iyiler arasında.'} En kötü tarih ${date(worst.start, false)} (skor ${worst.score}).`,
         `The current date (${date(sc.start, false)}) scores ${all[0].score}. ${gain > 0 ? `Moving to the best date gains ${gain} points.` : 'The selected date is already among the best.'} The worst date is ${date(worst.start, false)} (score ${worst.score}).`))}</p>` + srcNote(a);
@@ -345,12 +402,13 @@
 
   function bestSiteAnswer(k, onlyPole) {
     const sc = S.sc[k], ranked = rankSites(sc.start, S.dur).filter(r => !onlyPole || r.site.g === 'pole');
-    const rows = ranked.slice(0, 6).map((r, i) => [`<b>${i + 1}. ${esc(r.name)}</b>${r.lola ? ' · LOLA' : ''}<br>` + act(L(`${k} yap`, `Set as ${k}`), { type: 'site', k, id: r.site.id }),
+    const rows = ranked.slice(0, 6).map((r, i) => [`<b>${i + 1}. ${esc(r.name)}</b>${r.lola ? ' · LOLA' : ''}<br>` + act(L(`${k} yap`, `Set as ${k}`), { type: 'site', k, id: r.site.id }) + screenNote(r),
       `<b>${r.score}</b>`, pct(r.parts.power), pct(r.parts.comm), hrs(r.stats.dark)]);
     const pos = id => ranked.findIndex(r => r.site.id === id) + 1;
     const mine = KEYS.map(x => S.sc[x].site !== 'custom' && pos(S.sc[x].site) ? `${x}: ${pos(S.sc[x].site)}.` : null).filter(Boolean).join(' · ');
     return `${L(`${date(sc.start, false)} başlangıçlı ${nf(S.dur, S.dur % 1 ? 1 : 0)} günlük görev için ${ranked.length} sahanın sıralaması:`,
       `Ranking of ${ranked.length} sites for a ${nf(S.dur, S.dur % 1 ? 1 : 0)}-day mission starting ${date(sc.start, false)}:`)}` +
+      '<p>' + note(rankingCaveat()) + '</p>' +
       table([L('Saha', 'Site'), L('Skor', 'Score'), t('sun'), t('earth'), L('Karanlık', 'Dark')], rows) +
       (mine ? `<p>${esc(L('Mevcut senaryoların sırası — ', 'Current scenarios rank — ') + mine)}</p>` : '') +
       note(L('Gerçek LOLA arazi ufku yalnızca “LOLA” işaretli sahalarda kullanılır; diğerlerinde düz ufuk varsayılır, bu yüzden kutup dışı sahalar olduğundan iyimser görünebilir.',
@@ -386,7 +444,7 @@
       [L('Gereken batarya (%80 deşarj ile)', 'Battery needed (at 80% depth of discharge)'), `<b>${nf(pw.need, 1)} kWh</b> · ≈ ${nf(pw.massKg)} kg`],
       [L('Üretim / tüketim', 'Generated / used'), `${nf(pw.gen)} / ${nf(pw.used)} kWh`]
     ]) + `<p>${act(L('Batarya grafiğini aç', 'Open the battery chart'), { type: 'tab', id: 'time' })}${e.watts ? ' ' + act(L(`${nf(p.load)} W yükü uygula`, `Apply the ${nf(p.load)} W load`), { type: 'pwr', load: p.load }) : ''}</p>` +
-      `<p>${esc(pw.gen < pw.used ? L('Panel, görev boyunca tüketilenden az üretiyor: daha büyük panel ya da daha düşük yük gerekir. ', 'The array generates less than the mission uses: a larger array or a lower load is needed. ') : '')}${esc(pw.state === 'bad' ? L(`Bu ayarlarla batarya ${nf(pw.emptyH)} saat boş kalır; karanlığı çıkarmak için en az ${nf(pw.need, 1)} kWh gerekir.`, `With these settings the battery is empty for ${nf(pw.emptyH)} h; at least ${nf(pw.need, 1)} kWh is needed to ride out the dark.`) : s.dark < 1 ? L('Bu pencerede Güneş hiç batmıyor; batarya yalnızca tutulma ve manevralar için gerekir.', 'The Sun never sets in this window; a battery is only needed for eclipses and manoeuvres.')
+      `<p>${esc(pw.gen < pw.used ? L('Panel, görev boyunca tüketilenden az üretiyor: daha büyük panel ya da daha düşük yük gerekir. ', 'The array generates less than the mission uses: a larger array or a lower load is needed. ') : '')}${esc(pw.state === 'bad' ? L(`Bu ayarlarla batarya ${hrs(pw.emptyH)} boş kalır; karanlığı çıkarmak için en az ${nf(pw.need, 1)} kWh gerekir.`, `With these settings the battery is empty for ${hrs(pw.emptyH)}; at least ${nf(pw.need, 1)} kWh is needed to ride out the dark.`) : s.dark <= 0 ? L('Bu pencerede Güneş hiç batmıyor; batarya yalnızca tutulma ve manevralar için gerekir.', 'The Sun never sets in this window; a battery is only needed for eclipses and manoeuvres.')
       : s.dark > 150 ? L('Karanlık çok uzun: yalnızca bataryayla hayatta kalmak ağır olur; radyoizotop ısıtıcı (RHU) veya uyku modu düşünülmeli.', 'Darkness is very long: surviving on batteries alone is heavy; consider radioisotope heaters (RHU) or hibernation.')
         : L('Bu karanlık süresi batarya ve ısıtıcıyla yönetilebilir düzeyde.', 'This darkness is manageable with a battery and heaters.'))}</p>` +
       note(L('Model: batarya dolu başlar, şarj verimi %95, panel güneşi izler. Farklı bir yük için yazın: “500 W için batarya”.', 'Model: the battery starts full, 95% charge efficiency, the array tracks the Sun. For another load, ask: “battery for 500 W”.'));
@@ -455,13 +513,14 @@
     const sct = window.AAScout, r = sct ? await sct.run(k, mode) : null;
     if (!r) return esc(!sct || AA.Polar.failed ? L('Bölge taraması için LOLA güney kutbu verisi gerekli; bu tarayıcıda açılamadı.', 'The region scan needs the LOLA south-pole pack, which could not be opened in this browser.')
       : L('Tarama tamamlanamadı; lütfen tekrar deneyin.', 'The scan did not finish; please try again.'));
-    const rows = r.top.map((p, i) => [`<b>${i + 1}.</b> ${esc(AA.fmtCoord(p.lat, p.lon))}<br>` + act(L(`${k} yap`, `Set as ${k}`), { type: 'point', k, lat: p.lat, lon: p.lon }),
+    const rows = r.top.map((p, i) => [`<b>${i + 1}.</b> ${esc(AA.fmtCoord(p.lat, p.lon))}<br>` + act(L(`${k} yap`, `Set as ${k}`), { type: 'point', k, lat: p.lat, lon: p.lon, mask: p.mask }) + pointCheck(p, r.start, r.dur),
       `<b>${p.score}</b>`, pct(p.sun * 100), pct(p.earth * 100), p.slope == null ? '—' : nf(p.slope, 1) + '°', p.trapKm == null ? '—' : nf(p.trapKm, 1) + ' km']);
     const where = r.mode === 'moon' ? L('Tüm Ay yüzeyinde (kaba tarama)', 'Best points over the whole Moon (coarse scan)') : L('Güney kutbu çevresinde (84°G–90°G)', 'Best points around the south pole (84°S–90°S)');
     return `${L(`${where} ${date(r.start, false)} başlangıçlı ${nf(r.dur, r.dur % 1 ? 1 : 0)} günlük görev için en iyi noktalar:`,
       `${where} for a ${nf(r.dur, r.dur % 1 ? 1 : 0)}-day mission starting ${date(r.start, false)}:`)}` +
+      '<p>' + note(rankingCaveat()) + '</p>' +
       table([L('Nokta', 'Point'), L('Skor', 'Score'), t('sun'), t('earth'), L('Eğim', 'Slope'), L('Buz', 'Ice')], rows) +
-      `<p>${esc(L(`${nf(r.scanned)} nokta incelendi; ${nf(r.rejected)} tanesi dik ya da kalıcı gölgede olduğu için elendi, ${nf(r.scored)} nokta gerçek LOLA ufkuyla simüle edildi.`,
+      `<p>${esc(L(`${nf(r.scanned)} nokta incelendi; ${nf(r.rejected)} tanesi dik ya da kalıcı gölgede olduğu için elendi, ${nf(r.scored)} nokta seçilen ufuk modeliyle simüle edildi.`,
         `${nf(r.scanned)} points examined; ${nf(r.rejected)} rejected as too steep or permanently shadowed, ${nf(r.scored)} simulated${r.mode === 'moon' ? ' (flat horizon outside the south pole)' : ' with their real LOLA horizon'}.`))}</p>` +
       `<p>${act(L('Haritada göster', 'Show on the map'), { type: 'layer', id: 'heat', k: null })}</p>`;
   }
@@ -469,10 +528,11 @@
     const sct = window.AAScout, r = sct && sct.runRegions ? await sct.runRegions(k) : null;
     if (!r) return esc(!sct || AA.Polar.failed ? L('Bölge puanlaması için LOLA güney kutbu verisi gerekli; bu tarayıcıda açılamadı.', 'Scoring the regions needs the LOLA south-pole pack, which could not be opened in this browser.')
       : L('Puanlama tamamlanamadı; lütfen tekrar deneyin.', 'The scoring did not finish; please try again.'));
-    const rows = r.rows.map(row => { const b = row.best; return [`<b>${esc(row.name)}</b>${row.a24 ? ' ★' : ''}` + (b ? '<br>' + act(L(`${k} yap`, `Set as ${k}`), { type: 'point', k, lat: b.lat, lon: b.lon }) : ''),
+    const rows = r.rows.map(row => { const b = row.best; return [`<b>${esc(row.name)}</b>${row.a24 ? ' ★' : ''}` + (b ? '<br>' + act(L(`${k} yap`, `Set as ${k}`), { type: 'point', k, lat: b.lat, lon: b.lon, mask: b.mask }) + pointCheck(b, r.start, r.dur) : ''),
       b ? `<b>${b.score}</b>` : '—', b ? pct(b.sun * 100) : '—', b ? pct(b.earth * 100) : '—', b ? nf(b.slope, 1) + '°' : '—', b && b.trapKm != null ? nf(b.trapKm, 1) + ' km' : '—']; });
     return `${L(`NASA çalışma bölgelerinin her birindeki en iyi iniş noktası — ${date(r.start, false)} başlangıçlı ${nf(r.dur, r.dur % 1 ? 1 : 0)} günlük görev:`,
       `Best landing point inside each NASA study region — ${nf(r.dur, r.dur % 1 ? 1 : 0)}-day mission starting ${date(r.start, false)}:`)}` +
+      '<p>' + note(rankingCaveat()) + '</p>' +
       table([L('Bölge', 'Region'), L('Skor', 'Score'), t('sun'), t('earth'), L('Eğim', 'Slope'), L('Buz', 'Ice')], rows) +
       `<p>${act(L('Bölgeleri haritada göster', 'Show the regions on the map'), { type: 'layer', id: 'regions', k: null })}</p>` +
       note(L('★ = NASA’nın Ekim 2024 Artemis III aday listesinde. Bölge merkezleri: NASA M2M Lunar Surface Data Book (2025), Tablo A2.1-1; her bölge yaklaşık 15 × 15 km. “—” = bölgede inilebilir (12°’den düz, gölgesiz) nokta bulunamadı.',
@@ -504,7 +564,7 @@
       html += `<h4>${t(kind)} · ${rs.length} ${L('pencere', rs.length === 1 ? 'window' : 'windows')}</h4>`;
       if (!rs.length) { html += `<p>${L('Bu görev süresinde pencere yok.', 'No window in this mission.')}</p>`; continue; }
       html += table([L('Başlangıç', 'Start'), L('Bitiş', 'End'), L('Süre', 'Length')], rs.slice(0, 6).map(r => [
-        esc(date(sc.start + r[0] * d.dtH * H)), esc(r[1] >= d.n ? L('görev sonu', 'mission end') : date(sc.start + r[1] * d.dtH * H)), esc(AA.fmtDur((Math.min(r[1], d.n - 1) - r[0]) * d.dtH))]));
+        esc(date(sc.start + r[0] * d.dtH * H)), esc(r[1] >= d.n - 1 ? L('görev sonu', 'mission end') : date(sc.start + r[1] * d.dtH * H)), esc(AA.fmtDur((Math.min(r[1], d.n - 1) - r[0]) * d.dtH))]));
       if (rs.length > 6) html += note(L(`…ve ${rs.length - 6} pencere daha (CSV dışa aktarımında tamamı var).`, `…and ${rs.length - 6} more (the CSV export has all of them).`));
     }
     return html;
@@ -523,8 +583,8 @@
   function bodyAnswer(k, body) {
     const s = S.data[k].stats, now = AA.countdown(k, body);
     return esc(body === 'sun'
-      ? t('a_sun', { k, p: nf(s.sun / s.total * 100), h: nf(s.sun), mx: nf(s.maxEl, 1), d: nf(s.dark), now })
-      : t('a_earth', { k, p: nf(s.earth / s.total * 100), h: nf(s.earth), lo: nf(s.eMin, 1), hi: nf(s.eMax, 1), d: nf(s.nocomm), now }));
+      ? t('a_sun', { k, p: percentNumber(s.sun / s.total * 100), h: hrs(s.sun), mx: nf(s.maxEl, 1), d: hrs(s.dark), now })
+      : t('a_earth', { k, p: percentNumber(s.earth / s.total * 100), h: hrs(s.earth), lo: nf(s.eMin, 1), hi: nf(s.eMax, 1), d: hrs(s.nocomm), now }));
   }
 
   function recommendAnswer(k) {
@@ -532,7 +592,7 @@
     const add = (sev, risk, fix) => risks.push([sev, risk, fix]);
     if (s.dark > 150) add(3, L(`${nf(s.dark)} saat kesintisiz karanlık`, `${nf(s.dark)} h of continuous darkness`), L('Radyoizotop ısıtıcı veya uyku modu; görev tarihini kaydırın (“en iyi tarih” sorun).', 'Radioisotope heaters or hibernation; shift the mission date (ask “best date”).'));
     else if (s.dark > 24) add(2, L(`${nf(s.dark)} saat karanlık`, `${nf(s.dark)} h of darkness`), L('Batarya ve ısıtıcı boyutlandırması (“batarya” sorun).', 'Size the battery and heaters (ask “battery”).'));
-    if (s.earth / s.total < 0.005) add(3, L('Dünya hiç görünmüyor', 'Earth is never visible'), L('Röle uydusu şart (ör. ay yörüngesinde iletişim rölesi); doğrudan iletişim yok.', 'A relay satellite is mandatory (e.g. a lunar-orbit comms relay); no direct link.'));
+    if (s.earth <= 0) add(3, L('Dünya hiç görünmüyor', 'Earth is never visible'), L('Röle uydusu şart (ör. ay yörüngesinde iletişim rölesi); doğrudan iletişim yok.', 'A relay satellite is mandatory (e.g. a lunar-orbit comms relay); no direct link.'));
     else if (s.nocomm > 48) add(2, L(`${nf(s.nocomm)} saat iletişim kesintisi`, `${nf(s.nocomm)} h communication outage`), L('Kritik operasyonları iletişim pencerelerine planlayın; veri depolayıp sonra gönderin veya röle kullanın.', 'Schedule critical operations inside comm windows; store-and-forward or use a relay.'));
     if (!S.data[k].sunUp[0]) add(3, L('İniş anı karanlıkta', 'Touchdown happens in darkness'), L('İniş saatini Güneş’in doğduğu ana kaydırın; optik seyrüsefer karanlıkta çalışmaz.', 'Move touchdown to after sunrise; optical navigation does not work in the dark.'));
     else if (a.parts.light < 100) add(2, L(`İnişte Güneş çok alçak (${nf(S.data[k].sunEl[0], 1)}°)`, `Sun very low at landing (${nf(S.data[k].sunEl[0], 1)}°)`), L('Uzun gölgeler tehlike algılamayı zorlaştırır: lidar tabanlı tehlike önleme ve arazi-bağıl seyrüsefer.', 'Long shadows hinder hazard detection: lidar hazard avoidance and terrain-relative navigation.'));
@@ -543,14 +603,15 @@
     else if (!f.slope && a.tc === 'polar') add(2, L('Engebeli kutup arazisi', 'Rough polar terrain'), L('İniş elipsini küçültün; yüksek çözünürlüklü LOLA/LROC verisiyle eğim ve kaya haritası çıkarın.', 'Shrink the landing ellipse; map slopes and boulders with high-resolution LOLA/LROC data.'));
     if (f.data && f.shadow >= 0.5) add(3, L('İniş noktası kalıcı gölgede', 'The landing point is in permanent shadow'), L('Güneş paneli çalışmaz; aydınlık bir kenara inip gölgeye gezici gönderin.', 'Solar arrays cannot work; land on a sunlit rim and send a rover into the shadow.'));
     else if (f.trap && f.trap.km > 30) add(1, L(`En yakın büyük buz tuzağı ${nf(f.trap.km)} km uzakta`, `The nearest large ice trap is ${nf(f.trap.km)} km away`), L('Buz bilimi hedefse daha yakın bir nokta seçin (“buza ne kadar yakın?” sorun).', 'If ice science is the goal, pick a closer point (ask “how close is the ice?”).'));
-    if (pw && pw.state === 'bad') add(3, L(`Batarya ${nf(pw.emptyH)} saat boş kalıyor`, `The battery is empty for ${nf(pw.emptyH)} h`), L(`En az ${nf(pw.need, 1)} kWh batarya gerekir (şu an ${nf(S.pwr.cap, 1)} kWh) ya da yükü düşürün.`, `At least ${nf(pw.need, 1)} kWh is needed (now ${nf(S.pwr.cap, 1)} kWh), or lower the load.`));
+    if (pw && pw.state === 'bad') add(3, L(`Batarya ${hrs(pw.emptyH)} boş kalıyor`, `The battery is empty for ${hrs(pw.emptyH)}`), L(`En az ${nf(pw.need, 1)} kWh batarya gerekir (şu an ${nf(S.pwr.cap, 1)} kWh) ya da yükü düşürün.`, `At least ${nf(pw.need, 1)} kWh is needed (now ${nf(S.pwr.cap, 1)} kWh), or lower the load.`));
     else if (pw && pw.state === 'mid') add(1, L(`Batarya %${nf(pw.min * 100)}’e kadar iniyor`, `The battery drops to ${nf(pw.min * 100)}%`), L(`%20 yedek için ${nf(pw.need, 1)} kWh önerilir.`, `${nf(pw.need, 1)} kWh is recommended to keep a 20% reserve.`));
     if (!a.lola) add(1, L('Gerçek arazi ufku kullanılmıyor', 'No real terrain horizon in use'), L('Sonuçlar düz ufuk varsayar; QuickMap aydınlatma katmanlarıyla doğrulayın.', 'Results assume a flat horizon; verify against QuickMap illumination layers.'));
     risks.sort((x, y) => y[0] - x[0]);
     const sevLabel = v => ['', L('Düşük', 'Low'), L('Orta', 'Medium'), L('Yüksek', 'High')][v];
-    const verdict = (pw && pw.state === 'bad' ? L('Seçili batarya bu senaryoda tükeniyor; güç sistemi büyütülmeden uygulanamaz. ', 'The chosen battery runs empty in this scenario; it is not workable without a larger power system. ') : '') + (a.score >= 65 ? L('Bu senaryo görev için uygun görünüyor.', 'This scenario looks suitable for the mission.')
-      : a.score >= 40 ? L('Bu senaryo ancak aşağıdaki önlemlerle uygulanabilir.', 'This scenario is workable only with the mitigations below.')
-        : L('Bu senaryo riskli; tarih veya saha değiştirmeyi düşünün.', 'This scenario is risky; consider another date or site.'));
+    const screen = eligibility(a);
+    const verdict = screen.eligible
+      ? L('Bu senaryo ön değerlendirme koşullarını karşılıyor. ', 'This scenario passes the preliminary screen. ') + screen.qualification
+      : L('Bu senaryo ön değerlendirme koşullarını karşılamıyor. ', 'This scenario fails the preliminary screen. ') + screen.reasons.map(reason => reason.text).join(' ');
     const other = k === 'A' ? 'B' : 'A', o = analyze(other);
     return `${tag(k)}<b>${esc(a.name)}</b> — <span class="score-inline ${scoreClass(a.score)}">${a.score}/100</span><p>${esc(verdict)}</p>` +
       (risks.length ? table([L('Önem', 'Severity'), 'Risk', L('Önlem', 'Mitigation')], risks.map(r => [`<span class="sev s${r[0]}">${sevLabel(r[0])}</span>`, esc(r[1]), esc(r[2])])) : `<p>${L('Belirgin bir risk yok.', 'No significant risk found.')}</p>`) +
@@ -562,7 +623,7 @@
     const base = S.sc[k], sc = Object.assign({}, base, e.site ? scenarioFor(e.site, base.start) : {}, e.date ? { start: e.date } : {});
     if (e.shift) sc.start += Math.round(e.shift * DAY);
     const dur = e.days ? Math.max(1, Math.min(180, e.days)) : S.dur;
-    const a = evaluate(sc, sim(sc, dur, dur <= 30 ? 20 : 60)), cur = analyze(k), s = a.stats;
+    const a = evaluate(sc, sim(sc, dur, AA.stepMin(dur))), cur = analyze(k), s = a.stats;
     const acts = [];
     if (e.site) acts.push(act(L(`${k} sahasını değiştir`, `Change site ${k}`), { type: 'site', k, id: e.site.id }));
     if (e.date || e.shift) acts.push(act(L(`Tarihi ${k}’ya uygula`, `Apply date to ${k}`), { type: 'start', k, ms: sc.start }));
@@ -638,6 +699,7 @@
   const mem = { k: null, intent: null, history: [] };
   async function localAnswer(q) {
     const e = parse(q), x = e.x;
+    if (e.invalidDate) return esc(L('Bu tarih takvimde yok. Lütfen geçerli bir tarih girin (YYYY-AA-GG).', 'That date does not exist. Please enter a valid date (YYYY-MM-DD).'));
     let intents = detect(x);
     // a site named without a letter refers to the scenario that already uses it (“Malapert’te eğim nasıl?”)
     const named = !e.scen.length && e.site ? KEYS.find(x => S.sc[x].site === e.site.id) : null;
@@ -699,7 +761,7 @@
   function buildContext() {
     const out = {
       language: S.lang, missionDays: S.dur, cursorHours: S.cur, activeScenario: S.globe.target,
-      ephemeris: Ephem.meta ? `${Ephem.meta.source}, ${Ephem.meta.ephemeris}, ${Ephem.meta.frame}, ${Ephem.meta.abcorr}` : 'astronomy-engine',
+      ephemeris: 'Effective source is specified for each scenario in ephemerisSource.',
       scenarios: {}
     };
     for (const k of KEYS) {
@@ -715,7 +777,7 @@
         solarEnergyKWhPerM2: s.energy, suitabilityScore: a.score, scoreParts: a.parts,
         descentDeltaVms: a.dv, propellantFraction: a.frac, terrainClass: a.tc, pros: a.pros, cons: a.cons,
         ground: a.f.data ? {
-          source: 'NASA LOLA 240 m DEM (slope) and NASA GSFC permanently-shadowed-region map',
+          source: 'NASA LOLA 480 m working grid derived from the 240 m DEM, and NASA GSFC permanent-shadow map',
           meanSlopeDegWithin1km: a.f.slope && +a.f.slope.mean.toFixed(1), shareOfGroundUnder8deg: a.f.slope && +a.f.slope.safe.toFixed(2),
           nearestLargeIceTrapKm: a.f.trap && +a.f.trap.km.toFixed(1), nearestLargeIceTrapCrater: a.f.trap && a.f.trap.name, pointInPermanentShadow: a.f.shadow >= 0.5
         } : AA.Polar.ready ? 'outside the LOLA south-pole pack (80.2S-90S): no measured slope or shadow data' : 'LOLA south-pole pack not loaded: no measured slope or shadow data',
@@ -747,25 +809,51 @@
     }
     return local;
   }
-  // When served by server.py, ask it whether a model is configured.
-  if (!window.AstroApexAI && /^https?:$/.test(location.protocol)) {
-    fetch('api/status').then(r => r.ok ? r.json() : null).then(st => {
+  // The local server's private launch URL provisions this token for the current browser tab.
+  // Public/static pages never fetch a provider status without that local capability.
+  let localToken = null;
+  try { localToken = sessionStorage.getItem('astroapex-local-token'); } catch (e) { /* storage may be unavailable */ }
+  if (!window.AstroApexAI && localToken && /^https?:$/.test(location.protocol)) {
+    const headers = { 'X-AstroApex-Token': localToken };
+    fetch('api/status', { headers, credentials: 'same-origin' }).then(r => r.ok ? r.json() : null).then(st => {
       if (!st || !st.ai || window.AstroApexAI) return;
-      window.AstroApexAI = {
+      const bridge = {
         name: L('Yapay zekâ bağlı · ', 'AI connected · ') + st.model,
         async ask(question, context) {
-          const r = await fetch('api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, context }) });
-          if (!r.ok) throw new Error('chat ' + r.status);
-          return (await r.json()).answer;
+          try {
+            const r = await fetch('api/chat', {
+              method: 'POST', credentials: 'same-origin',
+              headers: { ...headers, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ question, context })
+            });
+            if (!r.ok) {
+              if ((r.status === 401 || r.status === 403) && window.AstroApexAI === bridge) window.AstroApexAI = null;
+              throw new Error('chat ' + r.status);
+            }
+            const answer = (await r.json()).answer;
+            bridge.temporarilyUnavailable = false;
+            setModelLabel();
+            return answer;
+          } catch (error) {
+            bridge.temporarilyUnavailable = true;
+            setModelLabel();
+            throw error;
+          }
         }
       };
+      window.AstroApexAI = bridge;
       setModelLabel();
-    }).catch(() => { /* static hosting or file://: local engine only */ });
+    }).catch(() => { /* the local analysis remains available if the service is unreachable */ });
   }
 
   /* ================= chat panel ================= */
   const panel = $('#assist'), log = $('#assist-log'), input = $('#assist-input'), opener = $('#assist-open');
-  function setModelLabel() { $('#assist-model').textContent = window.AstroApexAI ? (window.AstroApexAI.name || t('a_model_on')) : t('a_model'); }
+  function setModelLabel() {
+    const ai = window.AstroApexAI;
+    $('#assist-model').textContent = ai && ai.temporarilyUnavailable
+      ? L('Yerel analiz · sonraki soruda bağlantı tekrar denenecek', 'Local analysis · connection will retry on the next question')
+      : ai ? (ai.name || t('a_model_on')) : t('a_model');
+  }
   function addMsg(role, html) {
     const el = document.createElement('div');
     el.className = 'msg ' + role;
@@ -800,7 +888,7 @@
     else if (a.type === 'site' && KEYS.includes(a.k)) { AA.setSite(a.k, a.id); AA.refresh(); addMsg('note', esc(L(`${a.k} sahası ${AA.siteName(a.k)} olarak değiştirildi.`, `Site ${a.k} changed to ${AA.siteName(a.k)}.`))); }
     else if (a.type === 'dur' && AA.DURS.includes(a.d)) { S.dur = a.d; AA.refresh(true); addMsg('note', esc(L(`Görev süresi ${nf(a.d, a.d % 1 ? 1 : 0)} gün olarak ayarlandı.`, `Mission duration set to ${nf(a.d, a.d % 1 ? 1 : 0)} days.`))); }
     else if (a.type === 'tab') AA.showTab(a.id);
-    else if (a.type === 'point' && KEYS.includes(a.k) && isFinite(a.lat) && isFinite(a.lon)) { AA.setPoint(a.k, +a.lat, +a.lon); AA.refresh(); addMsg('note', esc(L(`${a.k} noktası ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)} olarak ayarlandı.`, `Point ${a.k} set to ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)}.`))); }
+    else if (a.type === 'point' && KEYS.includes(a.k) && isFinite(a.lat) && isFinite(a.lon)) { AA.setPoint(a.k, +a.lat, +a.lon); if (a.mask === 'lola' || a.mask === 0) S.sc[a.k].mask = a.mask; AA.refresh(); addMsg('note', esc(L(`${a.k} noktası ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)} olarak ayarlandı.`, `Point ${a.k} set to ${AA.fmtCoord(S.sc[a.k].lat, S.sc[a.k].lon)}.`))); }
     else if (a.type === 'layer' && ['ice', 'slope', 'heat', 'temp', 'regions', 'route'].includes(a.id)) {
       S.globe[a.id] = true;
       if (a.id === 'route') S.globe.ice = true;        // the route ends at an ice trap, so show them
@@ -832,7 +920,7 @@
   });
 
   window.AAssist = {
-    analyze, evaluate, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
+    analyze, evaluate, eligibility, recommend, buildContext, localAnswer, scanDates, rankSites, scoreParts, PARTS, WEIGHT, trapName, compass,
     onRefresh() { renderReports(); input.placeholder = t('a_place'); if (!panel.hidden) setModelLabel(); },
     onPick(k) { // a point was chosen on the 3D map
       open(false);

@@ -19,21 +19,55 @@
     tex: null, spin: 0, speed: 0, target: 0, last: 0, lastShift: -1 };
   const SPIN = 4096 / 170; // texture columns per second at full speed: one turn in about 170 s
 
+  function downsample(source, next) {
+    for (let y = 0; y < next.h; y++) for (let x = 0; x < next.w; x++) {
+      const top = 2 * (y * source.w + x), bottom = top + source.w;
+      next.g[y * next.w + x] = (source.g[top] + source.g[top + 1] + source.g[bottom] + source.g[bottom + 1]) * 0.25;
+    }
+  }
+
   function buildMipLevels(tex) {
     const levels = [tex];
     let source = tex;
-    // The embedded map and NASA fallback tiles have power-of-two dimensions.
-    // Stop at one row so longitude wraps while latitude always clamps at the poles.
+    // Embedded and fallback NASA maps have power-of-two dimensions.
     while (source.w > 1 && source.h > 1) {
-      const w = Math.max(1, source.w >> 1), h = Math.max(1, source.h >> 1);
-      const g = new Float32Array(w * h);
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const top = y * 2 * source.w + x * 2, bottom = top + source.w;
-        g[y * w + x] = (source.g[top] + source.g[top + 1] + source.g[bottom] + source.g[bottom + 1]) * 0.25;
-      }
-      source = { g, w, h };
-      levels.push(source);
+      const w = source.w >> 1, h = source.h >> 1;
+      const next = { w, h, g: new Float32Array(w * h) };
+      downsample(source, next);
+      levels.push(next);
+      source = next;
     }
+    if (levels.length <= 5) return levels;
+    // Strengthen the 4..32-source-pixel band of photographed crater detail.
+    // Fine-scale noise falls outside this band.
+    const fine = levels[2], broad = levels[5], band = new Float32Array(fine.g.length);
+    for (let y = 0; y < fine.h; y++) for (let x = 0; x < fine.w; x++) {
+      const i = y * fine.w + x;
+      const delta = fine.g[i] - sampleMip(broad, (x + 0.5) / fine.w, (y + 0.5) / fine.h);
+      band[i] = Math.max(-22, Math.min(22, delta * 0.70));
+    }
+    // Expand the signed detail field bilinearly, using one interpolated scanline.
+    // The extra endpoint repeats the first column at the longitude seam.
+    const rows = new Float32Array(fine.w + 1), column = new Uint16Array(tex.w), weight = new Float32Array(tex.w);
+    for (let x = 0; x < tex.w; x++) {
+      const u = (x + 0.5) / 4 - 0.5, i = Math.floor(u);
+      column[x] = (i + fine.w) % fine.w; weight[x] = u - i;
+    }
+    const enhanced = new Uint8ClampedArray(tex.g.length);
+    for (let y = 0; y < tex.h; y++) {
+      const v = Math.min(fine.h - 1, Math.max(0, (y + 0.5) / 4 - 0.5)), j = Math.floor(v);
+      const top = j * fine.w, bottom = Math.min(j + 1, fine.h - 1) * fine.w, t = v - j;
+      for (let x = 0; x < fine.w; x++) rows[x] = band[top + x] * (1 - t) + band[bottom + x] * t;
+      rows[fine.w] = rows[0];
+      const start = y * tex.w;
+      for (let x = 0; x < tex.w; x++) {
+        const i = column[x], a = rows[i];
+        enhanced[start + x] = tex.g[start + x] + a + (rows[i + 1] - a) * weight[x];
+      }
+    }
+    // Keep the source map unchanged; every decorative mip derives from the same image.
+    levels[0] = { ...tex, g: enhanced };
+    for (let l = 1; l < levels.length; l++) downsample(levels[l - 1], levels[l]);
     return levels;
   }
 
@@ -50,7 +84,7 @@
     // Axis tilt: roll about the view axis, then pitch toward the viewer.
     const roll = -0.36, pitch = 0.3, cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
     const uScale = tw / (2 * Math.PI * rad), vScale = th / (Math.PI * rad);
-    let lx = -0.62, ly = 0.42, lz = 0.66; const ll = Math.hypot(lx, ly, lz); lx /= ll; ly /= ll; lz /= ll;
+    let lx = -0.73, ly = 0.40, lz = 0.55; const ll = Math.hypot(lx, ly, lz); lx /= ll; ly /= ll; lz /= ll;
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const x = (i + 0.5 - half) / rad, y = (half - j - 0.5) / rad, s2 = x * x + y * y;
       if (s2 >= 1) continue;

@@ -163,7 +163,7 @@
   }
 
   /* ---------- rover route to the ice ---------- */
-  // Least-cost path over the 480 m grid from a point to the nearest large trap (A* search, 8 neighbours).
+  // A* path over the 480 m grid to a large trap, minimizing the slope-weighted travel cost.
   // Cells steeper than maxSlope are closed; cost grows with slope, so the path prefers gentle ground.
   // If nothing is reachable under maxSlope the search is repeated with relaxSlope and flagged as relaxed.
   function route(lat, lon, opts) {
@@ -172,10 +172,11 @@
     const maxKm = opts.maxKm || 60, first = opts.maxSlope || 15, relax = opts.relaxSlope || 25;
     const [x0, y0] = toXY(lat, lon), start = cellOf(x0, y0), si = start % n, sj = (start / n) | 0;
     if (start < 0) return null;
-    if ((psr[start] & 128) && cellShadow(start) >= 0.5) return { found: true, inside: true, km: 0, maxSlope: slope[start] / 4, meanSlope: slope[start] / 4, limit: first, relaxed: false, path: [[lat, lon]] };
     const reach = Math.ceil(maxKm * 1000 / cell), w = 2 * reach + 1, size = w * w;
     const local = (i, j) => (j - sj + reach) * w + (i - si + reach);
     const attempt = limit => {
+      if (slope[start] / 4 > limit) return null;
+      if ((psr[start] & 128) && cellShadow(start) >= 0.5) return { found: true, inside: true, km: 0, maxSlope: slope[start] / 4, meanSlope: slope[start] / 4, limit, relaxed: limit !== first, path: [[lat, lon]] };
       const gCost = new Float32Array(size).fill(Infinity), from = new Int32Array(size).fill(-1), closed = new Uint8Array(size);
       const heap = [], hk = []; // binary heap of local ids keyed by f = g + straight-line distance to the nearest trap
       const push = (id, f) => { let c = heap.length; heap.push(id); hk.push(f); while (c) { const p = (c - 1) >> 1; if (hk[p] <= f) break; heap[c] = heap[p]; hk[c] = hk[p]; c = p; } heap[c] = id; hk[c] = f; };
@@ -198,6 +199,8 @@
           if (ni < 0 || nj < 0 || ni >= n || nj >= n || nli < 0 || nlj < 0 || nli >= w || nlj >= w) continue;
           const nc = nj * n + ni, s = slope[nc] / 4;
           if (s > limit) continue;
+          // A diagonal step cannot pass between impassable cells at their shared corner.
+          if (di && dj && (slope[j * n + ni] / 4 > limit || slope[nj * n + i] / 4 > limit)) continue;
           const nid = nlj * w + nli; if (closed[nid]) continue;
           const g = gCost[id] + (di && dj ? 1.41421356 : 1) * (1 + (s / 15) * (s / 15));
           if (g < gCost[nid]) { gCost[nid] = g; from[nid] = id; push(nid, g + hDist(ni, nj)); }
@@ -206,15 +209,15 @@
       if (goal < 0) return null;
       const cells = []; for (let id = goal; id >= 0; id = from[id]) cells.push(id);
       cells.reverse();
-      const k = 1 / Math.pow(Math.cos((90 + lat) * D / 2), 2);
-      let km = 0, maxS = 0, sumS = 0; const path = [];
-      cells.forEach((id, q) => {
+      let km = 0, maxS = 0, sumS = 0; const path = [[lat, lon]];
+      cells.forEach(id => {
         const i = id % w - reach + si, j = ((id / w) | 0) - reach + sj, s = slope[j * n + i] / 4;
-        maxS = Math.max(maxS, s); sumS += s; // the start cell counts too: a steep landing spot shows in the steepest value
-        if (q) { const p = cells[q - 1], pi = p % w - reach + si, pj = ((p / w) | 0) - reach + sj; km += Math.hypot(i - pi, j - pj) * cell / k / 1000; }
-        path.push(toLL((i + 0.5 - half) * cell, (half - j - 0.5) * cell));
+        maxS = Math.max(maxS, s); sumS += s;
+        const point = toLL((i + 0.5 - half) * cell, (half - j - 0.5) * cell), previous = path[path.length - 1];
+        const h = Math.sin((point[0] - previous[0]) * D / 2) ** 2 + Math.cos(previous[0] * D) * Math.cos(point[0] * D) * Math.sin((point[1] - previous[1]) * D / 2) ** 2;
+        const distance = 2 * R * Math.asin(Math.min(1, Math.sqrt(h))) / 1000;
+        if (distance > 1e-9) { km += distance; path.push(point); }
       });
-      path[0] = [lat, lon];
       return { found: true, inside: false, km, maxSlope: maxS, meanSlope: sumS / cells.length, limit, relaxed: limit !== first, path };
     };
     return attempt(first) || attempt(relax) || { found: false, km: null, path: [], limit: relax, relaxed: true };

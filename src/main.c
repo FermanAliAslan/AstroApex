@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdint.h>
+#include <limits.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <time.h>
 #include <strings.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +20,8 @@
 #include "cspice_math.h"
 
 #define PORT 8080
+#define HTTP_READ_TIMEOUT_MS 5000
+#define HTTP_WRITE_TIMEOUT_MS 5000
 
 static lua_State *L = NULL;
 
@@ -295,19 +302,47 @@ static int run_once(bool from_root) {
     return result;
 }
 
-static void write_all(int socket_fd, const char *data, size_t length) {
+static int64_t monotonic_ms(void) {
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) return -1;
+    return (int64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
+
+/* Accepted sockets are nonblocking. One absolute deadline covers all partial
+ * reads (or writes), so progress cannot keep extending a connection's budget. */
+static int wait_for_socket(int fd, short events, int64_t deadline) {
+    struct pollfd pending = { .fd = fd, .events = events, .revents = 0 };
+    for (;;) {
+        int64_t now = monotonic_ms();
+        if (now < 0) return -1;
+        int64_t remaining = deadline - now;
+        if (remaining <= 0) { errno = ETIMEDOUT; return -1; }
+        int result = poll(&pending, 1, remaining > INT_MAX ? INT_MAX : (int)remaining);
+        if (result < 0 && errno == EINTR) continue;
+        if (result < 0) return -1;
+        if (result == 0) { errno = ETIMEDOUT; return -1; }
+        if (pending.revents & (events | POLLHUP)) return 0;
+        errno = pending.revents & POLLNVAL ? EBADF : EIO;
+        return -1;
+    }
+}
+
+static int write_all(int socket_fd, const char *data, size_t length, int64_t deadline) {
     while (length > 0) {
+        if (wait_for_socket(socket_fd, POLLOUT, deadline) != 0) return -1;
         ssize_t written = write(socket_fd, data, length);
-        if (written < 0 && errno == EINTR) continue;
-        if (written <= 0) return;
+        if (written < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) continue;
+        if (written <= 0) return -1;
         data += written;
         length -= (size_t)written;
     }
+    return 0;
 }
 
 static void send_response(int socket_fd, int status, const char *json) {
     const char *reason = status == 200 ? "OK" : status == 204 ? "No Content" :
         status == 400 ? "Bad Request" : status == 404 ? "Not Found" :
+        status == 408 ? "Request Timeout" :
         status == 411 ? "Length Required" : status == 413 ? "Content Too Large" :
         status == 422 ? "Unprocessable Content" : "Internal Server Error";
     char header[512];
@@ -316,14 +351,20 @@ static void send_response(int socket_fd, int status, const char *json) {
         "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: POST, OPTIONS\r\n"
         "Access-Control-Allow-Headers: Content-Type\r\nContent-Type: application/json; charset=utf-8\r\n"
         "Content-Length: %zu\r\n\r\n", status, reason, strlen(json));
-    write_all(socket_fd, header, (size_t)n);
-    write_all(socket_fd, json, strlen(json));
+    int64_t now = monotonic_ms();
+    if (now < 0 || n < 0 || (size_t)n >= sizeof(header)) return;
+    int64_t deadline = now + HTTP_WRITE_TIMEOUT_MS;
+    if (write_all(socket_fd, header, (size_t)n, deadline) != 0) return;
+    write_all(socket_fd, json, strlen(json), deadline);
 }
 
-static ssize_t read_chunk(int fd, char *buffer, size_t size) {
-    ssize_t n;
-    do { n = read(fd, buffer, size); } while (n < 0 && errno == EINTR);
-    return n;
+static ssize_t read_chunk(int fd, char *buffer, size_t size, int64_t deadline) {
+    for (;;) {
+        if (wait_for_socket(fd, POLLIN, deadline) != 0) return -1;
+        ssize_t n = read(fd, buffer, size);
+        if (n < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)) continue;
+        return n;
+    }
 }
 
 /* The local API accepts bounded, length-delimited JSON. Read to the declared
@@ -332,8 +373,13 @@ static void handle_client(int fd) {
     char buffer[8192];
     size_t received = 0;
     char *body = NULL;
+    int flags = fcntl(fd, F_GETFL, 0);
+    int64_t now = monotonic_ms();
+    if (flags < 0 || now < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) goto done;
+    int64_t deadline = now + HTTP_READ_TIMEOUT_MS;
     while (received < sizeof(buffer) - 1) {
-        ssize_t n = read_chunk(fd, buffer + received, sizeof(buffer) - 1 - received);
+        ssize_t n = read_chunk(fd, buffer + received, sizeof(buffer) - 1 - received, deadline);
+        if (n < 0 && errno == ETIMEDOUT) goto request_timeout;
         if (n <= 0) goto bad_request;
         received += (size_t)n;
         buffer[received] = '\0';
@@ -379,7 +425,8 @@ static void handle_client(int fd) {
     if ((size_t)length > available) goto too_large;
     size_t have = received - (size_t)(body - buffer);
     while (have < (size_t)length) {
-        ssize_t n = read_chunk(fd, body + have, (size_t)length - have);
+        ssize_t n = read_chunk(fd, body + have, (size_t)length - have, deadline);
+        if (n < 0 && errno == ETIMEDOUT) goto request_timeout;
         if (n <= 0) goto bad_request;
         have += (size_t)n;
     }
@@ -389,6 +436,9 @@ static void handle_client(int fd) {
     char *response = execute_lua_pipeline(body, &status);
     send_response(fd, status, response ? response : "{\"status\":\"ERROR\",\"message\":\"Internal calculation error\"}");
     free(response);
+    goto done;
+request_timeout:
+    send_response(fd, 408, "{\"status\":\"ERROR\",\"message\":\"Request deadline exceeded\"}");
     goto done;
 bad_request:
     send_response(fd, 400, "{\"status\":\"ERROR\",\"message\":\"Invalid request\"}");
@@ -427,22 +477,24 @@ int main(int argc, char **argv) {
     signal(SIGPIPE, SIG_IGN);
     // 2. HTTP API Sunucu Modu (8080 Portu)
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0) { perror("socket"); lua_close(L); return 1; }
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     struct sockaddr_in address;
     memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
+    inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
     address.sin_port = htons(PORT);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         perror("[HATA] Port 8080 bağlanamadı");
+        close(server_fd);
         lua_close(L);
         return 1;
     }
 
-    listen(server_fd, 16);
+    if (listen(server_fd, 16) < 0) { perror("listen"); close(server_fd); lua_close(L); return 1; }
     printf("[C+LUA ENGINE] Mission Planner API http://localhost:%d adresinde hazır!\n", PORT);
 
     while (1) {
@@ -450,9 +502,13 @@ int main(int argc, char **argv) {
         int client_socket = accept(server_fd, (struct sockaddr *)&address, &addrlen);
         if (client_socket >= 0) {
             handle_client(client_socket);
+        } else if (errno != EINTR) {
+            perror("accept");
+            break;
         }
     }
 
+    close(server_fd);
     lua_close(L);
     return 0;
 }

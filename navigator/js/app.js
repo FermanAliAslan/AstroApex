@@ -42,13 +42,13 @@
     `${nf(Math.abs(lat), 2)}° ${lat < 0 ? t('S') : t('N')} · ${nf(Math.abs(lon), 2)}° ${lon < 0 ? t('W') : t('E')}`;
   const fmtDur = h => {
     const m = Math.round(h * 60), d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60), mm = m % 60;
-    if (d) return `${d} ${t('d')} ${hh} ${t('h')}`;
+    if (d) return `${d} ${t('d')} ${hh} ${t('h')}` + (mm ? ` ${mm} ${t('m')}` : '');
     if (hh) return `${hh} ${t('h')} ${mm} ${t('m')}`;
     return `${mm} ${t('m')}`;
   };
   const toLocal = ms => new Date(ms).toISOString().slice(0, 16);
   const fromLocal = v => Date.parse(v + (v.length === 16 ? ':00Z' : 'Z'));
-  const stepMin = () => S.dur <= 14 ? 10 : S.dur <= 30 ? 20 : S.dur <= 60 ? 30 : 60;
+  const stepMin = (duration = S.dur) => duration <= 14 ? 10 : duration <= 30 ? 20 : duration <= 60 ? 30 : 60;
   const siteName = k => {
     const s = SITES.find(x => x.id === S.sc[k].site);
     return s ? s.name : t('custom');
@@ -150,6 +150,12 @@
       - 0.5 * Math.sqrt(Math.max(0, (-sep + r + R) * (sep + r - R) * (sep - r + R) * (sep + r + R)));
     return Math.max(0, 1 - area / (Math.PI * r * r));
   }
+  // The mission and the yearly overview use the same terrain and eclipse criteria.
+  function visibleFraction(o, sunMargin) {
+    const terrainFraction = Ephem.discFrac(sunMargin / o.sun.rad);
+    const uncovered = terrainFraction > 0 ? sunUncovered(o) : 1;
+    return { fraction: terrainFraction * uncovered, eclipse: uncovered < 1 };
+  }
   // Pure simulation of one scenario: sc = {site, lat, lon, start, mask}, dur in days, sm = step in minutes.
   function simulate(sc, dur, sm) {
     const n = Math.round(dur * 1440 / sm) + 1, dtH = sm / 60;
@@ -158,17 +164,18 @@
       n, dtH, sunEl: new Float32Array(n), sunAz: new Float32Array(n), earthEl: new Float32Array(n),
       earthAz: new Float32Array(n), frac: new Float32Array(n), flux: new Float32Array(n),
       sunM: new Float32Array(n), earthM: new Float32Array(n), // elevation above the LOCAL horizon (terrain included)
-      sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), sunR: 0.27, earthR: 0.95
+      sunUp: new Uint8Array(n), earthUp: new Uint8Array(n), both: new Uint8Array(n), fromSpice: new Uint8Array(n), sunR: 0.27, earthR: 0.95
     };
     let sunC = 0, earthC = 0, bothC = 0, elSum = 0, energy = 0, eclC = 0;
     let maxEl = -90, eMin = 90, eMax = -90, sMin = 90, nSpice = 0;
     for (let i = 0; i < n; i++) {
       const o = Ephem.observe(st, sc.start + i * sm * 60000);
-      if (o.src === 'spice') nSpice++;
+      d.fromSpice[i] = o.src === 'spice' ? 1 : 0;
+      nSpice += d.fromSpice[i];
       d.sunEl[i] = o.sun.el; d.sunAz[i] = o.sun.az; d.earthEl[i] = o.earth.el; d.earthAz[i] = o.earth.az;
       d.sunM[i] = o.sun.el - hz(o.sun.az); d.earthM[i] = o.earth.el - hz(o.earth.az);
-      const fT = Ephem.discFrac(d.sunM[i] / o.sun.rad), unc = fT > 0 ? sunUncovered(o) : 1, f = fT * unc; // terrain, then the Earth
-      if (unc < 1 && i < n - 1) eclC++;
+      const visibility = visibleFraction(o, d.sunM[i]), f = visibility.fraction;
+      if (visibility.eclipse && i < n - 1) eclC++;
       d.frac[i] = f;
       d.flux[i] = 1361 * Math.pow(Ephem.AU / o.sun.dist, 2) * f;
       d.sunUp[i] = f > 0 ? 1 : 0;
@@ -185,11 +192,12 @@
     }
     const inv = a => a.map(v => v ? 0 : 1);
     const longest = rs => rs.reduce((m, r) => Math.max(m, r[1] - r[0]), 0) * dtH;
-    d.runs = { sun: runs(d.sunUp, n), earth: runs(d.earthUp, n), both: runs(d.both, n) };
+    // The final sample marks the end time; it does not add another time interval.
+    d.runs = { sun: runs(d.sunUp, n - 1), earth: runs(d.earthUp, n - 1), both: runs(d.both, n - 1) };
     const total = (n - 1) * dtH;
     d.stats = {
       total, sun: sunC * dtH, earth: earthC * dtH, both: bothC * dtH,
-      dark: Math.min(total, longest(runs(inv(d.sunUp), n))), nocomm: Math.min(total, longest(runs(inv(d.earthUp), n))),
+      dark: Math.min(total, longest(runs(inv(d.sunUp), n - 1))), nocomm: Math.min(total, longest(runs(inv(d.earthUp), n - 1))),
       maxEl, sMin, meanEl: sunC ? elSum / sunC : null, energy, eMin, eMax, eclipse: eclC * dtH
     };
     d.hz = horizonSrc(sc);
@@ -337,10 +345,10 @@
     $('#verdict-chips').innerHTML = KEYS.map(k => {
       const s = S.data[k].stats, ps = s.sun / s.total, pe = s.earth / s.total;
       const pc = ps > 0.8 ? 'good' : ps > 0.4 ? 'mid' : 'bad', pl = { good: 'p_good', mid: 'p_mid', bad: 'p_bad' }[pc];
-      const cc = pe > 0.995 ? 'good' : pe > 0 ? 'mid' : 'bad', cl = { good: 'c_full', mid: 'c_part', bad: 'c_none' }[cc];
+      const cc = s.nocomm <= 0 ? 'good' : pe > 0 ? 'mid' : 'bad', cl = { good: 'c_full', mid: 'c_part', bad: 'c_none' }[cc];
       return `<div class="vchip"><span class="badge ${k.toLowerCase()}">${k}</span>
         <span class="pill ${pc}">${t('power')} <b>${t(pl)}</b> · ${nf(ps * 100)}%</span>
-        <span class="pill ${cc}">${t('comm')} <b>${t(cl)}</b> · ${nf(pe * 100)}%</span></div>`;
+        <span class="pill ${cc}">${t('comm')} <b>${t(cl)}</b> · ${pe < 1 && Math.round(pe * 100) === 100 ? '&lt;100' : nf(pe * 100)}%</span></div>`;
     }).join('');
   }
   // One plain sentence per scenario, so the bars can be understood without reading them.
@@ -486,14 +494,18 @@
   }
   function countdown(k, body) {
     const d = S.data[k], i = idxAt(k), rs = d.runs[body === 'sun' ? 'sun' : 'earth'];
-    const up = (body === 'sun' ? d.sunUp : d.earthUp)[i];
+    const visibility = body === 'sun' ? d.sunUp : d.earthUp;
+    const up = visibility[i], lastIndex = d.n - 1;
     const keyUp = body === 'sun' ? 'sets_in' : 'earthset_in', keyDn = body === 'sun' ? 'rises_in' : 'earthrise_in';
+    if (i >= lastIndex) return t(up ? 'end_visible' : 'end_hidden');
     if (up) {
-      const r = rs.find(r => i >= r[0] && i < r[1]) || rs[rs.length - 1];
-      return r[1] >= d.n ? t('until_end') : t(keyUp, { t: fmtDur((r[1] - i) * d.dtH) });
+      const r = rs.find(r => i >= r[0] && i < r[1]);
+      return !r || (r[1] === lastIndex && visibility[lastIndex])
+        ? t('until_end') : t(keyUp, { t: fmtDur((r[1] - i) * d.dtH) });
     }
     const nx = rs.find(r => r[0] > i);
-    return nx ? t(keyDn, { t: fmtDur((nx[0] - i) * d.dtH) }) : t('never');
+    const rise = nx ? nx[0] : visibility[lastIndex] ? lastIndex : null;
+    return rise !== null ? t(keyDn, { t: fmtDur((rise - i) * d.dtH) }) : t('no_remaining_rise');
   }
   function renderNow(k) {
     const d = S.data[k], sc = S.sc[k], i = idxAt(k), el = $('#sky-' + k), hz = horizonFn(sc);
@@ -643,11 +655,13 @@
     const sc = S.sc[k], st = Ephem.site(sc.lat, sc.lon), day0 = Math.floor(sc.start / DAY) * DAY, hz = horizonFn(sc);
     const key = [sc.lat, sc.lon, sc.mask, sc.site, day0].join('|');
     if (S.year[k] && S.year[k].key === key) return;
-    const y = { key, day0, sun: new Float32Array(365), earth: new Float32Array(365), both: new Float32Array(365) };
+    const y = { key, day0, sun: new Float32Array(365), earth: new Float32Array(365), both: new Float32Array(365), eclipse: new Float32Array(365) };
     for (let dI = 0; dI < 365; dI++) for (let s = 0; s < 12; s++) {
       const o = Ephem.observe(st, day0 + dI * DAY + s * 2 * H);
-      const su = o.sun.el > hz(o.sun.az) - o.sun.rad, eu = o.earth.el > hz(o.earth.az);
+      const visibility = visibleFraction(o, Math.fround(o.sun.el - hz(o.sun.az)));
+      const su = visibility.fraction > 0, eu = o.earth.el > hz(o.earth.az);
       if (su) y.sun[dI] += 2; if (eu) y.earth[dI] += 2; if (su && eu) y.both[dI] += 2;
+      if (visibility.eclipse) y.eclipse[dI] += 2;
     }
     S.year[k] = y;
   }
@@ -1123,10 +1137,14 @@
   }
   function csv(k) {
     const d = S.data[k], sc = S.sc[k], rows = ['utc,sun_elevation_deg,sun_azimuth_deg,sun_disc_fraction,earth_elevation_deg,earth_azimuth_deg,earth_visible'];
-    for (let i = 0; i < d.n; i++) rows.push([new Date(sc.start + i * d.dtH * H).toISOString(), d.sunEl[i].toFixed(3), d.sunAz[i].toFixed(2), d.frac[i].toFixed(3), d.earthEl[i].toFixed(3), d.earthAz[i].toFixed(2), d.earthUp[i]].join(','));
+    rows[0] += ',ephemeris,horizon_model,horizon_data,terrain_grid_m,latitude_deg,longitude_deg,step_minutes';
+    const gridMetres = d.hz === 'lola80' ? 80 : d.hz === 'lola480' ? 480 : '';
+    const provenance = [sc.mask, d.hz, gridMetres, sc.lat, sc.lon, d.dtH * 60];
+    for (let i = 0; i < d.n; i++) rows.push([new Date(sc.start + i * d.dtH * H).toISOString(), d.sunEl[i].toFixed(3), d.sunAz[i].toFixed(2), d.frac[i].toFixed(3), d.earthEl[i].toFixed(3), d.earthAz[i].toFixed(2), d.earthUp[i], d.fromSpice[i] ? 'spice' : 'ae', ...provenance].join(','));
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
-    a.download = `astroapex_${k}_${sc.lat}_${sc.lon}.csv`; a.click();
+    const stamp = new Date(sc.start).toISOString().slice(0, 16).replace(/[-:]/g, '') + 'Z';
+    a.download = `astroapex_${k}_${sc.lat}_${sc.lon}_${stamp}_${S.dur}d_${d.hz}.csv`; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
   const hooks = [];

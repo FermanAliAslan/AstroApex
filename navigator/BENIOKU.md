@@ -100,14 +100,15 @@ Site `server.py` ile açıldığında asistan bir Claude modeline bağlanabilir.
 hesapladığı sayıları ve canlı görev verisini alır; sayıları kendisi uydurmaz.
 
 1. `pip install anthropic`
-2. Anthropic API anahtarınızı `ANTHROPIC_API_KEY` ortam değişkenine yazın **veya** yalnızca anahtarı
-   içeren `api_key.txt` adlı bir dosyayı `server.py` ile aynı klasöre koyun.
+2. Anthropic API anahtarınızı `ANTHROPIC_API_KEY` ortam değişkenine tanımlayın.
 3. `python server.py --open`
 
-Asistan başlığında “Yapay zekâ bağlı” yazar. Anahtar yoksa veya bağlantı kurulamazsa yerel motor
-yanıt vermeye devam eder.
+Komut, özel oturum bağlantısını tarayıcıda açar. Terminaldeki bu bağlantıyı özel tutun.
+Yetkili oturumda asistan başlığında “Yapay zekâ bağlı” yazar. Çevrimiçi çağrı başarısız olduğunda
+yerel motor yanıt vermeye devam eder; sonraki soru bağlantıyı yeniden deneyebilir.
 
-> `api_key.txt` dosyasını kimseyle paylaşmayın ve e-postayla gönderdiğiniz zip’e eklemeyin.
+Eski bir kurulumdan kalan `api_key.txt` dosyasındaki anahtarı ortam değişkenine taşıyın ve dosyayı
+yayımlanan klasörden kaldırın.
 
 ## Dosyalar
 

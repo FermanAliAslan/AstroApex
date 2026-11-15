@@ -604,6 +604,13 @@ html.rep-on { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .rep-modal { animation: none; } .scout-bar i { transition: none; } }
 .rep-pages:focus-visible { outline: 2px solid var(--earth); outline-offset: -2px; }
+.rep-transcript { width: 100%; max-width: 780px; background: var(--panel2); border: 1px solid var(--line2); border-radius: 12px; padding: 14px; }
+.rep-transcript > summary { cursor: pointer; font-weight: 600; }
+.rep-transcript > div { overflow-x: auto; }
+.rep-transcript th, .rep-transcript td { text-align: left; padding: 8px; vertical-align: top; }
+.rep-transcript caption { text-align: left; font-weight: 600; margin: 12px 0; }
+.rep-transcript h3, .rep-transcript h4 { margin: 14px 0 8px; }
+.rep-transcript p { margin: 8px 0; }
 .presets .chips { min-width: 0; }
 .presets .chips button { white-space: normal; text-align: left; max-width: 100%; border-radius: 16px; }
 

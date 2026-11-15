@@ -1,7 +1,7 @@
 /* Mission report: a two-page A4 summary of both scenarios, previewed on screen and saved as a PDF.
 
    The pages are drawn on canvases (so Turkish characters and the charts look the same everywhere), shown in a
-   dialog, and written into a PDF by hand: one JPEG image per page, no library. Everything runs in the browser. */
+   dialog, and written into a PDF with a Unicode text layer for search and selection. Everything runs in the browser. */
 (function () {
   'use strict';
   const AA = window.AA, AS = window.AAssist;
@@ -49,11 +49,32 @@
     c.fillStyle = COL[k]; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
     c.font = mono(r * 1.05); c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(k, x, y + 1);
   }
+  function slopeDescription(f) {
+    const slope = f.slope || f.coarse;
+    if (!slope) return L('Veri yok', 'No data');
+    const area = f.slope ? L('1 km yarıçap', '1 km radius') : L('kaba 3×3 hücre', 'coarse 3×3 cells');
+    return nf(slope.mean, 1) + '° · ' + area;
+  }
   const scoreColor = v => v >= 65 ? BOTH : v >= 40 ? SUN : BAD;
 
   function newPage() {
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const c = cv.getContext('2d');
+    cv.reportLanguage = S.lang;
+    const runs = cv.reportTextRuns = [];
+    const fillText = c.fillText.bind(c);
+    c.fillText = function (value, x, y, maxWidth) {
+      const valueText = String(value), metrics = c.measureText(valueText);
+      const baseline = c.textBaseline;
+      c.textBaseline = 'alphabetic';
+      const alphabetic = c.measureText(valueText);
+      c.textBaseline = baseline;
+      const width = maxWidth == null ? metrics.width : Math.min(metrics.width, maxWidth);
+      const left = c.textAlign === 'center' ? x - width / 2 : c.textAlign === 'right' || c.textAlign === 'end' ? x - width : x;
+      const size = parseFloat((c.font.match(/([\d.]+)px/) || [0, 16])[1]);
+      runs.push({ text: valueText, x: left, y: y + alphabetic.actualBoundingBoxAscent - metrics.actualBoundingBoxAscent, width, size });
+      if (maxWidth == null) fillText(valueText, x, y); else fillText(valueText, x, y, maxWidth);
+    };
     c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
     return { cv, c };
   }
@@ -104,12 +125,17 @@
       text(c, String(v), x + w - 22, by + 5, mono(13), INK, 'right');
     });
     // facts
-    const pctOf = v => `${nf(v)} ${t('h')} · ${nf(v / s.total * 100)}%`;
+    const pctOf = v => {
+      const percent = v / s.total * 100;
+      const label = percent > 99.9 && percent < 100 ? '>' + nf(99.9, 1)
+        : percent > 0 && percent < 0.1 ? '<' + nf(0.1, 1) : nf(percent, percent % 1 ? 1 : 0);
+      return `${AA.fmtDur(v)} · ${label}%`;
+    };
     const rows = [
       [L('Güneş görünür', 'Sun visible'), pctOf(s.sun)], [L('Dünya görünür', 'Earth visible'), pctOf(s.earth)],
       [L('İkisi birlikte', 'Both together'), pctOf(s.both)],
-      [L('En uzun karanlık', 'Longest darkness'), `${nf(s.dark)} ${t('h')}`], [L('En uzun iletişim kesintisi', 'Longest comm outage'), `${nf(s.nocomm)} ${t('h')}`],
-      [L('Ortalama eğim (1 km)', 'Mean slope (1 km)'), f.slope ? `${nf(f.slope.mean, 1)}° · ${nf(f.slope.safe * 100)}% < 8°` : L('veri yok', 'no data')],
+      [L('En uzun karanlık', 'Longest darkness'), AA.fmtDur(s.dark)], [L('En uzun iletişim kesintisi', 'Longest comm outage'), AA.fmtDur(s.nocomm)],
+      [f.slope ? L('Eğim (1 km yarıçap)', 'Slope (1 km radius)') : L('Ortalama eğim', 'Mean slope'), f.slope ? `${nf(f.slope.mean, 1)}° · ${nf(f.slope.safe * 100)}% < 8°` : slopeDescription(f)],
       [L('En yakın buz tuzağı', 'Nearest ice trap'), !f.data ? L('veri yok', 'no data') : !f.trap ? '—' : f.trap.inside ? L('içinde', 'inside') : `${nf(f.trap.km, 1)} km${f.trap.name ? ' · ' + f.trap.name : ''}`],
       [L('İniş yakıtı', 'Landing propellant'), `${nf(a.frac * 100)}% · Δv ${nf(a.dv)} m/s`],
       [L('Batarya', 'Battery'), pw ? `${t('b_' + pw.state)} · min ${nf(pw.min * 100)}%` : '—'],
@@ -143,12 +169,15 @@
     const { cv, c } = newPage();
     header(c, 1, total, 136);
     let y = section(c, L('Özet', 'Summary'), 190);
-    const pick = AS.recommend(a, b), lead = pick.lead, other = pick.other;
-    const verdict = pick.forced ? L(`Öneri: ${lead.k} · ${lead.name}. Skoru daha düşük (${lead.score}/100, diğeri ${other.score}/100), ama seçili batarya yalnızca burada dayanıyor; ${other.k} senaryosunda batarya ${nf(other.pw.emptyH, 1)} saat boş kalıyor.`,
-      `Recommendation: ${lead.k} · ${lead.name}. It scores lower (${lead.score}/100 vs ${other.score}/100), but the chosen battery only survives here; in scenario ${other.k} it is empty for ${nf(other.pw.emptyH, 1)} h.`)
-      : lead ? (pick.bothBad ? L('Uyarı: seçili batarya iki senaryoda da tükeniyor. ', 'Warning: the chosen battery runs empty in both scenarios. ') : '') + L(`Öneri: ${lead.k} · ${lead.name} — uygunluk skoru ${lead.score}/100 (diğer senaryo ${other.score}/100).`, `Recommendation: ${lead.k} · ${lead.name} — suitability score ${lead.score}/100 (the other scenario scores ${other.score}/100).`)
-      : L(`İki senaryo aynı uygunluk skorunu alıyor (${a.score}/100); seçim görev önceliğine bağlı.`, `Both scenarios reach the same suitability score (${a.score}/100); the choice depends on mission priority.`);
+    const pick = AS.recommend(a, b), lead = pick.lead;
+    const verdict = pick.status === 'none'
+      ? L('Hiçbir senaryo ön değerlendirme koşullarını birlikte karşılamıyor.', 'Neither scenario meets the preliminary conditions together.')
+      : lead ? L(`Ön değerlendirmede öne çıkan: ${lead.k} · ${lead.name}, ${lead.score}/100.`, `Preliminary preference: ${lead.k} · ${lead.name}, ${lead.score}/100.`)
+        : L(`İki uygun senaryo aynı skoru alıyor (${a.score}/100); seçim görev önceliğine bağlı.`, `Both eligible scenarios score the same (${a.score}/100); choose according to mission priorities.`);
+    const reasons = (pick.assessments || []).filter(item => item.reasons.length).map(item =>
+      item.k + ' · ' + item.reasons.map(reason => reason.text).join(' ')).join(' ');
     y = wrap(c, verdict, M, y + 4, W - 2 * M, 32, sans(700, 24), INK);
+    if (reasons) y = wrap(c, reasons, M, y + 2, W - 2 * M, 22, sans(400, 15), BAD, 3);
     y = wrap(c, $('#verdict-h').textContent + '. ' + L(`Görev süresi ${days(S.dur)} gün. Yük ${nf(S.pwr.load)} W, batarya ${nf(S.pwr.cap, 1)} kWh, güneş paneli ${nf(S.pwr.area, 1)} m².`,
       `Mission length ${days(S.dur)} days. Load ${nf(S.pwr.load)} W, battery ${nf(S.pwr.cap, 1)} kWh, solar array ${nf(S.pwr.area, 1)} m².`), M, y + 2, W - 2 * M, 25, sans(400, 17), MUTED);
     y = section(c, L('Senaryolar', 'Scenarios'), y + 22);
@@ -258,29 +287,88 @@
   function build() { const a = AS.analyze('A'), b = AS.analyze('B'); return [pageOne(a, b, 2), pageTwo(a, b, 2)]; }
 
   /* ---------- PDF ---------- */
-  // A minimal PDF 1.4 file: every page is one full-page JPEG. Returns a Blob.
+  function decodeBase64(value) {
+    const bin = atob(value), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  function unicodeHex(value) {
+    let hex = '';
+    for (let i = 0; i < value.length; i++) hex += value.charCodeAt(i).toString(16).padStart(4, '0');
+    return hex;
+  }
+
+  // Preserve the page artwork and add exact Unicode text at the original drawing positions.
+  // The embedded OFL font and ToUnicode map make selection independent of installed fonts.
   function toPDF(pages) {
+    const font = window.REPORT_FONT;
+    if (!font) throw new Error('Report text font is unavailable.');
+    const chars = [...new Set(pages.flatMap(page => (page.reportTextRuns || []).flatMap(run => [...run.text])))];
+    const codes = new Map(chars.map((char, i) => [char, i + 1]));
+    const widths = chars.map(char => {
+      const glyph = font.glyphs[char.codePointAt(0)];
+      return Math.round((glyph ? glyph[1] : font.unitsPerEm * 0.6) * 1000 / font.unitsPerEm);
+    });
+    const glyphMap = new Uint8Array((chars.length + 1) * 2);
+    chars.forEach((char, i) => {
+      const glyph = font.glyphs[char.codePointAt(0)], id = glyph ? glyph[0] : 0;
+      glyphMap[(i + 1) * 2] = id >> 8;
+      glyphMap[(i + 1) * 2 + 1] = id & 255;
+    });
+    let cmap = '/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /AstroApexUnicode def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n';
+    for (let i = 0; i < chars.length; i += 100) {
+      const group = chars.slice(i, i + 100);
+      cmap += group.length + ' beginbfchar\n';
+      group.forEach((char, j) => { cmap += '<' + (i + j + 1).toString(16).padStart(4, '0') + '> <' + unicodeHex(char) + '>\n'; });
+      cmap += 'endbfchar\n';
+    }
+    cmap += 'endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend';
+
     const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
     const push = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
     const open = n => { offs[n] = len; push(n + ' 0 obj\n'); }, close = () => push('\nendobj\n');
+    const stream = (id, data, extra) => {
+      const bytes = typeof data === 'string' ? enc.encode(data) : data;
+      open(id); push('<< /Length ' + bytes.length + (extra || '') + ' >>\nstream\n'); push(bytes); push('\nendstream'); close();
+    };
     const PW = 595.28, PH = 841.89, count = pages.length, kids = pages.map((_, i) => (3 + i * 3) + ' 0 R').join(' ');
-    push('%PDF-1.4\n'); push(new Uint8Array([37, 226, 227, 207, 211, 10])); // binary marker line
-    open(1); push('<< /Type /Catalog /Pages 2 0 R >>'); close();
-    open(2); push(`<< /Type /Pages /Kids [${kids}] /Count ${count} >>`); close();
+    const fontId = 3 + count * 3, cidId = fontId + 1, descId = fontId + 2, fileId = fontId + 3, cmapId = fontId + 4, glyphId = fontId + 5, info = fontId + 6;
+    push('%PDF-1.4\n'); push(new Uint8Array([37, 226, 227, 207, 211, 10]));
+    open(1); push('<< /Type /Catalog /Pages 2 0 R /Lang (' + (pages[0].reportLanguage === 'tr' ? 'tr-TR' : 'en-US') + ') >>'); close();
+    open(2); push('<< /Type /Pages /Kids [' + kids + '] /Count ' + count + ' >>'); close();
     pages.forEach((cv, i) => {
-      const pg = 3 + i * 3, bin = atob(cv.toDataURL('image/jpeg', 0.9).split(',')[1]), jpg = new Uint8Array(bin.length);
-      for (let j = 0; j < bin.length; j++) jpg[j] = bin.charCodeAt(j);
-      const content = `q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
-      open(pg); push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${pg + 2} 0 R >> >> /Contents ${pg + 1} 0 R >>`); close();
-      open(pg + 1); push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`); close();
-      open(pg + 2); push(`<< /Type /XObject /Subtype /Image /Width ${cv.width} /Height ${cv.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`); push(jpg); push('\nendstream'); close();
+      const pg = 3 + i * 3, jpg = decodeBase64(cv.toDataURL('image/jpeg', 0.9).split(',')[1]);
+      let content = 'q ' + PW + ' 0 0 ' + PH + ' 0 0 cm /Im0 Do Q\n';
+      for (const run of cv.reportTextRuns || []) {
+        if (!run.text || !run.width) continue;
+        const ids = [...run.text].map(char => codes.get(char));
+        const advance = ids.reduce((sum, id) => sum + widths[id - 1], 0) / 1000;
+        const size = run.size * PW / W, x = run.x * PW / W, y = PH - run.y * PH / H;
+        const stretch = run.width / (advance * run.size) * 100;
+        const hex = ids.map(id => id.toString(16).padStart(4, '0')).join('');
+        content += 'BT /F0 ' + size.toFixed(4) + ' Tf 3 Tr ' + stretch.toFixed(4) + ' Tz 1 0 0 1 ' + x.toFixed(4) + ' ' + y.toFixed(4) + ' Tm <' + hex + '> Tj ET\n';
+      }
+      open(pg); push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /XObject << /Im0 ' + (pg + 2) + ' 0 R >> /Font << /F0 ' + fontId + ' 0 R >> >> /Contents ' + (pg + 1) + ' 0 R >>'); close();
+      stream(pg + 1, content);
+      stream(pg + 2, jpg, ' /Type /XObject /Subtype /Image /Width ' + cv.width + ' /Height ' + cv.height + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode');
     });
-    const info = 3 + count * 3, xref = (open(info), push('<< /Title (AstroApex Mission Report) /Creator (AstroApex) >>'), close(), len);
-    push(`xref\n0 ${info + 1}\n0000000000 65535 f \n`);
+    open(fontId); push('<< /Type /Font /Subtype /Type0 /BaseFont /' + font.name + ' /Encoding /Identity-H /DescendantFonts [' + cidId + ' 0 R] /ToUnicode ' + cmapId + ' 0 R >>'); close();
+    open(cidId); push('<< /Type /Font /Subtype /CIDFontType2 /BaseFont /' + font.name + ' /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ' + descId + ' 0 R /DW 600 /W [1 [' + widths.join(' ') + ']] /CIDToGIDMap ' + glyphId + ' 0 R >>'); close();
+    const scale = n => Math.round(n * 1000 / font.unitsPerEm);
+    open(descId); push('<< /Type /FontDescriptor /FontName /' + font.name + ' /Flags 33 /FontBBox [' + font.bbox.map(scale).join(' ') + '] /ItalicAngle 0 /Ascent ' + scale(font.ascent) + ' /Descent ' + scale(font.descent) + ' /CapHeight 700 /StemV 80 /FontFile2 ' + fileId + ' 0 R >>'); close();
+    const fontBytes = decodeBase64(font.bytes);
+    stream(fileId, fontBytes, ' /Length1 ' + fontBytes.length);
+    stream(cmapId, cmap);
+    stream(glyphId, glyphMap);
+    open(info); push('<< /Title (AstroApex Mission Report) /Creator (AstroApex) >>'); close();
+    const xref = len;
+    push('xref\n0 ' + (info + 1) + '\n0000000000 65535 f \n');
     for (let n = 1; n <= info; n++) push(String(offs[n]).padStart(10, '0') + ' 00000 n \n');
-    push(`trailer\n<< /Size ${info + 1} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    push('trailer\n<< /Size ' + (info + 1) + ' /Root 1 0 R /Info ' + info + ' 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
     return new Blob(parts, { type: 'application/pdf' });
   }
+
   function download(pages) {
     const a = document.createElement('a'), d = new Date().toISOString().slice(0, 10);
     a.href = URL.createObjectURL(toPDF(pages)); a.download = `AstroApex_${L('gorev_raporu', 'mission_report')}_${d}.pdf`;
@@ -288,13 +376,86 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   }
 
+  function transcript(a, b) {
+    const details = document.createElement('details');
+    details.className = 'rep-transcript';
+    const summary = document.createElement('summary');
+    summary.textContent = L('Raporu metin ve tablo olarak oku', 'Read the report as text and table');
+    details.appendChild(summary);
+    const body = document.createElement('div');
+    const add = (tag, content, parent) => {
+      const node = document.createElement(tag);
+      node.textContent = content;
+      (parent || body).appendChild(node);
+      return node;
+    };
+    const pick = AS.recommend(a, b);
+    add('h3', L('Görev karşılaştırması', 'Mission comparison'));
+    add('p', pick.status === 'none'
+      ? L('Hiçbir senaryo ön değerlendirme koşullarını birlikte karşılamıyor.', 'Neither scenario meets the preliminary conditions together.')
+      : pick.lead ? L('Ön değerlendirmede öne çıkan: ', 'Preliminary preference: ') + pick.lead.k + ' · ' + pick.lead.name
+        : L('İki uygun senaryo aynı skoru alıyor.', 'Both eligible scenarios have the same score.'));
+    const table = document.createElement('table');
+    const caption = document.createElement('caption');
+    caption.textContent = L('İki senaryonun sayısal özeti', 'Numerical summary of both scenarios');
+    table.appendChild(caption);
+    const head = table.createTHead().insertRow();
+    [L('Ölçüm', 'Measure'), a.k + ' · ' + a.name, b.k + ' · ' + b.name].forEach(value => {
+      const th = add('th', value, head); th.scope = 'col';
+    });
+    const rows = [
+      [L('Koordinatlar', 'Coordinates'), x => AA.fmtCoord(x.sc.lat, x.sc.lon)],
+      [L('Başlangıç (UTC)', 'Start (UTC)'), x => AA.fmtDate(x.sc.start)],
+      [L('Görev süresi', 'Mission duration'), () => days(S.dur) + ' ' + t('days')],
+      [L('Ufuk kaynağı', 'Horizon source'), x => x.hz === 'lola80' ? 'LOLA 80 m' : x.hz === 'lola480' ? 'LOLA 480 m' : L('Sabit açı ', 'Fixed angle ') + x.sc.mask + '°'],
+      [L('Konum hesabı', 'Ephemeris'), x => x.src === 'spice' ? 'NASA SPICE / DE440' : x.src === 'ae' ? 'astronomy-engine' : 'NASA SPICE / astronomy-engine'],
+      [t('score'), x => x.score + ' / 100'],
+      [L('Güneş görünür', 'Sun visible'), x => AA.fmtDur(x.stats.sun)],
+      [L('Dünya görünür', 'Earth visible'), x => AA.fmtDur(x.stats.earth)],
+      [L('Ortak görüş', 'Joint visibility'), x => AA.fmtDur(x.stats.both)],
+      [L('En uzun karanlık', 'Longest darkness'), x => AA.fmtDur(x.stats.dark)],
+      [L('En uzun iletişim kesintisi', 'Longest communication outage'), x => AA.fmtDur(x.stats.nocomm)],
+      [L('Ortalama eğim', 'Mean slope'), x => slopeDescription(x.f)],
+      [L('Batarya boş kalma süresi', 'Time with an empty battery'), x => x.pw ? AA.fmtDur(x.pw.emptyH) : '—'],
+      [L('En düşük batarya doluluğu', 'Minimum battery charge'), x => x.pw ? nf(x.pw.min * 100, 1) + '%' : '—'],
+      [L('Gereken batarya', 'Required battery capacity'), x => x.pw ? nf(Math.ceil(x.pw.need * 10) / 10, 1) + ' kWh' : '—']
+    ];
+    const tbody = table.createTBody();
+    rows.forEach(([label, value]) => {
+      const tr = tbody.insertRow(), th = add('th', label, tr); th.scope = 'row';
+      add('td', value(a), tr); add('td', value(b), tr);
+    });
+    body.appendChild(table);
+    add('p', L('Donanım varsayımları: ', 'Hardware assumptions: ') + nf(S.pwr.load) + ' W · ' + nf(S.pwr.cap, 1) + ' kWh · ' + nf(S.pwr.area, 1) + ' m²');
+    [a, b].forEach(item => {
+      add('h4', item.k + ' · ' + item.name);
+      const assessment = (pick.assessments || []).find(x => x.k === item.k);
+      if (assessment) {
+        assessment.reasons.forEach(reason => add('p', reason.text));
+        if (assessment.qualification) add('p', assessment.qualification);
+      }
+      const list = document.createElement('ul');
+      [...item.pros, ...item.cons].forEach(value => add('li', value, list));
+      body.appendChild(list);
+    });
+    add('h4', L('Grafikler ve yöntem', 'Charts and method'));
+    add('p', L('İkinci sayfa Güneş ve Dünya merkezlerinin yerel ufka göre yüksekliğini ve batarya doluluğunu görev boyunca gösterir. Negatif Güneş merkezi yüksekliğinde diskin bir kısmı hâlâ görünebilir.',
+      'Page two shows Sun and Earth centre elevations relative to the local horizon and battery charge throughout the mission. Part of the solar disc may remain visible at a negative centre elevation.'));
+    add('p', L('480 m arazi ızgarası dar sırtları ve küçük kraterleri kaçırabilir. Kaba küresel eğim, 3×3 hücrenin ortalamasıdır (ekvatorda hücre başına yaklaşık 7,6 km). Doğrudan Dünya görüşü geometrik bir fırsattır; bağlantı bütçesi ayrıca incelenmelidir. Puan, sıcaklık ve yakıt sonuçları ön tasarım tahminleridir.',
+      'The 480 m terrain grid can miss narrow ridges and small craters. Coarse global slope is a 3×3-cell mean (about 7.6 km per cell at the equator). Direct Earth visibility is a geometric opportunity; the radio link budget needs a separate assessment. Score, temperature and fuel results are preliminary design estimates.'));
+    details.appendChild(body);
+    return details;
+  }
+
+
+
   /* ---------- dialog ---------- */
   let modal = null, pages = null, prevFocus = null;
   function keys(e) {
     if (!modal) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
     if (e.key === 'Tab') {
-      const f = [...modal.querySelectorAll('button, .rep-pages')].filter(b => !b.disabled && b.getClientRects().length), first = f[0], last = f[f.length - 1];
+      const f = [...modal.querySelectorAll('button, .rep-pages, summary')].filter(b => !b.disabled && b.getClientRects().length), first = f[0], last = f[f.length - 1];
       if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
       else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
@@ -325,6 +486,7 @@
     try {
       pages = build(); holder.innerHTML = '';
       pages.forEach((cv, i) => { cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', t('rep_page', { n: i + 1 })); holder.appendChild(cv); });
+      holder.appendChild(transcript(AS.analyze('A'), AS.analyze('B')));
     } catch (err) { pages = null; holder.innerHTML = `<p class="hint">${t('rep_err')}</p>`; modal.querySelector('#pdf-dl').disabled = true; }
   }
   function close() {

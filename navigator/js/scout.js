@@ -4,11 +4,10 @@
      1. lays an 8 km grid over everything south of 84 S (about 1,600 points);
      2. drops points that cannot be landing sites: mean slope above 12 deg, less than half of the 1 km
         footprint under 8 deg, or ground in permanent shadow;
-     3. for every point left, computes its real LOLA skyline, simulates the whole mission hour by hour
-        and gives it the same suitability score the scenario cards use;
-     4. repeats step 2-3 on a 2 km grid around the eight best areas;
-     5. keeps the five best points that are at least 6 km apart and re-scores them with the exact settings
-        of a scenario card, so the number in the list is the number the card will show.
+     3. rounds every candidate to the coordinates accepted by the scenario cards, then uses the card's
+        skyline and time sampling to compare all eligible points on the same basis;
+     4. repeats step 2-3 on a 2 km grid around the eight best sampled areas;
+     5. keeps the five best sampled points that are at least 6 km apart.
    The work is cut into short slices so the page stays responsive, and the result is drawn on the 3D map. */
 (function () {
   'use strict';
@@ -26,15 +25,14 @@
     const st = Polar.slopeStats(lat, lon, 1);
     return !!st && st.mean <= MAX_SLOPE && st.safe >= MIN_SAFE && Polar.psr(lat, lon) < MAX_SHADOW;
   };
-  // Simulate one point with its own skyline and score it exactly like a scenario.
-  // exact = the settings a scenario card uses (1 deg skyline, the card's time step), so that the listed score
-  // is the score the card shows once the point is applied.
-  function scorePoint(lat, lon, start, dur, step, km, exact) {
+  // Evaluate the exact coordinates and sampling a scenario card uses after selection.
+  function scorePoint(lat, lon, start, dur, km) {
+    lat = +lat.toFixed(3); lon = +lon.toFixed(3);
+    if (!landable(lat, lon)) return null;
     const sc = { site: 'custom', lat, lon, start, mask: 'lola' };
-    if (!exact) { sc.sky = Polar.skyline(lat, lon, km > FINE_KM ? 120 : 240); if (!sc.sky) return null; }
-    const d = AA.simulate(sc, dur, exact ? AA.stepMin() : step), a = AS.evaluate(sc, d), s = d.stats;
+    const d = AA.simulate(sc, dur, AA.stepMin(dur)), a = AS.evaluate(sc, d), s = d.stats;
     return {
-      lat, lon, km, score: a.score, sun: s.sun / s.total, earth: s.earth / s.total, both: s.both, dark: s.dark,
+      lat, lon, km, mask: sc.mask, score: a.score, sun: s.sun / s.total, earth: s.earth / s.total, both: s.both, dark: s.dark,
       slope: a.f.slope ? a.f.slope.mean : null, safe: a.f.slope ? a.f.slope.safe : null, trapKm: a.f.trap ? a.f.trap.km : null, trap: a.f.trap ? a.f.trap.name : null
     };
   }
@@ -47,11 +45,12 @@
   // Whole-Moon scan: 2,600 points spread evenly over the sphere (about 120 km apart). South of 82 S a point gets its
   // real skyline and measured ground; everywhere else the horizon is flat and the slope comes from the coarse world map.
   const MOON_POINTS = 2600, MOON_KM = 120, MOON_MAX_SLOPE = 8;
-  function scoreCoarse(lat, lon, start, dur, step) {
+  function scoreCoarse(lat, lon, start, dur) {
+    lat = +lat.toFixed(3); lon = +lon.toFixed(3);
     const sc = { site: 'custom', lat, lon, start, mask: 0 }, cs = Polar.coarseSlope ? Polar.coarseSlope(lat, lon) : null;
     if (cs && cs.mean > MOON_MAX_SLOPE) return null;
-    const d = AA.simulate(sc, dur, step), a = AS.evaluate(sc, d), s = d.stats;
-    return { lat, lon, km: MOON_KM, score: a.score, sun: s.sun / s.total, earth: s.earth / s.total, both: s.both, dark: s.dark, slope: cs ? cs.mean : null, safe: cs ? cs.safe : null, trapKm: null, trap: null };
+    const d = AA.simulate(sc, dur, AA.stepMin(dur)), a = AS.evaluate(sc, d), s = d.stats;
+    return { lat, lon, km: MOON_KM, mask: sc.mask, score: a.score, sun: s.sun / s.total, earth: s.earth / s.total, both: s.both, dark: s.dark, slope: cs ? cs.mean : null, safe: cs ? cs.safe : null, trapKm: null, trap: null };
   }
   function pickTop(list, count, gapKm) {
     const sorted = [...list].sort((a, b) => b.score - a.score || b.both - a.both || (a.slope || 0) - (b.slope || 0)), pick = [];
@@ -74,9 +73,9 @@
     mode = mode === 'moon' || mode === 'pole' ? mode : S.scanMode;
     S.scanMode = mode; syncMode();
     const start = S.sc[k].start, dur = S.dur, key = start + '|' + dur + '|' + mode;
-    if (S.scout && S.scout.key === key) { S.scout.k = k; render(); return Promise.resolve(S.scout); }
+    if (S.scout && S.scout.key === key) { token++; running = null; S.scout.k = k; render(); return Promise.resolve(S.scout); }
     if (running && running.key === key) return running.promise;
-    const my = ++token, step = dur > 30 ? 120 : 60;
+    const my = ++token;
     const promise = (async () => {
       const rMax = 2 * Polar.R * Math.tan((90 + LAT_LIMIT) * Math.PI / 360), pts = [], seen = new Set();
       let scanned = 0, rejected = 0, slice = performance.now();
@@ -85,9 +84,8 @@
         if (seen.has(id) || Math.hypot(x, y) > rMax) return;
         seen.add(id); scanned++;
         const [lat, lon] = Polar.toLL(x, y);
-        if (!landable(lat, lon)) { rejected++; return; }
-        const p = scorePoint(lat, lon, start, dur, step, km);
-        if (p) pts.push(p);
+        const p = scorePoint(lat, lon, start, dur, km);
+        if (p) pts.push(p); else rejected++;
         if (performance.now() - slice > 28) { await pause(); slice = performance.now(); }
       };
       progress(0);
@@ -96,15 +94,12 @@
         for (let i = 0; i < MOON_POINTS; i++) {
           const lat = Math.asin(1 - 2 * (i + 0.5) / MOON_POINTS) / RAD, lon = ((i * golden / RAD) % 360 + 540) % 360 - 180;
           scanned++;
-          const p = Polar.covered(lat, lon) ? (landable(lat, lon) ? scorePoint(lat, lon, start, dur, step, MOON_KM) : null) : scoreCoarse(lat, lon, start, dur, step);
+          const p = Polar.covered(lat, lon) ? scorePoint(lat, lon, start, dur, MOON_KM) : scoreCoarse(lat, lon, start, dur);
           if (p) { p.km = MOON_KM; pts.push(p); } else rejected++;
           if (performance.now() - slice > 28) { progress(i / MOON_POINTS); await pause(); slice = performance.now(); if (my !== token) return null; }
         }
-        const top = pickTop(pts, 5, 300).map(p => (Polar.covered(p.lat, p.lon) ? scorePoint(+p.lat.toFixed(3), +p.lon.toFixed(3), start, dur, step, MOON_KM, true)
-          : scoreCoarse(+p.lat.toFixed(3), +p.lon.toFixed(3), start, dur, AA.stepMin())) || p).sort((a, b) => b.score - a.score || b.both - a.both);
-        top.forEach(p => { p.km = MOON_KM; });
-        S.scout = { key, k, start, dur, mode, pts, top, scanned, rejected, scored: pts.length };
-        return S.scout;
+        const top = pickTop(pts, 5, 300);
+        return { key, k, start, dur, mode, pts, top, scanned, rejected, scored: pts.length };
       }
       const g = COARSE_KM * 1000, m = Math.floor(rMax / g);
       for (let j = -m; j <= m; j++) {
@@ -118,13 +113,13 @@
         progress(0.75 + 0.25 * (n + 1) / seeds.length);
       }
       pts.sort((a, b) => b.km - a.km); // coarse dots first, so the fine ones are drawn on top
-      // re-score the winners exactly as a scenario card would (coordinates rounded the way setPoint stores them)
-      const top = pickTop(pts, 5, 6).map(p => scorePoint(+p.lat.toFixed(3), +p.lon.toFixed(3), start, dur, step, p.km, true) || p).sort((a, b) => b.score - a.score || b.both - a.both);
-      S.scout = { key, k, start, dur, mode, pts, top, scanned, rejected, scored: pts.length };
-      return S.scout;
+      const top = pickTop(pts, 5, 6);
+      return { key, k, start, dur, mode, pts, top, scanned, rejected, scored: pts.length };
     })().then(r => {
-      if (my === token) { running = null; progress(null); if (r) { S.globe.heat = true; AA.syncForms(); AA.queueGlobe(); render(); } }
-      return r || S.scout;
+      if (my !== token) return null;
+      running = null; progress(null);
+      if (r) { S.scout = r; S.globe.heat = true; AA.syncForms(); AA.queueGlobe(); render(); }
+      return r;
     }, () => { if (my === token) { running = null; progress(null); } return null; });
     running = { key, promise };
     return promise;
@@ -136,7 +131,7 @@
     if (!running) progress(null);
     if (!r) { out.innerHTML = ''; return; }
     // stale = the scenario this scan was made for has moved to another date, or the duration changed
-    const k = KEYS.includes(r.k) ? r.k : S.globe.target, stale = r.key !== S.sc[k].start + '|' + S.dur + '|' + r.mode;
+    const k = KEYS.includes(r.k) ? r.k : S.globe.target, stale = r.key !== S.sc[k].start + '|' + S.dur + '|' + S.scanMode;
     const fa = out.contains(document.activeElement) ? document.activeElement : null, keep = fa && fa.dataset.i != null ? `[data-i="${fa.dataset.i}"][data-k="${fa.dataset.k}"]` : null;
     out.innerHTML = `<ol class="scout-list">${r.top.map((p, i) => `<li>
         <span class="sc-n">${i + 1}</span>
@@ -150,7 +145,7 @@
 
   const modeBox = $('#scan-mode');
   const syncMode = () => { [...modeBox.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b.dataset.mode === S.scanMode)); $('#scan-lead').textContent = t(S.scanMode === 'moon' ? 'sct_lead_moon' : 'sct_lead') + (S.scanMode === 'moon' ? '' : ' ' + t('sct_caveat')); };
-  modeBox.addEventListener('click', e => { if (e.target.dataset.mode) { S.scanMode = e.target.dataset.mode; syncMode(); } });
+  modeBox.addEventListener('click', e => { if (e.target.dataset.mode) { S.scanMode = e.target.dataset.mode; syncMode(); render(); } });
   AA.onChange(syncMode);
   syncMode();
   btn.addEventListener('click', () => {
@@ -160,11 +155,11 @@
   out.addEventListener('click', e => {
     const b = e.target.closest('[data-i]'); if (!b || !S.scout) return;
     const p = S.scout.top[+b.dataset.i]; if (!p) return;
-    AA.setPoint(b.dataset.k, p.lat, p.lon); AA.refresh();
+    AA.setPoint(b.dataset.k, p.lat, p.lon); S.sc[b.dataset.k].mask = p.mask; AA.refresh();
   });
   /* ---- NASA study regions: the best landable point inside each one ---- */
-  // Every region is a circle with the area of NASA's 15 x 15 km box around the published centre; points are
-  // tried every 1.5 km, filtered and scored exactly like the polar scan, and the winner is re-scored exactly.
+  // Approximate each NASA 15 x 15 km study box by an equal-area circle around the published centre.
+  // Compare candidates every 1.5 km using the same sampling as the scenario cards.
   const REG_R = 8460, REG_STEP = 1500, rbox = $('#regions-out'), rbtn = $('#regions-run');
   let rToken = 0, rRunning = null;
   function rProgress(v) { rbtn.disabled = v != null || !Polar.ready; rbtn.textContent = v != null ? t('reg_busy', { p: Math.round(v * 100) }) : t(S.regions ? 'reg_again' : 'reg_run'); }
@@ -175,9 +170,9 @@
     }
     k = KEYS.includes(k) ? k : S.globe.target;
     const start = S.sc[k].start, dur = S.dur, key = start + '|' + dur;
-    if (S.regions && S.regions.key === key) { S.regions.k = k; renderRegions(); return Promise.resolve(S.regions); }
+    if (S.regions && S.regions.key === key) { rToken++; rRunning = null; S.regions.k = k; renderRegions(); return Promise.resolve(S.regions); }
     if (rRunning && rRunning.key === key) return rRunning.promise;
-    const my = ++rToken, step = dur > 30 ? 120 : 60, list = AA.REGIONS;
+    const my = ++rToken, list = AA.REGIONS;
     const promise = (async () => {
       const rows = []; let slice = performance.now();
       rProgress(0);
@@ -189,22 +184,22 @@
           if (dx * dx + dy * dy > REG_R * REG_R) continue;
           const [lat, lon] = Polar.toLL(x0 + dx, y0 + dy);
           tried++;
-          if (!Polar.covered(lat, lon) || !landable(lat, lon)) continue;
-          const p = scorePoint(lat, lon, start, dur, step, FINE_KM);
+          if (!Polar.covered(lat, lon)) continue;
+          const p = scorePoint(lat, lon, start, dur, FINE_KM);
           if (p) { ok++; if (!best || p.score > best.score || (p.score === best.score && p.both > best.both)) best = p; }
           if (performance.now() - slice > 28) { await pause(); slice = performance.now(); if (my !== rToken) return null; }
         }
-        if (best) best = scorePoint(+best.lat.toFixed(3), +best.lon.toFixed(3), start, dur, step, FINE_KM, true) || best;
         rows.push({ id: r.id, name: r.name, a24: !!r.a24, lat: r.lat, lon: r.lon, best, tried, ok });
         rProgress((q + 1) / list.length);
         await pause(); if (my !== rToken) return null;
       }
       rows.sort((a, b) => (b.best ? b.best.score : -1) - (a.best ? a.best.score : -1) || (b.best ? b.best.both : 0) - (a.best ? a.best.both : 0));
-      S.regions = { key, k, start, dur, rows };
-      return S.regions;
+      return { key, k, start, dur, rows };
     })().then(r => {
-      if (my === rToken) { rRunning = null; rProgress(null); if (r) { S.globe.regions = true; AA.syncForms(); AA.queueGlobe(); renderRegions(); } }
-      return r || S.regions;
+      if (my !== rToken) return null;
+      rRunning = null; rProgress(null);
+      if (r) { S.regions = r; S.globe.regions = true; AA.syncForms(); AA.queueGlobe(); renderRegions(); }
+      return r;
     }, () => { if (my === rToken) { rRunning = null; rProgress(null); } return null; });
     rRunning = { key, promise };
     return promise;
@@ -229,7 +224,7 @@
   rbox.addEventListener('click', e => {
     const b = e.target.closest('[data-r]'); if (!b || !S.regions) return;
     const row = S.regions.rows[+b.dataset.r]; if (!row || !row.best) return;
-    AA.setPoint(b.dataset.k, row.best.lat, row.best.lon); AA.refresh();
+    AA.setPoint(b.dataset.k, row.best.lat, row.best.lon); S.sc[b.dataset.k].mask = row.best.mask; AA.refresh();
   });
   AA.onChange(renderRegions);
   Polar.onSettled(renderRegions);

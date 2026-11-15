@@ -328,10 +328,8 @@ local function newdecoder()
 		return f_str_escapetbl[ch] .. ucode
 	end
 
-	-- caching interpreted keys for speed
-	local f_str_keycache = setmetatable({}, {__mode="v"})
-
-	local function f_str(iskey)
+	-- Decode keys without retaining strings across calls in the long-lived server.
+	local function f_str()
 		local newpos = pos
 		local tmppos, c1, c2
 		repeat
@@ -354,14 +352,6 @@ local function newdecoder()
 		local str = sub(json, pos, tmppos)
 		pos = newpos
 
-		if iskey then  -- check key cache
-			tmppos = f_str_keycache[str]  -- reuse tmppos for cache key/val
-			if tmppos then
-				return tmppos
-			end
-			tmppos = str
-		end
-
 		if find(str, f_str_ctrl_pat) then
 			decode_error("unescaped control string")
 		end
@@ -376,9 +366,6 @@ local function newdecoder()
 				f_str_surrogate_prev = 0
 				decode_error("1st surrogate pair byte not continued by 2nd")
 			end
-		end
-		if iskey then  -- commit key cache
-			f_str_keycache[tmppos] = str
 		end
 		return str
 	end
@@ -442,7 +429,7 @@ local function newdecoder()
 					decode_error("not key")
 				end
 				pos = newpos+1
-				local key = f_str(true)  -- parse key
+				local key = f_str()  -- parse key
 
 				-- optimized for compact json
 				-- c1, c2 == ':', <the first char of the value> or

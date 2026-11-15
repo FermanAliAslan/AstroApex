@@ -17,7 +17,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential pkg-config liblua5.4-dev
+          sudo apt-get install --no-install-recommends -y build-essential pkg-config liblua5.4-dev lua5.4
       - name: Install official NAIF CSPICE N0067 for Linux x86-64
         run: |
           curl --fail --show-error --location --retry 3 --output "$RUNNER_TEMP/cspice.tar.Z" \
@@ -26,3 +26,5 @@ jobs:
           gzip -dc "$RUNNER_TEMP/cspice.tar.Z" | tar -xf - cspice/include cspice/lib/cspice.a
       - name: Build and exercise the native pipeline
         run: make test
+      - name: Verify decoder releases completed request keys
+        run: lua5.4 tests/test_json_retention.lua

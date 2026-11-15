@@ -40,10 +40,10 @@ Aşağıdaki komutları Git ve Python 3 yüklü bir bilgisayarda çalıştırın
 ```sh
 git clone https://github.com/FermanAliAslan/AstroApex.git
 cd AstroApex
-python3 -m http.server 8000 --bind 127.0.0.1 --directory navigator
+python3 navigator/server.py --open
 ```
 
-Ardından [http://127.0.0.1:8000](http://127.0.0.1:8000) adresini açın.
+Komut, yerel sunucuyu başlatıp tarayıcıyı açar. Kullanılan adres terminalde gösterilir.
 
 ### Çevrimdışı tek dosya
 
@@ -76,8 +76,9 @@ Veri seti adları ve üretim adımları için [Navigator kaynak açıklamaların
 - **Dünya görüşü geometrik bir iletişim fırsatıdır.** Anten özellikleri, radyo bağlantı bütçesi ve yer istasyonlarının uygunluğu ayrıca değerlendirilmelidir.
 - **Arazi çözünürlüğü sonucu etkiler.** 480 m ızgara dar sırtları, küçük kraterleri ve kayaları kaçırabilir. Bu konumlardaki güneşlenme ve tarama sonuçları iyimser olabilir.
 - **Kalıcı gölge buzun korunabileceği koşulları gösterir.** Buzun gerçekten bulunup bulunmadığı ayrı ölçümler gerektirir.
-- **Puan, batarya, sıcaklık ve yakıt hesapları ön değerlendirme içindir.** Uygunluk puanı altı ağırlıklı bileşenden oluşur. Seçilen donanımın batarya dayanımı ve görevin iletişim gereksinimleri ayrıca incelenmelidir.
-- **Zaman çözünürlükleri farklıdır.** Ayrıntılı görev hesabının örnekleme aralığı süreye göre değişir. Yıllık görünüm iki saatlik adımlarla tarar. Tutulma düzeltmesi ayrıntılı görev simülasyonunda bulunur.
+- **Puan, batarya, sıcaklık ve yakıt hesapları ön değerlendirme içindir.** Altı bileşenli puana ek olarak öneriler seçilen bataryanın tükenmesini, görev boyunca hiç Dünya görüşü olmamasını ve bilinen ortalama eğimin 15° üzerinde olmasını denetler. Her iki seçenek de bu koşulları karşılamıyorsa gerekçeler gösterilir. Göreve özgü azami iletişim kesintisi, yerel iniş tehlikeleri ve radyo bütçesi ayrıca değerlendirilmelidir.
+- **Zaman çözünürlükleri farklıdır.** Ayrıntılı görev hesabı, asistan önizlemesi ve aday puanlaması aynı görev süresi için aynı adımı kullanır. Yıllık görünüm iki saatlik adımlarla tarar. Her iki hesap arazi ufkunu ve tutulmayı değerlendirir; kısa olayların zamanlaması örnekleme aralığıyla sınırlıdır.
+- **Tarama sonuçları örneklenen adayları karşılaştırır.** NASA bölge merkezleri çevresinde yaklaşık eş alanlı daireler kullanılır. Rota mesafesi çizilen yol boyunca hesaplanır. 15° ile yol bulunamazsa daha yüksek eğimle bulunan seçenek açıkça işaretlenir.
 
 ## Klasör yapısı
 
@@ -112,7 +113,24 @@ Bu komut `navigator/dist/AstroApex.html` ve gömülü sayfa kullanımları için
 python3 navigator/server.py --open
 ```
 
-Sunucu 5173 portundan başlayarak uygun bir yerel port seçer. Çevrimiçi sohbet için `anthropic` paketi ve `ANTHROPIC_API_KEY` ortam değişkeni kullanılır. Ayrıntılar [sunucu dosyasında](navigator/server.py) bulunur.
+Sunucu 5173 portundan başlayarak uygun bir yerel port seçer. Çevrimiçi sohbet için `anthropic` paketi ve `ANTHROPIC_API_KEY` ortam değişkeni kullanılır. Bu modda terminalde gösterilen kişisel oturum bağlantısı tarayıcıyı yetkilendirir; `--open` bunu otomatik açar. Oturum bağlantısını özel tutun.
+
+Eski bir kurulumda `navigator/api_key.txt` oluşturduysanız anahtarı ortam değişkenine taşıyıp bu dosyayı yayımlanan klasörden kaldırın. Başlatma ve oturum davranışının ayrıntıları [sunucu dosyasında](navigator/server.py) bulunur.
+
+### Tarayıcı regresyon testleri
+
+Node.js 22+, Python 3 ve Chromium ile görev hesabı, asistan, rota, dışa aktarma ve arayüz kontrollerini çalıştırabilirsiniz.
+
+```sh
+npm ci
+npx playwright install chromium
+python3 -m pip install pypdf==6.21.4
+npm run build
+npm test
+python3 -m unittest discover -s tests -p test_navigator_server.py
+```
+
+[Navigator iş akışı](.github/workflows/navigator.yml) bu testleri ve kaynaklarla tek dosyalık paket eşleşmesini denetler. AI servisinin testleri gerçek sağlayıcı çağrıları yerine yerel test yanıtları kullanır.
 
 ### C/Lua motoru ve testler
 
@@ -123,7 +141,7 @@ make test
 make once
 ```
 
-`make test` yerel motorun regresyon testlerini çalıştırır. `make once`, `data/input.json` girdisini işleyerek `data/output.json` çıktısını üretir. GitHub Actions aynı motoru Linux üzerinde derleyip test eder. [CI yapılandırması](.github/workflows/backend.yml)
+`make test` yerel motorun regresyon testlerini çalıştırır. `make once`, `data/input.json` girdisini işleyerek `data/output.json` çıktısını üretir. HTTP modu 127.0.0.1 üzerinde çalışır; istek okuma ve yanıt yazma için ayrı beş saniyelik süre sınırları vardır. Lua 5.4 yorumlayıcısıyla `lua5.4 tests/test_json_retention.lua` bellek kontrolünü de çalıştırabilirsiniz. GitHub Actions aynı motoru Linux üzerinde derleyip test eder. [CI yapılandırması](.github/workflows/backend.yml)
 
 ## Geliştirme araçları
 
