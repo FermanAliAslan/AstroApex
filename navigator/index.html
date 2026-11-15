@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AstroApex · Lunar Landing Site Navigator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=41">
+</head>
+<body>
+<script>
+/* opening sequence: hide the interface before first paint; js/fx.js plays it in. The timer is a safety net. */
+(function (r) {
+  r.classList.add('anim', 'pre-moon', 'pre-bar', 'pre-ui');
+  setTimeout(function () { if (!window.AATour) r.classList.remove('anim', 'pre-moon', 'pre-bar', 'pre-ui'); }, 9000);
+})(document.documentElement);
+</script>
+<div class="bg" aria-hidden="true">
+  <div class="bg-stars"></div>
+  <div class="bg-orb"><div class="bg-glow"></div><div class="bg-glow g2"></div><canvas id="bg-moon"></canvas></div>
+  <div class="bg-scrim"></div>
+</div>
+
+<header class="top">
+  <button class="brand" data-tab="compare" aria-label="AstroApex">
+    <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+      <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M16 3a13 13 0 0 0 0 26a9 13 0 0 1 0-26z" fill="currentColor"/>
+      <path d="M3 22h26" stroke="var(--sun)" stroke-width="1.5"/>
+    </svg>
+    <span><b>Astro<em>Apex</em></b><small data-i18n="tagline"></small></span>
+  </button>
+  <nav class="nav" aria-label="Sections">
+    <button data-tab="compare" data-i18n="nav_compare"></button>
+    <button data-tab="sky" data-i18n="nav_sky"></button>
+    <button data-tab="time" data-i18n="nav_time"></button>
+    <button data-tab="map" data-i18n="nav_map"></button>
+    <button data-tab="resources" data-i18n="nav_res"></button>
+  </nav>
+  <div class="top-actions">
+    <button class="eph-badge" id="eph-badge" data-tab="resources"></button>
+    <div class="seg" id="lang" role="group" aria-label="Language">
+      <button data-lang="tr">TR</button><button data-lang="en">EN</button>
+    </div>
+    <button class="tour-btn" id="tour-open" type="button" aria-label="Guided tour" title="Guided tour">?</button>
+    <button class="assist-btn" id="assist-open" aria-controls="assist" aria-expanded="false">
+      <span aria-hidden="true">✦</span> <span data-i18n="assistant"></span> <kbd>/</kbd>
+    </button>
+  </div>
+</header>
+
+<main>
+
+<section id="compare">
+  <div class="sec-head">
+    <div>
+      <h1 data-i18n="h_compare"></h1>
+      <p class="lead" data-i18n="lead_compare"></p>
+    </div>
+    <label class="field inline">
+      <span data-i18n="duration"></span>
+      <select id="dur"></select>
+    </label>
+  </div>
+
+  <div class="presets">
+    <span class="k" data-i18n="ps_t"></span>
+    <div class="chips" id="presets"></div>
+  </div>
+
+  <div class="grid2">
+    <article class="card scn" id="scn-A"></article>
+    <article class="card scn" id="scn-B"></article>
+  </div>
+
+  <div class="card verdict-top">
+    <div>
+      <span class="k" data-i18n="verdict_k"></span>
+      <h2 id="verdict-h"></h2>
+      <p data-i18n="verdict_sub"></p>
+    </div>
+    <button class="ghost rep-btn" id="report-open" data-report type="button"><span aria-hidden="true">⤓</span> <span data-i18n="rep_open"></span></button>
+  </div>
+
+  <div class="grid2">
+    <article class="card report" id="report-A"></article>
+    <article class="card report" id="report-B"></article>
+  </div>
+
+  <details class="acc" open>
+    <summary><span data-i18n="windows_t"></span></summary>
+    <div class="acc-body">
+      <div id="win-rows" class="win-rows"></div>
+      <div id="verdict-chips" class="vchips"></div>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary><span data-i18n="slips_t"></span></summary>
+    <div class="acc-body"><div id="slips" class="chips"></div></div>
+  </details>
+
+  <details class="acc">
+    <summary><span data-i18n="table_t"></span></summary>
+    <div class="acc-body table-card">
+      <table id="metrics"></table>
+      <div class="table-actions">
+        <button class="ghost" data-csv="A"><span data-i18n="csv"></span> · A</button>
+        <button class="ghost" data-csv="B"><span data-i18n="csv"></span> · B</button>
+        <button class="ghost" id="share" data-i18n="share"></button>
+      </div>
+    </div>
+  </details>
+</section>
+
+<section id="sky" hidden>
+  <div class="sec-head"><div>
+    <h1 data-i18n="h_sky"></h1>
+    <p class="lead" data-i18n="lead_sky"></p>
+  </div></div>
+  <div class="grid2">
+    <article class="card skycard" id="sky-A"></article>
+    <article class="card skycard" id="sky-B"></article>
+  </div>
+</section>
+
+<section id="time" hidden>
+  <div class="sec-head"><div>
+    <h1 data-i18n="h_time"></h1>
+    <p class="lead" data-i18n="lead_time"></p>
+  </div></div>
+  <div class="card">
+    <h3 data-i18n="ch_sun_t"></h3>
+    <p class="lead small" data-i18n="ch_sun_h"></p>
+    <canvas id="chart-sun" class="chart"></canvas>
+  </div>
+  <div class="card">
+    <h3 data-i18n="ch_earth_t"></h3>
+    <p class="lead small" data-i18n="ch_earth_h"></p>
+    <canvas id="chart-earth" class="chart"></canvas>
+  </div>
+  <div class="card" id="batt-card">
+    <h3 data-i18n="b_t"></h3>
+    <p class="lead small" data-i18n="b_lead"></p>
+    <div class="pw-form">
+      <label class="field"><span data-i18n="b_load"></span><input id="pw-load" type="number" min="10" max="5000" step="10" inputmode="decimal"></label>
+      <label class="field"><span data-i18n="b_cap"></span><input id="pw-cap" type="number" min="0.5" max="500" step="0.5" inputmode="decimal"></label>
+      <label class="field"><span data-i18n="b_area"></span><input id="pw-area" type="number" min="0.2" max="100" step="0.1" inputmode="decimal"></label>
+    </div>
+    <canvas id="chart-batt" class="chart"></canvas>
+    <div id="batt-sum" class="batt-sum"></div>
+  </div>
+  <details class="acc" open>
+    <summary><span data-i18n="year_t"></span></summary>
+    <div class="acc-body">
+      <p class="lead small" data-i18n="year_lead"></p>
+      <div class="year-block"><span class="badge a">A</span><canvas id="year-A" class="year"></canvas></div>
+      <div class="year-block"><span class="badge b">B</span><canvas id="year-B" class="year"></canvas></div>
+      <div class="yscale">
+        <span data-i18n="y_0"></span><span class="ysw"><i></i><i></i><i></i><i></i></span><span data-i18n="y_24"></span>
+        <span class="ysel"><i></i><span data-i18n="y_sel"></span></span>
+      </div>
+      <p class="hint" id="year-read" data-i18n="year_hint"></p>
+    </div>
+  </details>
+</section>
+
+<section id="map" hidden>
+  <div class="sec-head"><div>
+    <h1 data-i18n="h_map"></h1>
+    <p class="lead" data-i18n="lead_map"></p>
+  </div></div>
+  <div class="card mapcard">
+    <div class="globe-wrap" id="globe-wrap">
+      <canvas id="globe"></canvas>
+      <canvas id="globe-ov"></canvas>
+      <div class="zoom-btns">
+        <button id="zin" aria-label="Zoom in">+</button>
+        <button id="zout" aria-label="Zoom out">−</button>
+      </div>
+    </div>
+    <div class="map-side">
+      <div class="chips" id="views">
+        <button data-view="south" data-i18n="v_south"></button>
+        <button data-view="near" data-i18n="v_near"></button>
+        <button data-view="far" data-i18n="v_far"></button>
+        <button data-view="north" data-i18n="v_north"></button>
+        <button data-view="A">A</button>
+        <button data-view="B">B</button>
+      </div>
+      <div class="rowline">
+        <span data-i18n="click_sets"></span>
+        <div class="seg" id="target"><button data-t="A">A</button><button data-t="B">B</button></div>
+      </div>
+      <label class="rowline check"><span data-i18n="labels"></span><input type="checkbox" id="labels" checked></label>
+      <label class="rowline check"><span data-i18n="lighting"></span><input type="checkbox" id="light"></label>
+      <label class="rowline check"><span data-i18n="lay_ice"></span><input type="checkbox" id="lay-ice" checked></label>
+      <label class="rowline check"><span data-i18n="lay_slope"></span><input type="checkbox" id="lay-slope"></label>
+      <label class="rowline check"><span data-i18n="lay_temp"></span><input type="checkbox" id="lay-temp"></label>
+      <label class="rowline check"><span data-i18n="lay_regions"></span><input type="checkbox" id="lay-regions" checked></label>
+      <label class="rowline check"><span data-i18n="lay_route"></span><input type="checkbox" id="lay-route" checked></label>
+      <label class="rowline check"><span data-i18n="lay_heat"></span><input type="checkbox" id="lay-heat"></label>
+      <div class="map-legend" id="map-legend" hidden>
+        <span data-leg="ice"><i class="lg-ice"></i><span data-i18n="leg_ice"></span></span>
+        <span data-leg="slope"><i class="lg-slope"></i><span data-i18n="leg_slope"></span></span>
+        <span data-leg="temp"><i class="lg-temp"></i><span data-i18n="leg_temp"></span></span>
+        <span data-leg="regions"><i class="lg-reg"></i><span data-i18n="leg_regions"></span></span>
+        <span data-leg="heat"><i class="lg-heat"></i><span id="leg-heat-text"></span></span>
+      </div>
+      <p class="route-info" id="route-info" hidden></p>
+      <div class="scout" id="scout">
+        <div class="scout-head"><b data-i18n="sct_t"></b><button class="ghost" id="scout-run" type="button"></button></div>
+        <div class="seg heat-by" id="scan-mode" role="group">
+          <button type="button" data-mode="pole" data-i18n="scan_pole"></button><button type="button" data-mode="moon" data-i18n="scan_moon"></button>
+        </div>
+        <p class="hint" id="scan-lead"></p>
+        <div class="scout-bar" id="scout-bar" hidden><i></i></div>
+        <div class="seg heat-by" id="heat-by" role="group" hidden>
+          <button type="button" data-by="score" data-i18n="heat_score"></button><button type="button" data-by="sun" data-i18n="heat_sun"></button><button type="button" data-by="earth" data-i18n="heat_earth"></button>
+        </div>
+        <div id="scout-out"></div>
+      </div>
+      <div class="scout" id="regions">
+        <div class="scout-head"><b data-i18n="reg_t"></b><button class="ghost" id="regions-run" type="button"></button></div>
+        <p class="hint" data-i18n="reg_lead"></p>
+        <div id="regions-out"></div>
+      </div>
+      <div class="pick" id="pick"></div>
+      <details class="acc flat">
+        <summary><span data-i18n="subsolar"></span> · <span data-i18n="earth"></span></summary>
+        <dl class="facts">
+          <div><dt><i class="sw sun"></i><span data-i18n="subsolar"></span></dt><dd id="f-sun"></dd></div>
+          <div><dt><i class="sw earth"></i><span data-i18n="subearth"></span></dt><dd id="f-earth"></dd></div>
+          <div><dt data-i18n="em_dist"></dt><dd id="f-dist"></dd></div>
+          <div><dt data-i18n="f_temp"></dt><dd id="f-temp"></dd></div>
+        </dl>
+      </details>
+      <p class="hint" data-i18n="map_credit"></p>
+    </div>
+  </div>
+</section>
+
+<section id="resources" hidden>
+  <div class="sec-head"><div>
+    <h1 data-i18n="h_res"></h1>
+    <p class="lead" data-i18n="lead_res"></p>
+  </div></div>
+  <details class="acc verify-top" open>
+      <summary><span data-i18n="verify_t"></span></summary>
+      <div class="acc-body">
+        <p class="lead small" data-i18n="verify_lead"></p>
+        <div id="verify" class="table-card verify"></div>
+        <p class="hint mono" id="verify-meta"></p>
+      </div>
+    </details>
+  <h3 class="sub" data-i18n="r_lunar"></h3>
+  <div class="res-grid" id="res-lunar"></div>
+  <h3 class="sub" data-i18n="r_partner"></h3>
+  <div class="res-grid" id="res-partner"></div>
+  <div class="notes">
+    <details class="acc">
+      <summary><span data-i18n="method_t"></span></summary>
+      <ul class="acc-body"><li data-i18n="method_1"></li><li data-i18n="method_2"></li><li data-i18n="method_3"></li><li data-i18n="method_4"></li></ul>
+    </details>
+    <details class="acc">
+      <summary><span data-i18n="limits_t"></span></summary>
+      <ul class="acc-body"><li data-i18n="limits_1"></li><li data-i18n="limits_3"></li><li data-i18n="limits_4"></li><li data-i18n="limits_5"></li><li data-i18n="limits_2"></li></ul>
+    </details>
+  </div>
+  <p class="hint keys" data-i18n="keys_help"></p>
+  <p class="foot" data-i18n="foot"></p>
+</section>
+
+</main>
+
+<div class="timebar" role="group" aria-label="Time">
+  <button id="play" class="playbtn" aria-label="Play">▶</button>
+  <div class="tb-mid">
+    <input type="range" id="scrub" min="0" max="1000" value="0" step="1" aria-label="Mission time">
+    <div class="tb-read">
+      <span><b data-i18n="met"></b> <span id="tb-met" class="mono"></span></span>
+      <span><span class="badge a">A</span> <span id="tb-a" class="mono"></span></span>
+      <span><span class="badge b">B</span> <span id="tb-b" class="mono"></span></span>
+    </div>
+  </div>
+  <select id="speed" aria-label="Speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="3">3×</option></select>
+</div>
+
+<aside class="assist" id="assist" aria-labelledby="assist-title" hidden>
+  <header>
+    <div>
+      <b id="assist-title" data-i18n="a_title"></b>
+      <small id="assist-model" data-i18n="a_model"></small>
+    </div>
+    <button class="ghost" id="assist-close" data-i18n="a_close"></button>
+  </header>
+  <div class="assist-log" id="assist-log" aria-live="polite"></div>
+  <div class="assist-quick chips" id="assist-quick">
+    <button data-q="q_a" data-i18n="q_a"></button>
+    <button data-q="q_b" data-i18n="q_b"></button>
+    <button data-q="q_cmp" data-i18n="q_cmp"></button>
+    <button data-q="q_best" data-i18n="q_best"></button>
+    <button data-q="q_site" data-i18n="q_site"></button>
+    <button data-q="q_rec" data-i18n="q_rec"></button>
+    <button data-q="q_scout" data-i18n="q_scout"></button>
+    <button data-q="q_regions" data-i18n="q_regions"></button>
+    <button data-q="q_ice" data-i18n="q_ice"></button>
+    <button data-q="q_fuel" data-i18n="q_fuel"></button>
+  </div>
+  <form class="assist-form" id="assist-form">
+    <textarea id="assist-input" rows="1" aria-label="Message"></textarea>
+    <button type="submit" class="send" data-i18n="a_send"></button>
+  </form>
+  <p class="hint assist-keys" data-i18n="a_keys"></p>
+</aside>
+
+<script src="js/vendor/astronomy.browser.min.js?v=41"></script>
+<script src="data/spice_table.js?v=41"></script>
+<script src="data/moon_texture.js?v=41"></script>
+<script src="js/i18n.js?v=41"></script>
+<script src="js/terrain.js?v=41"></script>
+<script src="data/polar_data.js?v=41"></script>
+<script src="data/global_data.js?v=41"></script>
+<script src="js/polar.js?v=41"></script>
+<script src="js/ephem.js?v=41"></script>
+<script src="js/app.js?v=41"></script>
+<script src="js/assistant.js?v=41"></script>
+<script src="js/scout.js?v=41"></script>
+<script src="js/report.js?v=41"></script>
+<script src="js/fx.js?v=41"></script>
+</body>
+</html>
