@@ -12,49 +12,107 @@
   };
 
   /* ---------- rotating Moon backdrop ---------- */
-  // The sphere is precomputed once per size: every pixel stores its texture row, its base column, its shading
-  // and its rim light. A frame is then one table lookup per pixel, so the spin costs a few milliseconds.
-  const M = { cv: $('#bg-moon'), N: 0, idx: null, row: null, col: null, shade: null, rim: null, alpha: null, img: null,
+  // Geometry and texture footprints are computed once per size. Mip levels remove details
+  // smaller than a screen pixel; bilinear sampling keeps the rotation continuous.
+  const M = { cv: $('#bg-moon'), N: 0, idx: null, row: null, col: null, level: null, blend: null,
+    shade: null, rim: null, alpha: null, img: null, levels: null, mipSource: null,
     tex: null, spin: 0, speed: 0, target: 0, last: 0, lastShift: -1 };
   const SPIN = 4096 / 170; // texture columns per second at full speed: one turn in about 170 s
+
+  function buildMipLevels(tex) {
+    const levels = [tex];
+    let source = tex;
+    // The embedded map and NASA fallback tiles have power-of-two dimensions.
+    // Stop at one row so longitude wraps while latitude always clamps at the poles.
+    while (source.w > 1 && source.h > 1) {
+      const w = Math.max(1, source.w >> 1), h = Math.max(1, source.h >> 1);
+      const g = new Float32Array(w * h);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const top = y * 2 * source.w + x * 2, bottom = top + source.w;
+        g[y * w + x] = (source.g[top] + source.g[top + 1] + source.g[bottom] + source.g[bottom + 1]) * 0.25;
+      }
+      source = { g, w, h };
+      levels.push(source);
+    }
+    return levels;
+  }
 
   function buildSphere() {
     const css = M.cv.getBoundingClientRect().width || 800;
     const N = Math.max(320, Math.min(880, Math.round(css * Math.min(window.devicePixelRatio || 1, 1.5) / 2) * 2));
     if (N === M.N && M.tex === M.builtFor) return;
+    if (M.tex !== M.mipSource) {
+      M.levels = buildMipLevels(M.tex);
+      M.mipSource = M.tex;
+    }
     const tex = M.tex, tw = tex.w, th = tex.h, half = N / 2, rad = half - 1.5;
-    const idx = [], row = [], col = [], shade = [], rim = [], alpha = [];
-    // axis tilt: roll about the view axis, then pitch toward the viewer
+    const idx = [], row = [], col = [], level = [], blend = [], shade = [], rim = [], alpha = [];
+    // Axis tilt: roll about the view axis, then pitch toward the viewer.
     const roll = -0.36, pitch = 0.3, cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const uScale = tw / (2 * Math.PI * rad), vScale = th / (Math.PI * rad);
     let lx = -0.62, ly = 0.42, lz = 0.66; const ll = Math.hypot(lx, ly, lz); lx /= ll; ly /= ll; lz /= ll;
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const x = (i + 0.5 - half) / rad, y = (half - j - 0.5) / rad, s2 = x * x + y * y;
       if (s2 >= 1) continue;
       const z = Math.sqrt(1 - s2);
-      const x1 = x * cr - y * sr, y1 = x * sr + y * cr;           // roll
-      const y2 = y1 * cp - z * sp, z2 = y1 * sp + z * cp;         // pitch
+      const x1 = x * cr - y * sr, y1 = x * sr + y * cr;
+      const y2 = y1 * cp - z * sp, z2 = y1 * sp + z * cp;
       const lat = Math.asin(Math.max(-1, Math.min(1, y2))), lon = Math.atan2(x1, z2);
-      const v = Math.min(th - 1, Math.max(0, Math.round((0.5 - lat / Math.PI) * th - 0.5)));
-      const u = Math.round((lon / (2 * Math.PI) + 0.5) * tw);
+      // Store normalized coordinates; the same location can then be sampled at every mip level.
+      row.push(0.5 - lat / Math.PI);
+      col.push(lon / (2 * Math.PI) + 0.5);
+
+      // The projection compresses texture detail near the limb and the lunar poles.
+      // Its derivatives give the source-texel footprint of one output pixel.
+      const dzdx = -x / z, dzdy = -y / z;
+      const latitudeRadius = Math.sqrt(Math.max(1e-12, 1 - y2 * y2));
+      const longitudeRadius2 = Math.max(1e-12, x1 * x1 + z2 * z2);
+      const dudx = (z2 * cr - x1 * (sr * sp + dzdx * cp)) / longitudeRadius2 * uScale;
+      const dudy = (-z2 * sr - x1 * (cr * sp + dzdy * cp)) / longitudeRadius2 * uScale;
+      const dvdx = -(sr * cp - dzdx * sp) / latitudeRadius * vScale;
+      const dvdy = -(cr * cp - dzdy * sp) / latitudeRadius * vScale;
+      const footprint = Math.max(1, Math.hypot(dudx, dvdx), Math.hypot(dudy, dvdy));
+      // A small detail bias retains crater contrast while still filtering minified texture.
+      const lod = Math.min(M.levels.length - 1, Math.max(0, Math.log2(footprint) - 0.35));
+      level.push(Math.floor(lod));
+      blend.push(lod - Math.floor(lod));
+
       const lam = Math.max(0, x * lx + y * ly + z * lz);
-      idx.push(j * N + i); row.push(v * tw); col.push(((u % tw) + tw) % tw);
+      idx.push(j * N + i);
       shade.push(0.05 + 1.28 * Math.pow(lam, 0.78));
       rim.push(Math.pow(1 - z, 3.2));
-      alpha.push(Math.round(255 * Math.min(1, (1 - Math.sqrt(s2)) * rad))); // soft one-pixel edge
+      alpha.push(Math.round(255 * Math.min(1, (1 - Math.sqrt(s2)) * rad)));
     }
     M.N = N; M.cv.width = N; M.cv.height = N; M.builtFor = tex;
-    M.idx = Int32Array.from(idx); M.row = Int32Array.from(row); M.col = Int32Array.from(col);
+    M.idx = Int32Array.from(idx); M.row = Float32Array.from(row); M.col = Float32Array.from(col);
+    M.level = Uint8Array.from(level); M.blend = Float32Array.from(blend);
     M.shade = Float32Array.from(shade); M.rim = Float32Array.from(rim); M.alpha = Uint8Array.from(alpha);
     M.img = M.cv.getContext('2d').createImageData(N, N); M.lastShift = -1;
   }
+
+  function sampleMip(tex, u, v) {
+    // Texel centers lie at (i + 0.5) / size. Wrap across the seam in longitude.
+    const x = (u - Math.floor(u)) * tex.w - 0.5;
+    const y = Math.max(0, Math.min(tex.h - 1, v * tex.h - 0.5));
+    const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+    const x0 = (ix + tex.w) % tex.w, x1 = (x0 + 1) % tex.w;
+    const top = iy * tex.w, bottom = Math.min(iy + 1, tex.h - 1) * tex.w;
+    const a = tex.g[top + x0] * (1 - fx) + tex.g[top + x1] * fx;
+    const b = tex.g[bottom + x0] * (1 - fx) + tex.g[bottom + x1] * fx;
+    return a * (1 - fy) + b * fy;
+  }
+
   function drawMoon() {
-    const { idx, row, col, shade, rim, alpha, tex } = M, tg = tex.g, tw = tex.w, px = M.img.data;
-    const shift = ((Math.floor(M.spin) % tw) + tw) % tw;
+    const { idx, row, col, level, blend, shade, rim, alpha, levels, tex } = M, px = M.img.data;
+    const shift = ((M.spin % tex.w) + tex.w) % tex.w;
     if (shift === M.lastShift) return;
     M.lastShift = shift;
+    const turn = shift / tex.w, lastLevel = levels.length - 1;
     for (let n = 0; n < idx.length; n++) {
-      let u = col[n] + shift; if (u >= tw) u -= tw;
-      const g = ((tg[row[n] + u] - 105) * 1.25 + 120) * shade[n], r = rim[n], o = idx[n] * 4;
+      const lod = level[n], u = col[n] + turn, v = row[n];
+      const a = sampleMip(levels[lod], u, v), b = sampleMip(levels[Math.min(lod + 1, lastLevel)], u, v);
+      const grey = a + (b - a) * blend[n];
+      const g = ((grey - 105) * 1.25 + 120) * shade[n], r = rim[n], o = idx[n] * 4;
       const R = g * 1.03 + 40 * r, Gc = g + 105 * r, B = g * 0.97 + 235 * r;
       px[o] = R > 255 ? 255 : R < 0 ? 0 : R; px[o + 1] = Gc > 255 ? 255 : Gc < 0 ? 0 : Gc; px[o + 2] = B > 255 ? 255 : B < 0 ? 0 : B;
       px[o + 3] = alpha[n];
